@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:856440743769:android:2c59cc0157b9663e240e48",
+        "android_client_info": {
+          "package_name": "com.example.food_project"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYEsxoUaf_4eW-scTFXgHvdPdPyvY84F4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:856440743769:android:9878d606e444edec240e48",
         "android_client_info": {
           "package_name": "com.example.tuyen_demo"
