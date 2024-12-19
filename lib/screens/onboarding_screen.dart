@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:food_project/constants.dart';
-import 'package:food_project/screens/signin_screen.dart';
-
+import 'package:food_project/screens/login/signin_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -27,7 +26,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: InkWell(
               onTap: () {
                 Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => const SignIn()));
+                    MaterialPageRoute(builder: (_) => const SignInScreen()));
               }, //to login screen. We will update later
               child: const Text(
                 'Skip',
@@ -99,7 +98,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const SignIn()));
+                                builder: (_) => const SignInScreen()));
                       }
                     });
                   },
