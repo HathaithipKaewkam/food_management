@@ -1,3 +1,13 @@
+buildscript {
+    repositories {
+        google() 
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.0.2' 
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -16,3 +26,12 @@ subprojects {
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
+
+tasks.withType(JavaCompile) {
+    options.fork = true
+    options.forkOptions.executable = 'C:\\Program Files\\Java\\jdk-17\\bin\\javac'
+}
+
+
+
+

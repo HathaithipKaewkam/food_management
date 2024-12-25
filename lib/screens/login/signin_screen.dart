@@ -106,7 +106,7 @@ class SignInScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 10), // ลดระยะห่าง
+            const SizedBox(height: 10),
             const Row(
               children: [
                 Expanded(child: Divider()),
@@ -117,7 +117,7 @@ class SignInScreen extends StatelessWidget {
                 Expanded(child: Divider()),
               ],
             ),
-            const SizedBox(height: 10), // ลดระยะห่าง
+            const SizedBox(height: 10),
             Container(
               width: size.width,
               decoration: BoxDecoration(
