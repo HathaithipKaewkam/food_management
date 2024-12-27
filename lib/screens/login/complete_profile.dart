@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:food_project/screens/login/food_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
@@ -388,7 +389,10 @@ class _CompleteProfileState extends State<CompleteProfile> {
                     ),
                     child: const Text(
                       "CM",
-                      style: TextStyle(color: Colors.white, fontSize: 12),
+                      style: TextStyle(color: Colors.white, 
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold
+                      ),
                     ),
                   ),
                 ],
@@ -400,14 +404,17 @@ class _CompleteProfileState extends State<CompleteProfile> {
               child: ElevatedButton(
                 onPressed: _isFormValid()
                     ? () {
-                        // Your next action here
+                      Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) =>
+                       FoodPreferences()),);
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5CB77E),
+                  backgroundColor: const Color(0xFF325b51),
                   minimumSize: const Size(50, 50),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 50, vertical: 12),
+                      horizontal: 80, vertical: 15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),

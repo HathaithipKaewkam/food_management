@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/models/recipe.dart';
 import 'package:food_project/widgets/instruction_widget.dart';
@@ -60,10 +61,10 @@ class _RecipeDetailState extends State<RecipeDetail> {
                           borderRadius: BorderRadius.circular(20),
                           color: Colors.white,
                         ),
-                        child: Icon(
-                          Icons.arrow_back,
-                          color: Constants.blackColor,
-                        ),
+                        child: const FaIcon(
+                    FontAwesomeIcons.arrowLeft,
+                    color: Colors.black,
+                  ),
                       ),
                     ),
                     InkWell(
