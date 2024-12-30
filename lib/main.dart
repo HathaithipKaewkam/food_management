@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:food_project/screens/login/calories_screen.dart';
 import 'package:food_project/screens/login/complete_profile.dart';
 import 'package:food_project/screens/login/food_preferences.dart';
 import 'firebase_options.dart';
@@ -16,9 +17,9 @@ void main() async {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       title: 'Onboarding Screen',
-      home: FoodPreferences(),
+      home: CompleteProfile(),
     );
   }
 }

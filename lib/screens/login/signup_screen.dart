@@ -46,7 +46,7 @@ class SignUpScreen extends StatelessWidget {
             ),
             const CustomTextfield(
               obscureText: false,
-              hintText: 'Enter Full name',
+              hintText: 'Enter Username',
               icon: Icons.person,
             ),
             const CustomTextfield(

@@ -19,6 +19,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
   DateTime? selectedDate;
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
+  String selectedActivity = '';
 
   bool _isFormValid() {
     return selectedGender.isNotEmpty &&
@@ -26,7 +27,8 @@ class _CompleteProfileState extends State<CompleteProfile> {
         _weightController.text.isNotEmpty &&
         double.tryParse(_weightController.text) != null &&
         _heightController.text.isNotEmpty &&
-        double.tryParse(_heightController.text) != null;
+        double.tryParse(_heightController.text) != null &&
+        selectedActivity.isNotEmpty;
   }
 
   final Map<String, String> genderImages = {
@@ -177,8 +179,9 @@ class _CompleteProfileState extends State<CompleteProfile> {
                                   child: Text(
                                     gender,
                                     style: const TextStyle(
-                                      color: Colors.black54,
+                                      color: Colors.black,
                                       fontSize: 16,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ))
@@ -274,6 +277,10 @@ class _CompleteProfileState extends State<CompleteProfile> {
                           RegExp(r'^\d*\.?\d*$'),
                         ),
                       ],
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,  
+                          fontSize: 16, 
+                        ),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: "Enter your weight",
@@ -313,9 +320,10 @@ class _CompleteProfileState extends State<CompleteProfile> {
                     ),
                     child: const Text(
                       "KG",
-                      style: TextStyle(color: Colors.white, 
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -350,6 +358,10 @@ class _CompleteProfileState extends State<CompleteProfile> {
                           RegExp(r'^\d*\.?\d*$'),
                         ),
                       ],
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,  
+                          fontSize: 16, 
+                        ),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: "Enter your height",
@@ -389,9 +401,65 @@ class _CompleteProfileState extends State<CompleteProfile> {
                     ),
                     child: const Text(
                       "CM",
-                      style: TextStyle(color: Colors.white, 
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Activity
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    alignment: Alignment.center,
+                    width: 50,
+                    height: 50,
+                    padding: const EdgeInsets.symmetric(horizontal: 15),
+                    child: const FaIcon(
+                      FontAwesomeIcons.dumbbell,
+                      color: Colors.black54,
+                    ),
+                  ),
+                  Expanded(
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedActivity.isEmpty ? null : selectedActivity,
+                        items: ['Sedentary', 'Light', 'Moderate', 'Active']
+                            .map((activity) => DropdownMenuItem(
+                                  value: activity,
+                                  child: Text(
+                                    activity,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ))
+                            .toList(),
+                        onChanged: (activity) {
+                          setState(() {
+                            selectedActivity = activity!;
+                          });
+                        },
+                        isExpanded: true,
+                        hint: const Text(
+                          "Choose Activity",
+                          style: TextStyle(
+                            color: Colors.black54,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -404,19 +472,20 @@ class _CompleteProfileState extends State<CompleteProfile> {
               child: ElevatedButton(
                 onPressed: _isFormValid()
                     ? () {
-                      Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) =>
-                       FoodPreferences()),);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => FoodPreferences()),
+                        );
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF325b51),
                   minimumSize: const Size(50, 50),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 80, vertical: 15),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 80, vertical: 15),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(30),
                   ),
                 ),
                 child: const Text(

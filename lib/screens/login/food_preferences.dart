@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:food_project/screens/login/food_allergies.dart';
 
 class FoodPreferences extends StatefulWidget {
   @override
@@ -55,6 +56,24 @@ class _FoodPreferencesState extends State<FoodPreferences> {
             Navigator.pop(context);
           },
         ),
+        actions: [
+        TextButton(
+            onPressed: () {
+              Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) =>
+                       FoodAllergies()),);
+            },
+            child: const Text(
+              'Skip',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -144,13 +163,13 @@ class _FoodPreferencesState extends State<FoodPreferences> {
                             food['image']!,
                             width: 50,
                             height: 50,
-                            fit: BoxFit.cover,
                           ),
                           const SizedBox(height: 8),
                           Text(
                             food['name']!,
                             style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.black,
+                              color: isSelected ? Colors.white :
+                              Colors.black,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -164,7 +183,10 @@ class _FoodPreferencesState extends State<FoodPreferences> {
               Center(
                 child: ElevatedButton(
                   onPressed: () {
-                    // Handle continue
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) =>
+                       FoodAllergies()),);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF325b51),

@@ -62,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Text(
-                    'Hello, $userName',
+                    'Hi, $userName',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
