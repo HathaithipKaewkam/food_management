@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
-import 'package:food_project/screens/ingrediant/expired_ingredient.dart';
-import 'package:food_project/screens/ingrediant/search_ingredient.dart';
+import 'package:food_project/screens/ingredient/expired_ingredient.dart';
+import 'package:food_project/screens/ingredient/search_ingredient.dart';
 import 'package:food_project/widgets/ingredient_noexp.dart';
 import 'package:intl/intl.dart';
 

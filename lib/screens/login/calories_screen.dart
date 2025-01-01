@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:food_project/screens/login/goal_screen.dart';
 
 class CaloriesMacronutrient extends StatefulWidget {
   @override
@@ -80,26 +81,6 @@ class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
             Navigator.pop(context);
           },
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CaloriesMacronutrient(),
-                ),
-              );
-            },
-            child: const Text(
-              'Skip',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(15.0),
@@ -220,8 +201,11 @@ class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
           Center(
             child: ElevatedButton(
               onPressed: () {
-                // Handle continue
-              },
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) =>
+                       const GoalScreen()),);
+                  },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF325b51),
                 minimumSize: const Size(50, 50),

@@ -148,7 +148,10 @@ class _FoodAllergiesState extends State<FoodAllergies> {
               Center(
                 child: ElevatedButton(
                   onPressed: () {
-                    // Handle continue
+                    Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) =>
+                            CaloriesMacronutrient()),);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF325b51),

@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/screens/cart_screen.dart';
 import 'package:food_project/screens/home/home_screen.dart';
-import 'package:food_project/screens/ingrediant/ingredient_screen.dart';
+import 'package:food_project/screens/ingredient/ingredient_screen.dart';
 import 'package:food_project/screens/profile_screen.dart';
 import 'package:food_project/screens/recipe/recipe_screen.dart';
 
 
-// Import หน้าต่าง ๆ
+
 
 
 class RootPage extends StatefulWidget {
@@ -28,10 +28,10 @@ class _RootPageState extends State<RootPage> {
     return [
       const RecipeScreen(),
        IngredientScreen(
-        index: 0, // ส่งค่า index ที่ต้องการ
-        ingredientList: Ingredient.ingredientList, // ส่งข้อมูลจาก model
+        index: 0, 
+        ingredientList: Ingredient.ingredientList, 
       ),
-      const HomeScreen(),
+      const HomeScreen(selectedGoal: null,),
       const CartScreen(addedToCartIngredients: [],),
       const ProfileScreen(),
     ];

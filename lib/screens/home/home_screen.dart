@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/screens/home/schedule_screen.dart';
-import 'package:food_project/screens/ingrediant/ingrediant_detail.dart';
+import 'package:food_project/screens/ingredient/ingrediant_detail.dart';
 import 'package:food_project/widgets/ingredient_widget.dart';
 import 'package:page_transition/page_transition.dart';
 
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required selectedGoal});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();

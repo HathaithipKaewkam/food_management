@@ -52,6 +52,7 @@ dependencies:
   firebase_messaging: ^14.0.0  
   image_picker: ^0.8.7+4
   font_awesome_flutter: ^10.8.0
+  carousel_slider: ^5.0.0
 
 dev_dependencies:
   flutter_test:

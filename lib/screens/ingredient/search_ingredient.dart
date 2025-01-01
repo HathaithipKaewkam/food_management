@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:food_project/screens/ingrediant/add_ingredient.dart';
+import 'package:food_project/screens/ingredient/add_ingredient.dart';
 
 
 class SearchIngredientScreen extends StatefulWidget {
