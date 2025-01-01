@@ -5,7 +5,6 @@ import 'package:food_project/models/recipe.dart';
 import 'package:food_project/widgets/instruction_widget.dart';
 import 'package:food_project/widgets/recipe_ingredient_widget.dart';
 
-
 class RecipeDetail extends StatefulWidget {
   final Recipe recipe; // รับ Recipe แทน RecipeId
   final int recipeId; // รับ recipeId
@@ -61,35 +60,31 @@ class _RecipeDetailState extends State<RecipeDetail> {
                           borderRadius: BorderRadius.circular(20),
                           color: Colors.white,
                         ),
-                        child: const FaIcon(
-                    FontAwesomeIcons.arrowLeft,
-                    color: Colors.black,
-                  ),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: Colors.black,
+                        ),
                       ),
                     ),
                     InkWell(
-                      onTap: () {
-                        setState(() {
-                          bool isFavorited =
-                              toggleIsFavorated(widget.recipe.isFavorite);
-                          widget.recipe.isFavorite = isFavorited;
-                        });
-                      },
-                      child: Container(
-                        height: 40,
-                        width: 40,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          color: Colors.white,
-                        ),
-                        child: Icon(
-                          widget.recipe.isFavorite
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          color: Constants.blackColor,
-                        ),
-                      ),
+                  onTap: () {
+                    setState(() {
+                      widget.recipe.isFavorite = !widget.recipe.isFavorite;
+                    });
+                  },
+                  child: Container(
+                    height: 40,
+                    width: 40,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.white,
                     ),
+                    child: Icon(
+                      widget.recipe.isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: widget.recipe.isFavorite ? Colors.red : Colors.black54,
+                    ),
+                  ),
+                ),
                   ],
                 ),
               ),
@@ -136,7 +131,8 @@ class _RecipeDetailState extends State<RecipeDetail> {
                 ),
                 // Time cooking
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: const Color(0xFF78d454),
                     borderRadius: BorderRadius.circular(20),
@@ -174,10 +170,18 @@ class _RecipeDetailState extends State<RecipeDetail> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Protein', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text('Fat', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text('Carbo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text('Calories', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Protein',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Fat',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Carbo',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Calories',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -192,44 +196,48 @@ class _RecipeDetailState extends State<RecipeDetail> {
                   children: [
                     Row(
                       children: [
-                        Image.asset('assets/images/protein.png', width: 20, height: 20),
+                        Image.asset('assets/images/protein.png',
+                            width: 20, height: 20),
                         const SizedBox(width: 2),
-                        Text('${widget.recipe.Protein} g', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        Text('${widget.recipe.Protein} g',
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold)),
                         const SizedBox(width: 30),
-                        Image.asset('assets/images/fat.png', width: 20, height: 20),
+                        Image.asset('assets/images/fat.png',
+                            width: 20, height: 20),
                         const SizedBox(width: 2),
-                        Text('${widget.recipe.Fat} g', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        Text('${widget.recipe.Fat} g',
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold)),
                         const SizedBox(width: 27),
-                        Image.asset('assets/images/carbo.png', width: 23, height: 20),
+                        Image.asset('assets/images/carbo.png',
+                            width: 23, height: 20),
                         const SizedBox(width: 2),
-                        Text('${widget.recipe.Carbo} g', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        Text('${widget.recipe.Carbo} g',
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold)),
                         const SizedBox(width: 30),
-                        Image.asset('assets/images/kcal.png', width: 23, height: 17),
+                        Image.asset('assets/images/kcal.png',
+                            width: 23, height: 17),
                         const SizedBox(width: 1),
-                        Text('${widget.recipe.Kcal} Kcal', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        Text('${widget.recipe.Kcal} Kcal',
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                  Container(
-                  padding: const EdgeInsets.only(left: 20,right: 20),
+                const SizedBox(height: 15),
+                Container(
+                  padding: const EdgeInsets.only(left: 20, right: 20),
                   height: 70,
                   decoration: BoxDecoration(
-                    color: Colors.white, 
-                    borderRadius: BorderRadius.circular(100), 
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05), 
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(100),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      
                       Row(
                         children: [
                           const SizedBox(width: 10),
@@ -238,7 +246,8 @@ class _RecipeDetailState extends State<RecipeDetail> {
                             width: 35,
                             height: 35,
                           ),
-                          const SizedBox(width: 10), // เว้นระยะระหว่างไอคอนและข้อความ
+                          const SizedBox(
+                              width: 10), // เว้นระยะระหว่างไอคอนและข้อความ
                           const Text(
                             "Persons",
                             style: TextStyle(
@@ -265,15 +274,14 @@ class _RecipeDetailState extends State<RecipeDetail> {
                             iconSize: 20,
                             color: Colors.redAccent, // สีปุ่มลบ
                           ),
-                            Text(
-                              "$currentNumber",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
+                          Text(
+                            "$currentNumber",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
                             ),
-                          
+                          ),
                           IconButton(
                             onPressed: () {
                               setState(() {
@@ -289,91 +297,97 @@ class _RecipeDetailState extends State<RecipeDetail> {
                     ],
                   ),
                 ),
-
               ],
             ),
           ),
-          
-
 
           //ปุ่ม ingredient/step
-          
+
           Center(
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  constraints: const BoxConstraints(
-                    maxWidth: 300, // จำกัดขนาดความกว้าง
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            showIngredients = true;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                          decoration: BoxDecoration(
-                            color: showIngredients ? Color(0xFF78d454) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: Text(
-                            'Ingredients',
-                            style: TextStyle(
-                              color: showIngredients ? Colors.white : Colors.grey[700],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            showIngredients = false;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                          decoration: BoxDecoration(
-                            color: !showIngredients ? Color(0xFF78d454) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: Text(
-                            'Instructions',
-                            style: TextStyle(
-                              color: !showIngredients ? Colors.white : Colors.grey[700],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(
+                maxWidth: 300, // จำกัดขนาดความกว้าง
               ),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        showIngredients = true;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10, horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: showIngredients
+                            ? Color(0xFF78d454)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Text(
+                        'Ingredients',
+                        style: TextStyle(
+                          color:
+                              showIngredients ? Colors.white : Colors.grey[700],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        showIngredients = false;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10, horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: !showIngredients
+                            ? Color(0xFF78d454)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Text(
+                        'Instructions',
+                        style: TextStyle(
+                          color: !showIngredients
+                              ? Colors.white
+                              : Colors.grey[700],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
           const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: showIngredients
                 ? RecipeIngredientWidget(
-                    ingredients: widget.recipe.ingredients, 
+                    ingredients: widget.recipe.ingredients,
                     recipe: widget.recipe,
                     currentNumber: currentNumber,
                   )
                 : InstructionsWidget(
-                    instructions: widget.recipe.instructions, // แสดง instructions
+                    instructions:
+                        widget.recipe.instructions, // แสดง instructions
                   ),
-                ),
-              ]
-            ),
           ),
-        );
-      }
-    }
+        ]),
+      ),
+    );
+  }
+}

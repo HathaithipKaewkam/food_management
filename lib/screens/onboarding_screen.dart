@@ -80,9 +80,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             right: 30,
             child: Container(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Constants.primaryColor,
+                color: Color(0xFF325b51),
               ),
               child: IconButton(
                   onPressed: () {
@@ -124,7 +124,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       width: isActive ? 20 : 8,
       margin: const EdgeInsets.only(right: 5.0),
       decoration: BoxDecoration(
-        color: Constants.primaryColor,
+        color: const Color(0xFF325b51),
         borderRadius: BorderRadius.circular(5),
       ),
     );
@@ -164,15 +164,15 @@ class createPage extends StatelessWidget {
       padding: const EdgeInsets.only(left: 10, right: 10, bottom: 20),
       child: Column(
         mainAxisAlignment:
-            MainAxisAlignment.start, // จัดตำแหน่งข้อความให้ชิดด้านบน
+            MainAxisAlignment.start, 
         crossAxisAlignment:
-            CrossAxisAlignment.center, // จัดตำแหน่งข้อความให้กลาง
+            CrossAxisAlignment.center, 
         children: [
           Image.asset(
             image,
-            fit: BoxFit.contain, // ปรับให้ภาพพอดีกับกรอบ โดยไม่ตัดภาพ
-            width: double.infinity, // ให้ภาพขยายเต็มความกว้าง
-            height: 300, // กำหนดความสูงของภาพ
+            fit: BoxFit.contain, 
+            width: double.infinity, 
+            height: 300, 
           ),
           const SizedBox(
             height: 20,
@@ -180,8 +180,8 @@ class createPage extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Constants.primaryColor,
+            style: const TextStyle(
+              color: Colors.black,
               fontSize: 30,
               fontWeight: FontWeight.bold,
             ),

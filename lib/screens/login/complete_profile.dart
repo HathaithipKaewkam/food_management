@@ -314,7 +314,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF00FF77), Color(0xFF053d00)],
+                        colors: [Colors.greenAccent, Colors.lightGreen],
                       ),
                       borderRadius: BorderRadius.circular(15),
                     ),
@@ -395,7 +395,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF00FF77), Color(0xFF053d00)],
+                        colors: [Colors.greenAccent, Colors.lightGreen],
                       ),
                       borderRadius: BorderRadius.circular(15),
                     ),

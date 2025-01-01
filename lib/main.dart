@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:food_project/screens/login/complete_profile.dart';
-import 'package:food_project/screens/login/goal_screen.dart';
+import 'package:food_project/screens/onboarding_screen.dart';
 
 import 'firebase_options.dart';
 
@@ -19,7 +18,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       title: 'Onboarding Screen',
-      home: GoalScreen(),
+      home: OnboardingScreen(),
     );
   }
 }
