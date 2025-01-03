@@ -8,6 +8,7 @@ import 'package:food_project/models/user_model.dart';
 import 'package:food_project/screens/login/complete_profile.dart';
 import 'package:food_project/screens/login/signin_screen.dart';
 import 'package:food_project/widgets/custom_textfield.dart';
+import 'package:food_project/widgets/password_textfield.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:quickalert/models/quickalert_type.dart';
@@ -224,7 +225,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 hintText: 'Enter Username',
                 icon: FaIcon(FontAwesomeIcons.solidUser),
               ),
-              CustomTextfield(
+              PasswordTextfield(
                 controller: passwordController,
                 obscureText: true,
                 hintText: 'Enter Password',
@@ -294,6 +295,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       style: TextStyle(
                         color: Constants.blackColor,
                         fontSize: 18.0,
+                        fontWeight: FontWeight.bold
                       ),
                     ),
                   ],
