@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:food_project/screens/onboarding_screen.dart';
+import 'package:food_project/screens/login/signup_screen.dart';
+
 
 import 'firebase_options.dart';
 
@@ -16,9 +17,9 @@ void main() async {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       title: 'Onboarding Screen',
-      home: OnboardingScreen(),
+      home: SignUpScreen(),
     );
   }
 }

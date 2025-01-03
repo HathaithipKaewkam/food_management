@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/screens/login/forget_password.dart';
 import 'package:food_project/screens/login/signup_screen.dart';
@@ -8,6 +9,10 @@ import 'package:page_transition/page_transition.dart';
 
 class SignInScreen extends StatelessWidget {
   const SignInScreen({super.key});
+  
+  get emailController => null;
+  
+  get passwordController => null;
 
   @override
   Widget build(BuildContext context) {
@@ -40,15 +45,17 @@ class SignInScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 10),
-            const CustomTextfield(
+            CustomTextfield(
+              controller: emailController,
               obscureText: false,
               hintText: 'Enter Email',
-              icon: Icons.alternate_email,
+              icon: FaIcon(FontAwesomeIcons.at),
             ),
-            const CustomTextfield(
+            CustomTextfield(
+              controller: passwordController,
               obscureText: true,
               hintText: 'Enter Password',
-              icon: Icons.lock,
+              icon: FaIcon(FontAwesomeIcons.lock),
             ),
             const SizedBox(height: 10), // ลดระยะห่าง
             GestureDetector(

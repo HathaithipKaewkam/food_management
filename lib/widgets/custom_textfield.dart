@@ -1,27 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/constants.dart';
+
 class CustomTextfield extends StatelessWidget {
-  final IconData icon;
+  final TextEditingController? controller;
+  final FaIcon icon;
   final bool obscureText;
   final String hintText;
 
   const CustomTextfield({
-    Key? key, required this.icon, required this.obscureText, required this.hintText,
+    Key? key,
+    this.controller,
+    required this.obscureText,
+    required this.hintText,
+    required this.icon,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      obscureText: obscureText,
-      style: TextStyle(
-        color: Constants.blackColor,
-      ),
-      decoration: InputDecoration(
-        border: InputBorder.none,
-        prefixIcon: Icon(icon, color: Constants.blackColor.withOpacity(.3),),
-        hintText: hintText,
-      ),
-      cursorColor: Constants.blackColor.withOpacity(.5),
+    return Row(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only( left: 10 , right: 10), 
+          child: FaIcon(
+            icon.icon,
+            color: Colors.grey.withOpacity(0.7), 
+          ),
+        ),
+        SizedBox(width: 10),
+         Expanded(
+          child: TextField(
+            controller: controller,
+            obscureText: obscureText,
+            style: TextStyle(
+              color: Colors.black, 
+            ),
+            decoration: InputDecoration(
+              border: InputBorder.none, 
+              focusedBorder: UnderlineInputBorder( 
+                borderSide: BorderSide(
+                  color: Colors.grey.withOpacity(0.2),
+                  width: 2.0,
+                ),
+              ),
+              hintText: hintText,
+              hintStyle: TextStyle(
+                color: Colors.grey.withOpacity(0.7),  
+              ),
+            ),
+            cursorColor: Constants.blackColor.withOpacity(.5),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/screens/login/signin_screen.dart';
 import 'package:food_project/widgets/custom_textfield.dart';
@@ -37,7 +38,7 @@ class ForgotPassword extends StatelessWidget {
               const CustomTextfield(
                 obscureText: false,
                 hintText: 'Enter Email',
-                icon: Icons.alternate_email,
+                icon: FaIcon(FontAwesomeIcons.at),
               ),
               GestureDetector(
                 onTap: () {},
