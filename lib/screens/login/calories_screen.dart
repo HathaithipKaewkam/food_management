@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/screens/login/goal_screen.dart';
@@ -8,29 +10,94 @@ class CaloriesMacronutrient extends StatefulWidget {
 }
 
 class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
-  String userName = "Moodeng"; 
+  String userName = ""; 
   double caloriesPerDay = 0.0;
-  double proteinPercentage = 0.3; // 30% for Protein
-  double carbsPercentage = 0.4;   // 40% for Carbs
-  double fatPercentage = 0.3;     // 30% for Fat
+  double proteinPercentage = 0.3; 
+  double carbsPercentage = 0.4;   
+  double fatPercentage = 0.3;    
   double proteinGrams = 0.0;
   double carbsGrams = 0.0;
   double fatGrams = 0.0;
 
-  // Sample input: Age, Weight, Height, Gender, Activity Level
-  int age = 30;
-  double weight = 70;  // kg
-  double height = 175; // cm
-  String gender = 'Male';  // 'Male' or 'Female'
-  String activityLevel = 'Moderate';  // 'Sedentary', 'Light', 'Moderate', 'Active'
+  
+  int age = 0;
+  double weight = 0.0;  
+  double height = 0.0; 
+  String gender = '';  
+  String activity = '';  
 
   @override
   void initState() {
     super.initState();
-    calculateCalories();
+    _fetchUserName();
+    _fetchUserProfile();;
   }
 
+  Future<void> _fetchUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users') 
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          setState(() {
+            userName = userDoc['username'] ?? '';
+          });
+        }
+      } catch (e) {
+        print('Error fetching user data: $e');
+      }
+    } else {
+      print("User not logged in");
+    }
+  }
+  Future<void> _fetchUserProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('userProfiles') 
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          setState(() {
+            weight = userDoc['weight'] ?? 0.0;
+            height = userDoc['height'] ?? 0.0;
+            gender = userDoc['gender'] ?? '';
+            activity = userDoc['activity'] ?? '';
+            DateTime birthday = DateTime.parse(userDoc['birthday']);
+            age = _calculateAge(birthday);
+          });
+          calculateCalories();
+        }
+      } catch (e) {
+        print('Error fetching user profile: $e');
+      }
+    } else {
+      print("User not logged in");
+    }
+  }
+
+   int _calculateAge(DateTime birthday) {
+    DateTime today = DateTime.now();
+    int age = today.year - birthday.year;
+    if (today.month < birthday.month || (today.month == birthday.month && today.day < birthday.day)) {
+      age--;
+    }
+    return age;
+  }
+
+
   void calculateCalories() {
+
+     if (weight == 0.0 || height == 0.0 || age == 0 || gender.isEmpty || activity.isEmpty) {
+    print("Missing data for calculation");
+    return;
+  }
     double bmr;
     if (gender == 'Male') {
       bmr = 10 * weight + 6.25 * height - 5 * age + 5;
@@ -39,7 +106,7 @@ class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
     }
 
     double activityMultiplier;
-    switch (activityLevel) {
+    switch (activity) {
       case 'Sedentary':
         activityMultiplier = 1.2;
         break;
@@ -59,18 +126,60 @@ class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
 
     caloriesPerDay = bmr * activityMultiplier;
 
-    proteinGrams = (caloriesPerDay * proteinPercentage) / 4; // 1g protein = 4 calories
-    carbsGrams = (caloriesPerDay * carbsPercentage) / 4; // 1g carbs = 4 calories
-    fatGrams = (caloriesPerDay * fatPercentage) / 9; // 1g fat = 9 calories
+    proteinGrams = (caloriesPerDay * proteinPercentage) / 4; 
+    carbsGrams = (caloriesPerDay * carbsPercentage) / 4; 
+    fatGrams = (caloriesPerDay * fatPercentage) / 9; 
 
     setState(() {});
+
+    saveToDatabase();
   }
+
+  Future<void> saveToDatabase() async {
+  final user = FirebaseAuth.instance.currentUser;
+
+  if (user != null) {
+    try {
+      await FirebaseFirestore.instance
+          .collection('usersCaloriesMacronutrient')
+          .doc(user.uid)
+          .set({
+        'caloriesPerDay': caloriesPerDay,
+        'proteinGrams': proteinGrams,
+        'carbsGrams': carbsGrams,
+        'fatGrams': fatGrams,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)); 
+
+      await FirebaseFirestore.instance
+          .collection('usersCaloriesMacronutrient')
+          .doc(user.uid)
+          .update({
+        'history': FieldValue.arrayUnion([
+          {
+            'date': FieldValue.serverTimestamp(),
+            'caloriesPerDay': caloriesPerDay,
+            'proteinGrams': proteinGrams,
+            'carbsGrams': carbsGrams,
+            'fatGrams': fatGrams,
+          }
+        ]),
+      });
+
+      print('Data saved successfully.');
+    } catch (e) {
+      print('Error saving data: $e');
+    }
+  } else {
+    print("User not logged in");
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const FaIcon(

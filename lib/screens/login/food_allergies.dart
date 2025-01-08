@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/screens/login/calories_screen.dart';
@@ -8,7 +10,7 @@ class FoodAllergies extends StatefulWidget {
 }
 
 class _FoodAllergiesState extends State<FoodAllergies> {
-  final List<Map<String, String>> foodAFoodAllergies = [
+  final List<Map<String, String>> foodAllergies = [
     {'name': 'Milk', 'image': 'assets/images/allergies_milk.jpg'},
     {'name': 'Eggs', 'image': 'assets/images/allergies_egg.jpg'},
     {'name': 'Peanuts', 'image': 'assets/images/allergies_peanuts.jpg'},
@@ -24,7 +26,33 @@ class _FoodAllergiesState extends State<FoodAllergies> {
     
   ];
 
-  final Set<String> selectedAFoodAllergies = {};
+  final List<String> selectedAFoodAllergies = [];
+
+  Future<void> saveFoodPreferences(
+      String userId, List<String> selectedFoods) async {
+    try {
+      final preferencesRef = FirebaseFirestore.instance
+          .collection('userAllergies')
+          .doc(userId)
+          .collection('Allergies');
+
+      final existingPreferencesSnapshot = await preferencesRef.get();
+      for (var doc in existingPreferencesSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      for (var food in selectedFoods) {
+        await preferencesRef.add({
+          'foodName': food,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      print('Food Allergies saved successfully.');
+    } catch (e) {
+      print('Error saving food Allergies: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,9 +122,9 @@ class _FoodAllergiesState extends State<FoodAllergies> {
                   mainAxisSpacing: 10,
                   childAspectRatio: 0.8, // ปรับอัตราส่วนเพื่อเพิ่มพื้นที่สำหรับชื่อ
                 ),
-                itemCount: foodAFoodAllergies.length,
+                itemCount: foodAllergies.length,
                 itemBuilder: (context, index) {
-                  final food = foodAFoodAllergies[index];
+                  final food = foodAllergies[index];
                   final isSelected = selectedAFoodAllergies.contains(food['name']);
                   return GestureDetector(
                     onTap: () {
@@ -143,15 +171,23 @@ class _FoodAllergiesState extends State<FoodAllergies> {
                   );
                 },
               ),
-
               const SizedBox(height: 20),
               Center(
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) =>
-                            CaloriesMacronutrient()),);
+                  onPressed: () async {
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user != null) {
+                      String userId = user.uid;
+                      await saveFoodPreferences(
+                          userId, selectedAFoodAllergies.toList());
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => CaloriesMacronutrient()),
+                      );
+                    } else {
+                      print("User not logged in");
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF325b51),

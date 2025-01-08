@@ -13,7 +13,7 @@ import 'package:page_transition/page_transition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:quickalert/models/quickalert_type.dart';
 import 'package:quickalert/widgets/quickalert_dialog.dart';
-import 'package:food_project/services/auth_service.dart';  // นำเข้า AuthService
+import 'package:food_project/services/auth_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
@@ -27,7 +27,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  final AuthService _authService = AuthService();  // สร้างตัวแปร AuthService
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -38,7 +38,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   String hashPassword(String password) {
-    var bytes = utf8.encode(password); 
+    var bytes = utf8.encode(password);
     var digest = sha256.convert(bytes);
     return digest.toString();
   }
@@ -64,72 +64,96 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> saveUserToFirestore(UserModel user) async {
     try {
       FirebaseFirestore firestore = FirebaseFirestore.instance;
-      String userId = user.userId;  
-      await firestore.collection('users').doc(userId).set(user.toMap()); 
+      await firestore.collection('users').doc(user.userId).set(user.toMap());
       print('User saved successfully!');
     } catch (e) {
       print('Error saving user: $e');
     }
   }
 
-  void signUpUser(
-    String email, 
-    String password,
-    String username, 
-    BuildContext context) async {
-    if (email.isEmpty || username.isEmpty || password.isEmpty) {
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.error,
-        title: 'Error',
-        text: 'Email, Username, and Password cannot be empty',
-        confirmBtnText: 'OK',
-        onConfirmBtnTap: () {
-          Navigator.of(context).pop(); 
-        },
+  void showQuickAlert(BuildContext context, QuickAlertType type, String title, String text) {
+    QuickAlert.show(
+      context: context,
+      type: type,
+      title: title,
+      text: text,
+      confirmBtnText: 'OK',
+      onConfirmBtnTap: () => Navigator.of(context).pop(),
+    );
+  }
+
+  Future<void> handleGoogleSignIn(BuildContext context) async {
+    try {
+      User? user = await _authService.signUpWithGoogle();
+      if (user != null) {
+        String email = user.email ?? '';
+        String userId = user.uid;
+        String username = user.displayName ?? '';
+
+        bool emailExists = await isEmailAlreadyRegistered(email);
+        if (emailExists) {
+          showQuickAlert(
+            context,
+            QuickAlertType.warning,
+            'Email Already Registered',
+            'This email is already in use. Please try with a different email.',
+          );
+          return;
+        }
+
+        UserModel newUser = UserModel(
+          userId: userId,
+          email: email,
+          username: username,
+          password: '',
+        );
+        await saveUserToFirestore(newUser);
+
+        QuickAlert.show(
+          context: context,
+          type: QuickAlertType.success,
+          title: 'Success',
+          text: 'Sign Up Successful',
+          confirmBtnColor: const Color(0xFF325b51),
+          confirmBtnText: 'OK',
+          onConfirmBtnTap: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CompleteProfile(),
+              ),
+            );
+          },
+        );
+      }
+    } catch (e) {
+      showQuickAlert(
+        context,
+        QuickAlertType.error,
+        'Error',
+        'Failed to sign up with Google: ${e.toString()}',
       );
+    }
+  }
+
+  void signUpUser(String email, String password, String username, BuildContext context) async {
+    if (email.isEmpty || username.isEmpty || password.isEmpty) {
+      showQuickAlert(context, QuickAlertType.error, 'Error', 'Email, Username, and Password cannot be empty');
       return;
     }
 
     if (password.length < 6) {
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.warning,
-        title: 'Warning',
-        text: 'Password must be at least 6 characters',
-        confirmBtnText: 'OK',
-        onConfirmBtnTap: () {
-          Navigator.of(context).pop(); 
-        },
-      );
+      showQuickAlert(context, QuickAlertType.warning, 'Warning', 'Password must be at least 6 characters');
       return;
     }
 
     if (await isUsernameAlreadyRegistered(username)) {
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.warning,
-        title: 'Warning',
-        text: 'Username is already registered',
-        confirmBtnText: 'OK',
-        onConfirmBtnTap: () {
-          Navigator.of(context).pop(); 
-        },
-      );
+      showQuickAlert(context, QuickAlertType.warning, 'Warning', 'Username is already registered');
       return;
     }
 
     if (await isEmailAlreadyRegistered(email)) {
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.warning,
-        title: 'Warning',
-        text: 'Email is already registered',
-        confirmBtnText: 'OK',
-        onConfirmBtnTap: () {
-          Navigator.of(context).pop(); 
-        },
-      );
+      showQuickAlert(context, QuickAlertType.warning, 'Warning', 'Email is already registered');
       return;
     }
 
@@ -140,9 +164,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
 
     try {
-      
-      var user = await _authService.signUp(email, password); 
-
+      var user = await _authService.signUp(email, password);
       if (user != null) {
         String hashedPassword = hashPassword(password);
 
@@ -154,11 +176,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         );
 
         await saveUserToFirestore(newUser);
-
-        Navigator.pop(context); 
+        Navigator.pop(context);
 
         QuickAlert.show(
-          context: context, 
+          context: context,
           type: QuickAlertType.success,
           title: 'Success',
           text: 'Sign Up Successful',
@@ -175,10 +196,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
         );
       }
     } on FirebaseAuthException catch (e) {
-      Navigator.pop(context); 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign Up Failed: ${e.message}')),
-      );
+      Navigator.pop(context);
+      if (e.code == 'email-already-in-use') {
+        showQuickAlert(context, QuickAlertType.warning, 'Warning', 'Email is already registered');
+      } else if (e.code == 'invalid-email') {
+        showQuickAlert(context, QuickAlertType.error, 'Error', 'Invalid email format');
+      } else {
+        showQuickAlert(context, QuickAlertType.error, 'Error', 'An unknown error occurred: ${e.message}');
+      }
     }
   }
 
@@ -190,11 +215,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       resizeToAvoidBottomInset: true,
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.only(
-            top: 30,
-            left: 20,
-            right: 20,
-          ),
+          padding: const EdgeInsets.only(top: 30, left: 20, right: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -203,15 +224,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 width: size.width * 0.9,
                 height: size.height * 0.4,
               ),
-              const Padding(
-                padding: EdgeInsets.only(top: 0),
-                child: Text(
-                  'Sign Up',
-                  style: TextStyle(
-                    fontSize: 35.0,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              const Text(
+                'Sign Up',
+                style: TextStyle(fontSize: 35.0, fontWeight: FontWeight.w700),
               ),
               CustomTextfield(
                 controller: emailController,
@@ -244,19 +259,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: Container(
                   width: size.width,
                   decoration: BoxDecoration(
-                    color: Color(0xFF042628),
+                    color: const Color(0xFF042628),
                     borderRadius: BorderRadius.circular(15),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 13, vertical: 25),
+                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 25),
                   child: const Center(
                     child: Text(
                       'Sign Up',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18.0,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(color: Colors.white, fontSize: 18.0, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -273,36 +283,37 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ],
               ),
               const SizedBox(height: 10),
-              Container(
-                width: size.width,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Color(0xFF042628)),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      height: 30,
-                      child: Image.asset('assets/images/google.png'),
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Sign Up with Google',
-                      style: TextStyle(
-                        color: Constants.blackColor,
-                        fontSize: 18.0,
-                        fontWeight: FontWeight.bold
+              GestureDetector(
+                onTap: () => handleGoogleSignIn(context),
+                child: Container(
+                  width: size.width,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFF042628)),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        height: 30,
+                        child: Image.asset('assets/images/google.png'),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Text(
+                        'Sign Up with Google',
+                        style: TextStyle(
+                          color: Constants.blackColor,
+                          fontSize: 18.0,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
-              GestureDetector(
+                GestureDetector(
                 onTap: () {
                   Navigator.pushReplacement(
                     context,
@@ -328,16 +339,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             color: Color(0xFF042628),
                             fontWeight: FontWeight.bold
                           ),
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+                )
+          ]
+          )
+        )
+      )
     );
-  }
-}
+              }
+            }

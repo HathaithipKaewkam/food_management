@@ -8,6 +8,7 @@
     <application
         android:label="food_project"
         android:name="${applicationName}"
+         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher">
         <!-- Main Activity -->
         <activity
@@ -38,6 +39,9 @@
                 android:resource="@xml/file_paths" />
         </provider>
         <!-- Flutter Engine -->
+         <meta-data
+        android:name="com.google.android.gms.auth.api.signin.API_KEY"
+        android:value="@string/default_web_client_id"/>
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

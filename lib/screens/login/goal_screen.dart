@@ -1,4 +1,6 @@
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/screens/home/home_screen.dart';
 
@@ -10,8 +12,8 @@ class GoalScreen extends StatefulWidget {
 }
 
 class _GoalScreenState extends State<GoalScreen> {
-  final CarouselSliderController? buttonCarouselController =
-      CarouselSliderController();
+  final CarouselSliderController? buttonCarouselController = CarouselSliderController();
+  int selectedGoalIndex = 0;
 
   List goalArr = [
     {
@@ -36,6 +38,23 @@ class _GoalScreenState extends State<GoalScreen> {
       "subtitle": "Focus on nutrient-dense and\nminimally processed foods."
     },
   ];
+
+  Future<void> saveGoalToDatabase(String goal) async {
+  final user = FirebaseAuth.instance.currentUser;
+
+  if (user != null) {
+    try {
+      await FirebaseFirestore.instance
+          .collection('userGoals')
+          .doc(user.uid)
+          .set({'goal': goal, 'timestamp': FieldValue.serverTimestamp()});
+      print('Goal saved successfully.');
+    } catch (e) {
+      print('Error saving goal: $e');
+    }
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -137,13 +156,16 @@ class _GoalScreenState extends State<GoalScreen> {
                     padding: EdgeInsets.only(bottom: media.height * 0.05),
                     child: Center(
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          String selectedGoal = goalArr[selectedGoalIndex]["title"]!;
+                          await saveGoalToDatabase(selectedGoal);
                           Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => const HomeScreen(
-                                        selectedGoal: null,
-                                      )));
+                              builder: (context) =>
+                                  HomeScreen(selectedGoal: selectedGoal),
+                            ),      
+                             );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF325b51),

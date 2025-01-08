@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/screens/login/food_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CompleteProfile extends StatefulWidget {
   const CompleteProfile({super.key});
@@ -20,6 +22,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
   String selectedActivity = '';
+  bool _isLoading = false;
 
   bool _isFormValid() {
     return selectedGender.isNotEmpty &&
@@ -44,22 +47,6 @@ class _CompleteProfileState extends State<CompleteProfile> {
             ? 'assets/images/profile_men.png'
             : 'assets/images/profile_women.png';
       });
-    }
-  }
-
-  Future<void> _uploadNewImage() async {
-    final picker = ImagePicker();
-    try {
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        setState(() {
-          selectedImage = pickedFile.path;
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to pick an image: $e")),
-      );
     }
   }
 
@@ -89,6 +76,27 @@ class _CompleteProfileState extends State<CompleteProfile> {
     }
   }
 
+  Future<void> addUserProfile({
+    required String userId,
+    required String gender,
+    required DateTime birthday,
+    required double weight,
+    required double height,
+    required String activity,
+  }) async {
+    final userProfileRef = FirebaseFirestore.instance.collection('userProfiles').doc(userId);
+
+    await userProfileRef.set({
+      'gender': gender,
+      'birthday': birthday.toIso8601String(),
+      'weight': weight,
+      'height': height,
+      'activity': activity,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   @override
   void dispose() {
     _weightController.dispose();
@@ -98,6 +106,9 @@ class _CompleteProfileState extends State<CompleteProfile> {
 
   @override
   Widget build(BuildContext context) {
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+    final String? userId = currentUser?.uid;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Let's complete your profile"),
@@ -117,15 +128,12 @@ class _CompleteProfileState extends State<CompleteProfile> {
           children: [
             const Text(
               "It will help us to know more about you!",
-              style: TextStyle(
-                fontSize: 18,
-              ),
+              style: TextStyle(fontSize: 18),
             ),
             const SizedBox(height: 20),
-            // รูปภาพโปรไฟล์
+            // Profile Picture
             Center(
               child: GestureDetector(
-                onTap: _uploadNewImage,
                 child: Container(
                   width: 140,
                   height: 140,
@@ -151,355 +159,237 @@ class _CompleteProfileState extends State<CompleteProfile> {
               ),
             ),
             const SizedBox(height: 30),
-            // ตัวเลือกเพศ
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    alignment: Alignment.center,
-                    width: 50,
-                    height: 50,
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
-                    child: const FaIcon(
-                      FontAwesomeIcons.venusMars,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  Expanded(
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedGender.isEmpty ? null : selectedGender,
-                        items: genderImages.keys
-                            .map((gender) => DropdownMenuItem(
-                                  value: gender,
-                                  child: Text(
-                                    gender,
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ))
-                            .toList(),
-                        onChanged: (gender) {
-                          setState(() {
-                            _onGenderChanged(gender);
-                          });
-                        },
-                        isExpanded: true,
-                        hint: const Text(
-                          "Choose Gender",
-                          style: TextStyle(
-                            color: Colors.black54,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            // Gender
+            _buildDropdown(
+              icon: FontAwesomeIcons.venusMars,
+              value: selectedGender.isEmpty ? null : selectedGender,
+              hint: "Choose Gender",
+              items: genderImages.keys.toList(),
+              onChanged: _onGenderChanged,
             ),
             const SizedBox(height: 20),
-            // วันเกิด
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    alignment: Alignment.center,
-                    width: 50,
-                    height: 50,
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
-                    child: const FaIcon(
-                      FontAwesomeIcons.calendarDays,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _selectDate(context),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        child: Text(
-                          selectedDate != null
-                              ? DateFormat('d MMMM yyyy').format(selectedDate!)
-                              : "Select Date of Birth",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: selectedDate != null
-                                ? Colors.black
-                                : Colors.black54,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            // Date of Birth
+            _buildDatePicker(context),
+            const SizedBox(height: 20),
+            // Weight
+            _buildTextInput(
+              icon: FontAwesomeIcons.weightScale,
+              controller: _weightController,
+              hint: "Enter your weight",
+              unit: "KG",
             ),
             const SizedBox(height: 20),
-            // น้ำหนัก
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    alignment: Alignment.center,
-                    width: 50,
-                    height: 50,
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
-                    child: const FaIcon(
-                      FontAwesomeIcons.weightScale,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _weightController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'^\d*\.?\d*$'),
-                        ),
-                      ],
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,  
-                          fontSize: 16, 
-                        ),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        hintText: "Enter your weight",
-                        hintStyle: TextStyle(
-                          color: Colors.black54,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        contentPadding: EdgeInsets.symmetric(vertical: 15),
-                      ),
-                      onChanged: (value) {
-                        setState(() {});
-                        final weight = double.tryParse(value) ?? 0.0;
-                        if (weight <= 0) {
-                          _weightController.clear();
-                          ScaffoldMessenger.of(context).clearSnackBars();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Weight must be greater than 0"),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 50,
-                    height: 50,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Colors.greenAccent, Colors.lightGreen],
-                      ),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: const Text(
-                      "KG",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            // ส่วนสูง
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    alignment: Alignment.center,
-                    width: 50,
-                    height: 50,
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
-                    child: const FaIcon(
-                      FontAwesomeIcons.person,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _heightController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'^\d*\.?\d*$'),
-                        ),
-                      ],
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,  
-                          fontSize: 16, 
-                        ),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        hintText: "Enter your height",
-                        hintStyle: TextStyle(
-                          color: Colors.black54,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        contentPadding: EdgeInsets.symmetric(vertical: 15),
-                      ),
-                      onChanged: (value) {
-                        setState(() {});
-                        final height = double.tryParse(value) ?? 0.0;
-                        if (height <= 0) {
-                          _heightController.clear();
-                          ScaffoldMessenger.of(context).clearSnackBars();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Height must be greater than 0"),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 50,
-                    height: 50,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Colors.greenAccent, Colors.lightGreen],
-                      ),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: const Text(
-                      "CM",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
+            // Height
+            _buildTextInput(
+              icon: FontAwesomeIcons.person,
+              controller: _heightController,
+              hint: "Enter your height",
+              unit: "CM",
             ),
             const SizedBox(height: 20),
             // Activity
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    alignment: Alignment.center,
-                    width: 50,
-                    height: 50,
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
-                    child: const FaIcon(
-                      FontAwesomeIcons.dumbbell,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  Expanded(
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedActivity.isEmpty ? null : selectedActivity,
-                        items: ['Sedentary', 'Light', 'Moderate', 'Active']
-                            .map((activity) => DropdownMenuItem(
-                                  value: activity,
-                                  child: Text(
-                                    activity,
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ))
-                            .toList(),
-                        onChanged: (activity) {
-                          setState(() {
-                            selectedActivity = activity!;
-                          });
-                        },
-                        isExpanded: true,
-                        hint: const Text(
-                          "Choose Activity",
-                          style: TextStyle(
-                            color: Colors.black54,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            _buildDropdown(
+              icon: FontAwesomeIcons.dumbbell,
+              value: selectedActivity.isEmpty ? null : selectedActivity,
+              hint: "Choose Activity",
+              items: ['Sedentary', 'Light', 'Moderate', 'Active'],
+              onChanged: (value) {
+                setState(() {
+                  selectedActivity = value!;
+                });
+              },
             ),
             const SizedBox(height: 20),
-            // ปุ่ม Next
+            // Next Button
             Center(
               child: ElevatedButton(
                 onPressed: _isFormValid()
-                    ? () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => FoodPreferences()),
-                        );
+                    ? () async {
+                        if (userId != null) {
+                          setState(() {
+                            _isLoading = true;
+                          });
+                          try {
+                            await addUserProfile(
+                              userId: userId,
+                              gender: selectedGender,
+                              birthday: selectedDate!,
+                              weight: double.parse(_weightController.text),
+                              height: double.parse(_heightController.text),
+                              activity: selectedActivity,
+                            );
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => FoodPreferences()),
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Failed to save profile: $e")),
+                            );
+                          } finally {
+                            setState(() {
+                              _isLoading = false;
+                            });
+                          }
+                        }
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF325b51),
                   minimumSize: const Size(50, 50),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 80, vertical: 15),
+                  padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-                child: const Text(
-                  "Next",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        "Next",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDropdown({
+    required IconData icon,
+    required String? value,
+    required String hint,
+    required List<String> items,
+    required void Function(String?) onChanged,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        children: [
+          Container(
+            alignment: Alignment.center,
+            width: 50,
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            child: FaIcon(icon, color: Colors.black54),
+          ),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: value,
+                items: items.map((item) {
+                  return DropdownMenuItem(value: item, child: Text(item));
+                }).toList(),
+                onChanged: onChanged,
+                isExpanded: true,
+                hint: Text(hint),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDatePicker(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        children: [
+          Container(
+            alignment: Alignment.center,
+            width: 50,
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            child: const FaIcon(FontAwesomeIcons.calendarDays, color: Colors.black54),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _selectDate(context),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                child: Text(
+                  selectedDate != null
+                      ? DateFormat('d MMMM yyyy').format(selectedDate!)
+                      : "Select Date of Birth",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: selectedDate != null ? Colors.black : Colors.black54,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextInput({
+    required IconData icon,
+    required TextEditingController controller,
+    required String hint,
+    required String unit,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        children: [
+          Container(
+            alignment: Alignment.center,
+            width: 50,
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            child: FaIcon(icon, color: Colors.black54),
+          ),
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: hint,
+                border: InputBorder.none,
+                hintStyle: const TextStyle(
+                  fontSize: 16, 
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black54),
+              ),
+              onChanged: (value) {
+                setState(() {});
+              },
+            ),
+          ),
+          Container(
+            width: 50,
+            height: 50,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.greenAccent, Colors.lightGreen],
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Text(unit, 
+                    style: const TextStyle(
+                      fontSize: 16, 
+                      fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
