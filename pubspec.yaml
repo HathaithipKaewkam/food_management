@@ -45,7 +45,7 @@ dependencies:
   iconsax: ^0.0.8
   http: ^1.2.2
   dotted_dashed_line: ^0.0.3
-  firebase_core: ^3.9.0  
+  firebase_core: ^3.11.0  
   firebase_auth: ^5.3.4  
   cloud_firestore: ^5.6.0  
   firebase_database: ^11.2.0  
@@ -56,6 +56,8 @@ dependencies:
   quickalert: ^1.1.0
   crypto: ^3.0.6
   google_sign_in: ^6.2.2
+  quick_actions: ^1.1.0
+  firebase_storage: ^12.4.2
 
 dev_dependencies:
   flutter_test:

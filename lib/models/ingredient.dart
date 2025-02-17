@@ -1,151 +1,145 @@
 class Ingredient {
-  final int ingrediantsId;
-  final String ingrediantsName;
-  final String category;
-  final String unit;
-  final int shelfLife; // อายุการเก็บรักษา (วัน)
-  final String storage;
-  final String imageStorage; // วิธีการเก็บรักษา
-  final DateTime expDate; // วันหมดอายุ
-  final double price; // ราคา
+  final String userId; // userId ของผู้ใช้
+  final String ingredientId; // รหัสวัตถุดิบ
+  final String ingredientsName; // ชื่อวัตถุดิบ
+  final String category; // หมวดหมู่วัตถุดิบ
+  final String storage; // วิธีการเก็บรักษา
   final int quantity; // ปริมาณ
-  final String source; // แหล่งที่มา
-  final String imageUrl; // URL รูปภาพ
-  bool isSelected; // สถานะการเลือก
+  final int minQuantity; // ปริมาณขั้นต่ำ
+  final String unit;
+  final String status; // สถานะ (เช่น วัตถุดิบที่หมดอายุ, ปกติ)
+  final double price; // ราคา
+  final DateTime expDate; // วันหมดอายุ
+  final DateTime purchaseDate; // วันซื้อ
+  final DateTime updateDate; // วันที่อัปเดตล่าสุด
+  final String source; // แหล่งที่มาจากหน้า Cart
+  final Map<String, bool> allergenInfo;
+  final String imageUrl;
+  bool isSelected;
+
+  static List<Ingredient> ingredientList = [];// ข้อมูลสารก่อภูมิแพ้
 
   Ingredient({
-    required this.ingrediantsId,
-    required this.ingrediantsName,
+    required this.userId,
+    required this.ingredientId,
+    required this.ingredientsName,
     required this.category,
-    required this.unit,
-    required this.shelfLife,
     required this.storage,
-    required this.imageStorage,
-    required this.expDate,
-    required this.price,
     required this.quantity,
+    required this.minQuantity,
+    required this.unit,
+    required this.status,
+    required this.price,
+    required this.expDate,
+    required this.purchaseDate,
+    required this.updateDate,
     required this.source,
+    required this.allergenInfo,
     required this.imageUrl,
-    this.isSelected = false, // ค่าเริ่มต้นเป็น false
+    this.isSelected = false,
   });
 
-  // Static list of ingredient data
-  static List<Ingredient> ingredientList = [
-    Ingredient(
-      ingrediantsId: 1,
-      ingrediantsName: 'Tomato',
-      category: 'Vegetable',
-      unit: 'kg',
-      shelfLife: 7,
-      storage: 'Fridge',
-      imageStorage: 'assets/images/fridge_stroage.png',
-      expDate: DateTime(2024, 12, 12),
-      price: 50.0,
-      quantity: 5,
-      source: 'Local Farm',
-      imageUrl: 'assets/images/tomato.png',
-    ),
-    Ingredient(
-      ingrediantsId: 2,
-      ingrediantsName: 'Milk',
-      category: 'Dairy',
-      unit: 'boxes',
-      shelfLife: 7,
-      storage: 'Fridge',
-      imageStorage: 'assets/images/fridge_stroage.png',
-      expDate: DateTime(2024, 11, 30),
-      price: 30.0,
-      quantity: 2,
-      source: 'Local Farm',
-      imageUrl: 'assets/images/milk.png',
-    ),
-    Ingredient(
-      ingrediantsId: 3,
-      ingrediantsName: 'Noodle',
-      category: 'Grains',
-      unit: 'pack',
-      shelfLife: 365,
-      storage: 'Pantry',
-      imageStorage: 'assets/images/pantry_stroage.png',
-      expDate: DateTime(2025, 6, 15),
-      price: 20.0,
-      quantity: 10,
-      source: 'Local Supplier',
-      imageUrl: 'assets/images/noodle.png',
-    ),
-    Ingredient(
-      ingrediantsId: 4,
-      ingrediantsName: 'Pork Chops',
-      category: 'Meat',
-      unit: 'piece',
-      shelfLife: 3,
-      storage: 'Freezer',
-      imageStorage: 'assets/images/freezer_stroage.png',
-      expDate: DateTime(2024, 12, 13),
-      price: 300.0,
-      quantity: 2,
-      source: 'Local Farm',
-      imageUrl: 'assets/images/pork.png',
-    ),
-    Ingredient(
-      ingrediantsId: 5,
-      ingrediantsName: 'Egg',
-      category: 'Dairy',
-      unit: 'unit',
-      shelfLife: 30,
-      storage: 'Fridge',
-      imageStorage: 'assets/images/fridge_stroage.png',
-      expDate: DateTime(2025, 11, 30),
-      price: 70.0,
-      quantity: 2,
-      source: 'Local Farm',
-      imageUrl: 'assets/images/egg.png',
-    ),
-  ];
+  // ฟังก์ชันแปลงข้อมูลจาก Map (ที่ได้จาก Firebase) ให้เป็น Ingredient object
+  factory Ingredient.fromMap(Map<String, dynamic> doc) {
+    return Ingredient(
+        userId: doc['userId'] ?? '',
+        ingredientId: doc['ingredientId'] ?? '',
+        ingredientsName: doc['ingredientName'] ?? 'Unknown',
+        category: doc['category'] ?? 'Unknown',
+        storage: doc['storage'] ?? 'Unknown',
+        quantity: doc['quantity'] ?? 0,
+        minQuantity: doc['minQuantity'] ?? 0,
+        unit: doc['unit'] ?? 'Kilograms (kg)',
+        status: doc['status'] ?? 'Unknown',
+        price: doc['price'] ?? 0.0,
+        expDate: doc['expDate'] != null
+            ? DateTime.tryParse(doc['expDate']) ?? DateTime.now()
+            : DateTime.now(),
+        purchaseDate: doc['purchaseDate'] != null
+            ? DateTime.tryParse(doc['purchaseDate']) ?? DateTime.now()
+            : DateTime.now(),
+        updateDate: doc['updateDate'] != null
+            ? DateTime.tryParse(doc['updateDate']) ?? DateTime.now()
+            : DateTime.now(),
+        source: doc['source'] ?? 'Unknown',
+        allergenInfo: Map<String, bool>.from(doc['allergenInfo'] ?? {}),
+        imageUrl: doc['imageUrl'] ?? '',
+        isSelected: doc['isSelected'] ?? false,);
+  }
 
-  // Method for getting selected ingredients
-  static List<Ingredient> addedToCartIngredients() {
-    return ingredientList.where((element) => element.isSelected).toList();
+
+  // ฟังก์ชันแปลงข้อมูลเป็น Map (เพื่อส่งไป Firebase)
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'ingredientId': ingredientId,
+      'ingredientName': ingredientsName,
+      'category': category,
+      'storage': storage,
+      'quantity': quantity,
+      'minQuantity': minQuantity,
+      'unit': unit,
+      'status': status,
+      'price': price,
+      'expDate': expDate.toIso8601String(),
+      'purchaseDate': purchaseDate.toIso8601String(),
+      'updateDate': updateDate.toIso8601String(),
+      'source': source,
+      'allergenInfo': allergenInfo,
+      'imageUrl': imageUrl, 
+      'isSelected': isSelected,
+    };
   }
 
   factory Ingredient.fromJson(Map<String, dynamic> json) {
     return Ingredient(
-      ingrediantsId: json['id'],
-      ingrediantsName: json['name'],
-      category: json['category'],
-      unit: json['unit'],
-      shelfLife: json['shelfLife'],
-      storage: json['storage'],
-      imageStorage:  json['imageUrl'],
-      expDate: DateTime.parse(json['expDate']),
-      price: json['price'].toDouble(),
-      quantity: json['quantity'],
-      source: json['source'],
-      imageUrl: json['imageUrl'],
+      userId: json['userId'] ?? '',
+      ingredientId: json['ingredientId'] ?? '',
+      ingredientsName: json['ingredientName'] ?? 'Unknown',
+      category: json['category'] ?? 'Unknown',
+      storage: json['storage'] ?? 'Unknown',
+      quantity: json['quantity'] ?? 0,
+      minQuantity: json['minQuantity'] ?? 0,
+      unit: json['unit'] ?? 'Kilograms (kg)',
+      status: json['status'] ?? 'Unknown',
+      price: (json['price'] ?? 0.0).toDouble(),
+      expDate: json['expDate'] != null
+          ? DateTime.tryParse(json['expDate']) ?? DateTime.now()
+          : DateTime.now(),
+      purchaseDate: json['purchaseDate'] != null
+          ? DateTime.tryParse(json['purchaseDate']) ?? DateTime.now()
+          : DateTime.now(),
+      updateDate: json['updateDate'] != null
+          ? DateTime.tryParse(json['updateDate']) ?? DateTime.now()
+          : DateTime.now(),
+      source: json['source'] ?? 'Unknown',
+      allergenInfo: Map<String, bool>.from(json['allergenInfo'] ?? {}),
+      imageUrl: json['imageUrl'] ?? '',
       isSelected: json['isSelected'] ?? false,
     );
   }
 
+  // ✅ ฟังก์ชันแปลง Ingredient -> JSON
   Map<String, dynamic> toJson() {
     return {
-      'id': ingrediantsId,
-      'name': ingrediantsName,
+      'userId': userId,
+      'ingredientId': ingredientId,
+      'ingredientName': ingredientsName,
       'category': category,
-      'unit': unit,
-      'shelfLife': shelfLife,
       'storage': storage,
-      'expDate': expDate.toIso8601String(),
-      'price': price,
       'quantity': quantity,
+      'minQuantity': minQuantity,
+      'unit': unit,
+      'status': status,
+      'price': price,
+      'expDate': expDate.toIso8601String(),
+      'purchaseDate': purchaseDate.toIso8601String(),
+      'updateDate': updateDate.toIso8601String(),
       'source': source,
+      'allergenInfo': allergenInfo,
       'imageUrl': imageUrl,
       'isSelected': isSelected,
     };
   }
 }
 
-void main() {
-  // เรียกใช้งาน static method
-  var selectedIngredients = Ingredient.addedToCartIngredients();
-  print(selectedIngredients);
-}

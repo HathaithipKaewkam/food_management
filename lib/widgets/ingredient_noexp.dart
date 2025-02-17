@@ -73,7 +73,7 @@ if (daysToExpiry < 0) {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        ingredient.ingrediantsName,
+                        ingredient.ingredientsName,
                         style: const TextStyle(
                           color: Colors.black,
                           fontWeight: FontWeight.bold,

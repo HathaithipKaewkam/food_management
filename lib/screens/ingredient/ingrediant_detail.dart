@@ -15,7 +15,7 @@ class IngredientDetailPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          ingredient.ingrediantsName, // ใช้ข้อมูลจาก object ingredient
+          ingredient.ingredientsName, // ใช้ข้อมูลจาก object ingredient
           style: const TextStyle(color: Colors.black),
         ),
         backgroundColor: Colors.white,
@@ -47,7 +47,7 @@ class IngredientDetailPage extends StatelessWidget {
                 children: [
                   // ชื่อวัตถุดิบ
                   Text(
-                    ingredient.ingrediantsName,
+                    ingredient.ingredientsName,
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,

@@ -1,5 +1,3 @@
-
-
 import 'package:food_project/models/ingredient.dart';
 
 class Recipe {
@@ -43,9 +41,10 @@ class Recipe {
   }
 
   // ตรวจสอบว่าส่วนผสมครบหรือไม่
-  bool hasAllIngredients() {
-    return ingredients.every((ingredient) => ingredient.ingredient.isSelected);
-  }
+  bool hasAllIngredients(List<Ingredient> ingredients) {
+  return ingredients.every((ingredient) => ingredient.isSelected);
+}
+
 
   // สร้างรายการสูตรอาหารตัวอย่าง
   static List<Recipe> recipeList = [
@@ -53,11 +52,13 @@ class Recipe {
       recipeId: 1,
       recipeName: 'Spaghetti Carbonara',
       description: 'Classic Italian pasta dish with creamy sauce.',
-      ingredients: [
-        IngredientUsage(ingredient: Ingredient.ingredientList[2], quantityUsed: 1.0),
-        IngredientUsage(ingredient: Ingredient.ingredientList[1], quantityUsed: 1.0),
-        IngredientUsage(ingredient: Ingredient.ingredientList[4], quantityUsed: 1.0), 
-      ],
+       ingredients: Ingredient.ingredientList != null && Ingredient.ingredientList.length > 4
+      ? [
+          IngredientUsage(ingredient: Ingredient.ingredientList[2], quantityUsed: 1.0),
+          IngredientUsage(ingredient: Ingredient.ingredientList[1], quantityUsed: 1.0),
+          IngredientUsage(ingredient: Ingredient.ingredientList[4], quantityUsed: 1.0),
+        ]
+      : [],
       instructions: [
         'Boil water in a large pot.',
         'Add pasta and cook according to package instructions.',
@@ -79,9 +80,11 @@ class Recipe {
       recipeId: 2,
       recipeName: 'Grilled Pork Chops',
       description: 'Juicy pork chops seasoned and grilled to perfection.',
-      ingredients: [
-        IngredientUsage(ingredient: Ingredient.ingredientList[3], quantityUsed: 2.0),
-      ],
+       ingredients: Ingredient.ingredientList != null && Ingredient.ingredientList.length > 3
+      ? [
+          IngredientUsage(ingredient: Ingredient.ingredientList[3], quantityUsed: 2.0),
+        ]
+      : [],
       instructions: [
         'Preheat your grill to medium-high heat.',
         'Season the pork chops with olive oil, salt, pepper, and your preferred spices.',
@@ -159,21 +162,20 @@ class IngredientUsage {
 
   IngredientUsage({required this.ingredient, required this.quantityUsed});
 
-    // ฟังก์ชันแปลง JSON -> IngredientUsage
+  // ✅ ฟังก์ชันแปลง JSON -> IngredientUsage
   factory IngredientUsage.fromJson(Map<String, dynamic> json) {
     return IngredientUsage(
-      ingredient: Ingredient.fromJson(json['ingredient']),
-      quantityUsed: json['quantityUsed'].toDouble(),
+      ingredient: Ingredient.fromJson(json['ingredient'] ?? {}),
+      quantityUsed: (json['quantityUsed'] ?? 0.0).toDouble(),
     );
   }
 
-  // ฟังก์ชันแปลง IngredientUsage -> JSON
+  // ✅ ฟังก์ชันแปลง IngredientUsage -> JSON
   Map<String, dynamic> toJson() {
     return {
       'ingredient': ingredient.toJson(),
       'quantityUsed': quantityUsed,
     };
   }
-
 }
 

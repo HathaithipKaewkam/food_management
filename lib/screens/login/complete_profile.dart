@@ -387,7 +387,8 @@ class _CompleteProfileState extends State<CompleteProfile> {
                     child: Text(unit, 
                     style: const TextStyle(
                       fontSize: 16, 
-                      fontWeight: FontWeight.bold)),
+                      fontWeight: FontWeight.bold)
+                      ),
           ),
         ],
       ),

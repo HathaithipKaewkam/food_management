@@ -75,7 +75,7 @@ class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
                   const SizedBox(width: 10),
                   // ชื่อวัตถุดิบ
                   Text(
-                    ingredient.ingrediantsName,
+                    ingredient.ingredientsName,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

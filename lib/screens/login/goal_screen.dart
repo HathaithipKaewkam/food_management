@@ -2,7 +2,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:food_project/screens/home/home_screen.dart';
+import 'package:food_project/screens/root_screen.dart';
 
 class GoalScreen extends StatefulWidget {
   const GoalScreen({super.key});
@@ -163,7 +163,7 @@ class _GoalScreenState extends State<GoalScreen> {
                               context,
                               MaterialPageRoute(
                               builder: (context) =>
-                                  HomeScreen(selectedGoal: selectedGoal),
+                                  RootPage(selectedGoal: selectedGoal),
                             ),      
                              );
                         },

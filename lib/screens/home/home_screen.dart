@@ -24,7 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Size size = MediaQuery.of(context).size;
 
     // ดึงรายการ Ingredient
-    List<Ingredient> ingredientList = Ingredient.ingredientList;
+    List<Ingredient> ingredientList = Ingredient.ingredientList ?? [];
+
 
     // Ingredient category
     List<String> ingredientTypes = [

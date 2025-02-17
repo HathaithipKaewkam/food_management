@@ -100,7 +100,7 @@ class _SignInScreenState extends State<SignInScreen> {
         Navigator.pushReplacement(
           context,
           PageTransition(
-            child: const RootPage(),
+            child: const RootPage(selectedGoal: '',),
             type: PageTransitionType.bottomToTop,
           ),
         );
@@ -286,7 +286,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           Navigator.pushReplacement(
                             context,
                             PageTransition(
-                              child: const RootPage(),
+                              child: const RootPage(selectedGoal: '',),
                               type: PageTransitionType.bottomToTop,
                             ),
                           );
