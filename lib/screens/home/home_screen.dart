@@ -1,11 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/screens/home/schedule_screen.dart';
 import 'package:food_project/screens/ingredient/ingrediant_detail.dart';
+import 'package:food_project/screens/ingredient/search_ingredient.dart';
 import 'package:food_project/widgets/ingredient_widget.dart';
 import 'package:page_transition/page_transition.dart';
-
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required selectedGoal});
@@ -15,86 +17,145 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int selectedIndex = 0; 
-  String userName = "Moodeng"; 
+  List<Ingredient> ingredientList = [];
+  bool isLoading = true;
+  int selectedIndex = 0;
+  String userName = "";
   String selectedType = 'Expire In 3 Days';
+  List<Ingredient> filteredIngredients = [];
+
+  List<String> ingredientTypes = [
+    'Expire In 3 Days',
+    'Expired Items',
+    'Running Out Of',
+  ];
+
+  Future<void> fetchUserIngredients() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('userIngredients')
+            .get();
+
+        print("✅ Fetched ${snapshot.docs.length} ingredients.");
+
+        setState(() {
+          ingredientList = snapshot.docs
+              .map((doc) {
+                final data =
+                    doc.data() as Map<String, dynamic>?; // แปลงเป็น Map
+                return data != null ? Ingredient.fromJson(data) : null;
+              })
+              .whereType<Ingredient>()
+              .toList(); // กรองค่า null ออก
+
+          filterIngredient();
+          print("🔍 Filtered Ingredients Count: ${filteredIngredients.length}");
+
+          isLoading = false;
+        });
+        print("🎉 Fetch complete! isLoading: $isLoading");
+      } catch (e) {
+        print("Error fetching ingredients: $e");
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+ void filterIngredient() {
+  setState(() {
+    print("📌 Selected Filter: $selectedType");
+    
+    for (var ingredient in ingredientList) {
+      print("📝 ${ingredient.ingredientsName} - Expiration Date: ${ingredient.expirationDate}");
+    }
+
+    if (selectedType == 'Expire In 3 Days') {
+      filteredIngredients = ingredientList.where((ingredient) {
+        return ingredient.expirationDate != null &&
+            ingredient.expirationDate!.isAfter(DateTime.now()) &&
+            ingredient.expirationDate!.isBefore(DateTime.now().add(const Duration(days: 3)));
+      }).toList();
+    } else if (selectedType == 'Expired Items') {
+      filteredIngredients = ingredientList.where((ingredient) {
+        print("🔍 Checking expired: ${ingredient.ingredientsName} - ${ingredient.expirationDate}");
+        return ingredient.expirationDate != null &&
+            ingredient.expirationDate!.isBefore(DateTime.now());
+      }).toList();
+    } else {
+      filteredIngredients = ingredientList.where((ingredient) {
+        return (ingredient.quantity ?? 0) <= (ingredient.minQuantity);
+      }).toList();
+    }
+
+    print("🔍 Filtered Ingredients Count: ${filteredIngredients.length}");
+  });
+}
+
+
+  Future<void> _fetchUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          setState(() {
+            userName = userDoc['username'] ?? '';
+          });
+        }
+      } catch (e) {
+        print('Error fetching user data: $e');
+      }
+    } else {
+      print("User not logged in");
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserName();
+    fetchUserIngredients();
+  }
 
   @override
   Widget build(BuildContext context) {
+    print("isLoading: $isLoading");
     Size size = MediaQuery.of(context).size;
-
-    // ดึงรายการ Ingredient
-    List<Ingredient> ingredientList = Ingredient.ingredientList ?? [];
-
-
-    // Ingredient category
-    List<String> ingredientTypes = [
-      'Expire In 3 Days',
-      'Expired Items',
-      'Running Out Of',
-    ];
-    List<Ingredient> filteredIngredients;
-    if (selectedType == 'Expire In 3 Days') {
-      filteredIngredients = ingredientList
-          .where((ingredient) => ingredient.expDate.isAfter(DateTime.now()) && ingredient.expDate.isBefore(DateTime.now().add(Duration(days: 3))))
-          .toList();
-    } else if (selectedType == 'Expired Items') {
-      filteredIngredients = ingredientList
-          .where((ingredient) => ingredient.expDate.isBefore(DateTime.now()))
-          .toList();
-    } else {
-      filteredIngredients = ingredientList
-          .where((ingredient) => ingredient.quantity < 5) 
-          .toList();
-    }
-
-
-    
 
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.only(left: 0),
+        padding: const EdgeInsets.only(top :20 , left: 0),
         child: ListView(
           children: [
-            // ส่วน Header ที่ไม่ต้องเลื่อน
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 10),
                   Text(
                     'Hi, $userName',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Constants.blackColor,
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.calendar_month,
-                        size: 30,
-                        color: Constants.blackColor,
-                      ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ScheduleScreen(),
-                          ),
-                        );
-                      },
+                     color: Colors.black,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 10),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.only(left: 12, top: 10),
               child: Text(
                 'Ingredient Summary',
                 style: TextStyle(
@@ -104,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 15),
 
             // ส่วนหมวดหมู่ (ต้องเลื่อน)
             SizedBox(
@@ -119,10 +180,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         selectedIndex = index;
                         selectedType = ingredientTypes[index];
                       });
+                      filterIngredient();  
                     },
+
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
                         color: selectedIndex == index
                             ? Color(0xFF78d454)
@@ -144,7 +208,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: selectedIndex == index
                                 ? Colors.white
                                 : Colors.black,
-                                
                           ),
                         ),
                       ),
@@ -153,7 +216,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             ),
-            const SizedBox(height: 18), // เพิ่มช่องว่างระหว่างหมวดหมู่และช่องค้นหา
+            const SizedBox(
+                height: 18), // เพิ่มช่องว่างระหว่างหมวดหมู่และช่องค้นหา
 
             // ช่องค้นหา + ไอคอนสี่เหลี่ยมมน
             Padding(
@@ -166,7 +230,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.grey.shade300, width: 1),
+                        border:
+                            Border.all(color: Colors.grey.shade300, width: 1),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.grey.withOpacity(0.1),
@@ -187,7 +252,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             Icons.search,
                             color: Colors.grey.shade500,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 10),
                         ),
                         onChanged: (value) {
                           print('ค้นหา: $value');
@@ -195,7 +261,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 7), // เพิ่มช่องว่างระหว่างช่องค้นหาและไอคอน
+                  const SizedBox(
+                      width: 7), // เพิ่มช่องว่างระหว่างช่องค้นหาและไอคอน
                   // ไอคอนในรูปสี่เหลี่ยมมน
                   Container(
                     decoration: BoxDecoration(
@@ -222,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                   Container(
+                  Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
@@ -251,12 +318,41 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             SizedBox(height: 10),
 
-            // ส่วนที่ต้องเลื่อน
-            ListView.builder(
+            // show ingredient
+            isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : filteredIngredients.isEmpty
+              ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(height: 55),
+                    Image.asset(
+                      'assets/images/case.png',
+                     width: 250,
+                     height: 250,
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      selectedType == 'Expire In 3 Days'
+                        ?  "You don't have ingredients expire in 3 days"
+                        : selectedType == 'Expired Items'
+                          ? "You don't have ingredient expired"
+                          : "You don't have ingredients running out of",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold
+                      ),
+                    ),
+                  ],
+                ))
+              : ListView.builder(
               physics: const NeverScrollableScrollPhysics(),
               shrinkWrap: true,
               itemCount: filteredIngredients.length,
-              itemBuilder: (context, index) {
+              itemBuilder: (BuildContext context, int index) {
+                final ingredient = filteredIngredients[index];
                 return GestureDetector(
                   onTap: () {
                     Navigator.push(
@@ -271,8 +367,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   child: IngredientWidget(
                     index: index,
-                     ingredientList: filteredIngredients,
-                     IngredientList: const [],
+                    ingredientList: filteredIngredients,
+                    IngredientList: const [],
                   ),
                 );
               },

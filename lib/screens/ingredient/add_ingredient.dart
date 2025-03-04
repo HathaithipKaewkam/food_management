@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/screens/ingredient/ingredient_screen.dart';
+import 'package:food_project/screens/root_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:quickalert/models/quickalert_type.dart';
@@ -55,12 +56,13 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
         TextEditingController(text: widget.ingredient?['category'] ?? '');
     _unitController =
         TextEditingController(text: widget.ingredient?['unit'] ?? '');
-    _priceController =
-        TextEditingController(text: widget.ingredient?['price'] ?? '0.0'.toString());
-    _quantityController = TextEditingController(
-        text: widget.ingredient?['quantity']?.toString() ?? '1');
-    _minQuantityController = TextEditingController(
-        text: widget.ingredient?['minQuantity']?.toString() ?? '1');
+    _priceController = TextEditingController(
+        text: widget.ingredient?['price'] ?? '0.0'.toString());
+    String initialQuantity = widget.ingredient?['quantity']?.toString() ?? "1";
+    _quantityController = TextEditingController(text: initialQuantity);
+    String initialMinQuantity =
+        widget.ingredient?['minQuantity']?.toString() ?? "1";
+    _minQuantityController = TextEditingController(text: initialMinQuantity);
     _shelflifeController = TextEditingController(
         text: widget.ingredient?['shelflife']?.toString() ?? '');
     _storageController =
@@ -80,14 +82,13 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
         recipeTypes.contains(storage) ? recipeTypes.indexOf(storage) : 0;
 
     if (widget.ingredient?['expirationDate'] != null) {
-    selectedDate = DateTime.tryParse(widget.ingredient!['expirationDate']);
-  } else {
-    // คำนวณวันหมดอายุอัตโนมัติจาก shelflife
-    int shelflife = int.tryParse(_shelflifeController.text) ?? 0;
-    selectedDate = shelflife > 0 ? DateTime.now().add(Duration(days: shelflife)) : null;
+      selectedDate = DateTime.tryParse(widget.ingredient!['expirationDate']);
+    } else {
+      int shelflife = int.tryParse(_shelflifeController.text) ?? 0;
+      selectedDate =
+          shelflife > 0 ? DateTime.now().add(Duration(days: shelflife)) : null;
+    }
   }
-  
-}
 
   void dispose() {
     _nameController.dispose();
@@ -103,8 +104,9 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
 
   List<String> recipeTypes = ['Fridge', 'Freezer', 'Pantry'];
 
-
   Future<void> _saveIngredient(Map<String, dynamic> newIngredient) async {
+  int shelflife =
+      int.tryParse(newIngredient['shelflife']?.toString() ?? '0') ?? 0;
   if (!_formKey.currentState!.validate()) return;
 
   try {
@@ -114,97 +116,228 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
         .doc(uid)
         .collection('userIngredients');
 
+    CollectionReference historyCollection = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('ingredientsHistory'); // 🟢 เพิ่ม Collection ประวัติ
+
     QuerySnapshot existingIngredients = await userIngredients
-        .where('ingredientsName', isEqualTo: _nameController.text)
+        .where('ingredientsName', isEqualTo: newIngredient['ingredientsName'])
         .get();
 
     if (existingIngredients.docs.isNotEmpty) {
-      // 📌 ถ้ามีวัตถุดิบอยู่แล้ว → เพิ่มจำนวน + อัปเดตวันหมดอายุ
       DocumentSnapshot doc = existingIngredients.docs.first;
+
       await userIngredients.doc(doc.id).update({
-        'quantity': FieldValue.increment(int.parse(_quantityController.text)),
-        'expirationDate': selectedDate?.toIso8601String() ?? doc['expirationDate'],
+        'quantity': FieldValue.increment(newIngredient['quantity']),
+        'expirationDate': newIngredient['expirationDate'] ??
+            (shelflife > 0
+                ? DateTime.now()
+                    .add(Duration(days: shelflife))
+                    .toIso8601String()
+                : doc['expirationDate'] ??
+                    DateTime.now().add(Duration(days: 7)).toIso8601String()),
+        'updateDate': Timestamp.now(),
       });
+
+      // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
+      await historyCollection.add({
+        'ingredientsName': newIngredient['ingredientsName'],
+        'unit' : newIngredient['unit'],
+        'quantityAdded': newIngredient['quantity'],
+        'addedDate': Timestamp.now(), 
+        'source' : 'home',
+        'imageUrl': newIngredient['imageUrl'] ?? '',
+        'storage' : newIngredient['storage'],
+        
+      });
+
     } else {
-      // 📌 ถ้าไม่มี → เพิ่มวัตถุดิบใหม่
-      await userIngredients.add({
-        'ingredientsName': _nameController.text,
-        'storage': _storageController.text,
-        'unit': _unitController.text,
-        'quantity': int.parse(_quantityController.text),
-        'minQuantity': int.parse(_minQuantityController.text),
-        'price': double.parse(_priceController.text),
-        'shelflife': int.tryParse(_shelflifeController.text) ?? 0,
-        'expirationDate': selectedDate?.toIso8601String() ?? '',
-        'imageUrl': imageUrl,
-        'allergenInfo': selectedAllergens,
-      });
+      newIngredient['createDate'] = Timestamp.now(); 
 
-      // แสดงการแจ้งเตือนสำเร็จ
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.success,
-        title: 'Success',
-        text: 'Ingredient saved successfully!',
-        autoCloseDuration: Duration(seconds: 2),
-      );
+      DocumentReference newDoc = await userIngredients.add(newIngredient);
 
-      // เลื่อนการ pop context หลังจากแสดง QuickAlert
-      Future.delayed(Duration(seconds: 2), () {
-        Navigator.pop(context);
+      // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
+      await historyCollection.add({
+        'ingredientsName': newIngredient['ingredientsName'],
+        'unit' : newIngredient['unit'],
+        'quantityAdded': newIngredient['quantity'],
+        'addedDate': Timestamp.now(),
+        'source' : 'home',
+        'imageUrl': newIngredient['imageUrl'] ?? '',
+        'storage' : newIngredient['storage'],
+        
       });
     }
   } catch (e) {
     print("❌ Error saving ingredient: $e");
-
-    // แสดงการแจ้งเตือนข้อผิดพลาด
-    QuickAlert.show(
-      context: context,
-      type: QuickAlertType.error,
-      title: 'Error',
-      text: 'Failed to save ingredient. Please try again.',
-      autoCloseDuration: Duration(seconds: 2),
-    );
+    throw e;
   }
 }
 
+
+  Future<List<Ingredient>> fetchIngredients() async {
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+    QuerySnapshot snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('userIngredients')
+        .get();
+
+    return snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return Ingredient.fromJson(data);
+    }).toList();
+  }
+
+  void showSuccessAlert(
+      BuildContext context, List<Ingredient> updatedIngredientList) {
+    QuickAlert.show(
+      context: context,
+      type: QuickAlertType.success,
+      title: 'Success',
+      text: 'Ingredient saved successfully!',
+      confirmBtnText: 'OK',
+      onConfirmBtnTap: () {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RootPage(
+                initialIndex: 1), // ไป RootPage และเริ่มที่ IngredientScreen
+          ),
+          (route) => false, // ลบ Stack ทั้งหมด
+        );
+      },
+    );
+  }
+
+  void onAddIngredient() async {
+    int shelflife = int.tryParse(_shelflifeController.text) ?? 0;
+
+    DateTime calculatedExpirationDate = selectedDate ??
+        DateTime.now().add(Duration(days: shelflife > 0 ? shelflife : 7));
+
+
+    Map<String, dynamic> newIngredient = {
+      'ingredientsName': _nameController.text,
+      'storage': _storageController.text,
+      'unit': _unitController.text,
+      'quantity': int.parse(_quantityController.text),
+      'minQuantity': int.parse(_minQuantityController.text),
+      'price': double.parse(_priceController.text),
+      'shelflife': shelflife,
+      'expirationDate': calculatedExpirationDate.toIso8601String(),
+      'imageUrl': imageUrl,
+      'allergenInfo': selectedAllergens,
+    };
+
+    List<String> userAllergies = await fetchUserAllergies("user123");
+
+    List<String> matchedAllergens = [];
+    if (newIngredient['allergenInfo'] != null) {
+      matchedAllergens = List<String>.from(newIngredient['allergenInfo'])
+          .where((allergen) => userAllergies.contains(allergen))
+          .toList();
+    }
+
+    if (matchedAllergens.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text("⚠️ Warning: Allergens Detected"),
+            content: Text(
+                "This ingredient contains: ${matchedAllergens.join(', ')}. Are you sure you want to add it?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _saveIngredient(newIngredient);
+                  List<Ingredient> updatedIngredientList =
+                      await fetchIngredients();
+                  showSuccessAlert(context, updatedIngredientList);
+                },
+                child: Text("Continue"),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      await _saveIngredient(newIngredient);
+      List<Ingredient> updatedIngredientList = await fetchIngredients();
+      showSuccessAlert(context, updatedIngredientList);
+    }
+  }
+
+  void _onPressedAdd() async {
+
+    DateTime expirationDate = _expirationDate ??
+        (int.tryParse(_shelflifeController.text) != null
+            ? DateTime.now()
+                .add(Duration(days: int.parse(_shelflifeController.text)))
+            : DateTime.now().add(Duration(days: 7)));
+
+    
+
+    Map<String, dynamic> newIngredient = {
+      'ingredientsName': _nameController.text,
+      'storage': _storageController.text,
+      'unit': _unitController.text,
+      'quantity': int.parse(_quantityController.text),
+      'minQuantity': int.parse(_minQuantityController.text),
+      'price': double.parse(_priceController.text),
+      'expirationDate': expirationDate.toIso8601String(),
+      'imageUrl': imageUrl,
+      'allergenInfo': selectedAllergens,
+    };
+
+    await _saveIngredient(newIngredient);
+    List<Ingredient> updatedIngredientList = await fetchIngredients();
+    showSuccessAlert(context, updatedIngredientList);
+  }
 
   // 🔹 ฟังก์ชันเลือกวันหมดอายุ
   Future<void> _selectDate(BuildContext context) async {
-  final DateTime? pickedDate = await showDatePicker(
-    context: context,
-    initialDate: selectedDate ?? DateTime.now(),
-    firstDate: DateTime.now(),  
-    lastDate: DateTime(2100),
-    builder: (BuildContext context, Widget? child) {
-      return Theme(
-        data: ThemeData.light().copyWith( // ใช้ Theme ที่ต้องการ
-          primaryColor: Color(0xFFb2e6b2),   // สีของการเลือกวันที่
-          primaryColorLight: Colors.white, // สีพื้นหลังของปฏิทิน
-          dialogBackgroundColor: Colors.white, // สีพื้นหลังของกล่องเลือกวัน
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.black, 
-            ),
-          ), colorScheme: ColorScheme.fromSwatch().copyWith(
-            primary: Color(0xFFb2e6b2),
-            onSurface: Colors.black, 
-            surface: Colors.white,)
-        ),
-        child: child!,
-      );
-    },
-  );
-  ;
-
-  if (pickedDate != null) {
-    setState(() {
-      selectedDate = pickedDate;
-      int diffDays = pickedDate.difference(DateTime.now()).inDays;
-      _shelflifeController.text = diffDays.toString();  
-    });
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: selectedDate ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+              // ใช้ Theme ที่ต้องการ
+              primaryColor: Color(0xFFb2e6b2), // สีของการเลือกวันที่
+              primaryColorLight: Colors.white, // สีพื้นหลังของปฏิทิน
+              dialogBackgroundColor: Colors.white, // สีพื้นหลังของกล่องเลือกวัน
+              textButtonTheme: TextButtonThemeData(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.black,
+                ),
+              ),
+              colorScheme: ColorScheme.fromSwatch().copyWith(
+                primary: Color(0xFFb2e6b2),
+                onSurface: Colors.black,
+                surface: Colors.white,
+              )),
+          child: child!,
+        );
+      },
+    );
+    ;
+    if (pickedDate != null && pickedDate != selectedDate) {
+      setState(() {
+        selectedDate = pickedDate;
+        _expirationDate = pickedDate;
+      });
+      print("📅 User เลือกวันหมดอายุ: $_expirationDate");
+    }
   }
-}
 
   Widget _buildDatePicker(BuildContext context) {
     return Container(
@@ -245,89 +378,23 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
     );
   }
 
+  Future<List<String>> fetchUserAllergies(String userId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('userAllergies')
+          .doc(userId)
+          .get();
 
-
-
-Future<List<String>> fetchUserAllergies(String userId) async {
-  try {
-    final doc = await FirebaseFirestore.instance
-        .collection('userAllergies')
-        .doc(userId)
-        .get();
-
-    if (doc.exists) {
-      return List<String>.from(doc.data()?['allergies'] ?? []);
-    } else {
+      if (doc.exists) {
+        return List<String>.from(doc.data()?['allergies'] ?? []);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      print("❌ Error fetching user allergies: $e");
       return [];
     }
-  } catch (e) {
-    print("❌ Error fetching user allergies: $e");
-    return [];
   }
-}
-
-void onAddIngredient() async {
-  // สร้างข้อมูลวัตถุดิบใหม่จากการกรอกฟอร์ม
-  Map<String, dynamic> newIngredient = {
-    'ingredientsName': _nameController.text,
-    'storage': _storageController.text,
-    'unit': _unitController.text,
-    'quantity': int.parse(_quantityController.text),
-    'minQuantity': int.parse(_minQuantityController.text),
-    'price': double.parse(_priceController.text),
-    'expirationDate': _expirationDate?.toIso8601String(),
-    'imageUrl': imageUrl,
-    'allergenInfo': selectedAllergens,
-  };
-
-  // ดึงข้อมูลสารก่อภูมิแพ้ของผู้ใช้
-  List<String> userAllergies = await fetchUserAllergies("user123");
-
-  // ตรวจสอบสารก่อภูมิแพ้ที่เกี่ยวข้องกับวัตถุดิบ
-  List<String> matchedAllergens = [];
-  if (newIngredient['allergenInfo'] != null) {
-    matchedAllergens = List<String>.from(newIngredient['allergenInfo'])
-        .where((allergen) => userAllergies.contains(allergen))
-        .toList();
-  }
-
-  if (matchedAllergens.isNotEmpty) {
-    // แสดงการแจ้งเตือนถ้ามีสารก่อภูมิแพ้
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("⚠️ Warning: Allergens Detected"),
-          content: Text("This ingredient contains: ${matchedAllergens.join(', ')}. Are you sure you want to add it?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () {
-                _saveIngredient(newIngredient); // บันทึกข้อมูลวัตถุดิบ
-                Navigator.of(context).pop();
-              },
-              child: Text("Continue"),
-            ),
-          ],
-        );
-      },
-    );
-  } else {
-    // ถ้าไม่มีสารก่อภูมิแพ้, บันทึกข้อมูลทันที
-    _saveIngredient(newIngredient);
-  }
-}
-
-
-
-
-
-
-
- 
 
   Future<void> _pickImage(ImageSource source) async {
     final pickedFile = await ImagePicker().pickImage(source: source);
@@ -351,24 +418,6 @@ void onAddIngredient() async {
     await storageRef.putFile(imageFile);
     return await storageRef.getDownloadURL();
   }
-
-  void _onPressedAdd() {
-  Map<String, dynamic> newIngredient = {
-    'ingredientsName': _nameController.text,
-    'storage': _storageController.text,
-    'unit': _unitController.text,
-    'quantity': int.parse(_quantityController.text),
-    'minQuantity': int.parse(_minQuantityController.text),
-    'price': double.parse(_priceController.text),
-    'expirationDate': _expirationDate?.toIso8601String(),
-    'imageUrl': imageUrl,
-    'allergenInfo': selectedAllergens,
-  };
-
-  setState(() {
-    _saveIngredient(newIngredient);
-  });
-}
 
   @override
   Widget build(BuildContext context) {
@@ -688,35 +737,49 @@ void onAddIngredient() async {
                         Expanded(
                           flex: 1,
                           child: TextField(
-                            controller: _quantityController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Color(0xFFf8f8f7),
-                              hintText: "1",
-                              hintStyle: TextStyle(fontWeight: FontWeight.bold),
-                              border: OutlineInputBorder(
-                                borderSide: BorderSide.none,
-                                borderRadius: BorderRadius.circular(10),
+                              controller: _quantityController,
+                              keyboardType: TextInputType.numberWithOptions(
+                                  decimal: true),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Color(0xFFf8f8f7),
+                                hintText: "1",
+                                hintStyle:
+                                    TextStyle(fontWeight: FontWeight.bold),
+                                border: OutlineInputBorder(
+                                  borderSide: BorderSide.none,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
-                            ),
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            onChanged: (value) {
-                              if (int.tryParse(value) != null &&
-                                  int.parse(value) <= 0) {
-                                _quantityController.text = '1';
-                                _quantityController.selection =
-                                    TextSelection.fromPosition(TextPosition(
-                                        offset:
-                                            _quantityController.text.length));
-                              }
-                            },
-                          ),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r'^\d*\.?\d*$')),
+                              ],
+                              onTap: () {
+                                
+                                  _quantityController.clear();
+                                  
+                              
+                              },
+                              onChanged: (value) {
+                                if (value == ".") {
+                                  _quantityController.text = "0.";
+                                  _quantityController.selection =
+                                      TextSelection.collapsed(offset: 2);
+                                }
+                              },
+                              onEditingComplete: () {
+                                if (_quantityController.text.isEmpty ||
+                                    double.tryParse(_quantityController.text) ==
+                                        null) {
+                                  setState(() {
+                                    _quantityController.text = "1.0";
+                                  });
+                                }
+                              }),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -815,35 +878,50 @@ void onAddIngredient() async {
                         Expanded(
                           flex: 1,
                           child: TextField(
-                            controller: _minQuantityController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Color(0xFFf8f8f7),
-                              hintText: "1",
-                              hintStyle: TextStyle(fontWeight: FontWeight.bold),
-                              border: OutlineInputBorder(
-                                borderSide: BorderSide.none,
-                                borderRadius: BorderRadius.circular(10),
+                              controller: _minQuantityController,
+                              keyboardType: TextInputType.numberWithOptions(
+                                  decimal: true),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Color(0xFFf8f8f7),
+                                hintText: "1",
+                                hintStyle:
+                                    TextStyle(fontWeight: FontWeight.bold),
+                                border: OutlineInputBorder(
+                                  borderSide: BorderSide.none,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
-                            ),
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            onChanged: (value) {
-                              if (int.tryParse(value) != null &&
-                                  int.parse(value) <= 0) {
-                                _minQuantityController.text = '1';
-                                _minQuantityController.selection =
-                                    TextSelection.fromPosition(TextPosition(
-                                        offset:
-                                            _quantityController.text.length));
-                              }
-                            },
-                          ),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r'^\d*\.?\d*$')),
+                              ],
+                              onTap: () {
+                                
+                                  _minQuantityController.clear();
+                                  
+                                },
+                              
+                              onChanged: (value) {
+                                if (value == ".") {
+                                  _minQuantityController.text = "0.";
+                                  _minQuantityController.selection =
+                                      TextSelection.collapsed(offset: 2);
+                                }
+                              },
+                              onEditingComplete: () {
+                                if (_minQuantityController.text.isEmpty ||
+                                    double.tryParse(
+                                            _minQuantityController.text) ==
+                                        null) {
+                                  setState(() {
+                                    _minQuantityController.text = "1.0";
+                                  });
+                                }
+                              }),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -928,9 +1006,11 @@ void onAddIngredient() async {
                       const SizedBox(height: 10),
                       TextFormField(
                         controller: _priceController,
-                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        keyboardType:
+                            TextInputType.numberWithOptions(decimal: true),
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d{0,2}'))
                         ],
                         decoration: InputDecoration(
                           filled: true,
@@ -978,10 +1058,10 @@ void onAddIngredient() async {
                               selectedColor: Color(0xFFb2e6b2),
                               backgroundColor: Colors.grey[200],
                               labelStyle: TextStyle(
-                              color: selectedAllergens.contains(allergen)
-                                  ? Colors.black  
-                                  : Colors.black, 
-                            ),
+                                color: selectedAllergens.contains(allergen)
+                                    ? Colors.black
+                                    : Colors.black,
+                              ),
                               onSelected: (bool selected) {
                                 setState(() {
                                   if (selected) {

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:intl/intl.dart';
-import 'package:page_transition/page_transition.dart';
 
 
-class IngredientNoexp extends StatelessWidget {
+
+class HistoryIngredientShow extends StatelessWidget {
   final Ingredient ingredient;
 
-  IngredientNoexp({required this.ingredient});
+  HistoryIngredientShow({required this.ingredient});
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +31,7 @@ if (daysToExpiry < 0) {
     }
 
   if (daysToExpiry < 0) {
-      return SizedBox.shrink(); // หากหมดอายุแล้วไม่แสดง
+      return SizedBox.shrink(); 
     }
 
     return Padding(
@@ -40,21 +40,25 @@ if (daysToExpiry < 0) {
         crossAxisAlignment: CrossAxisAlignment.start, 
         children: [
           Container(
-            width: 100,
-            height: 100,
+            width: 80,
+            height: 110,
             decoration: BoxDecoration(
               color: Color(0xFFe6ebf1),
               borderRadius: BorderRadius.circular(16),
               image: DecorationImage(
                 image: NetworkImage(ingredient.imageUrl),
+                fit: BoxFit.none,
+                scale: 7.0,
+                alignment: Alignment.center,
               ),
             ),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 7),
           Flexible(
             child: Container(
-              height: 100,
+              height: 110,
               padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(right: 14),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -81,7 +85,7 @@ if (daysToExpiry < 0) {
                         ),
                       ),
                       Text(
-                        '${ingredient.quantity} ${ingredient.unit}',
+                        '${ingredient.quantityAdded} ${ingredient.unit}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
@@ -91,6 +95,43 @@ if (daysToExpiry < 0) {
                     ],
                   ),
                   const SizedBox(height: 5),
+                  //source
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+                              children: [
+                                // Source
+                                Row(
+                                  children: [
+                                    Image.asset(
+                                      ingredient.source == 'home' 
+                                        ? 'assets/images/home_history.png'  
+                                        : 'assets/images/cart_history.png',
+                                      width: 18, 
+                                      height: 18,
+                                    ),
+                                    const SizedBox(width: 5), 
+                                    Text(
+                                      ingredient.source == 'home' ? 'Home' : ingredient.source,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                // Storage
+                                Text(
+                                  ingredient.storage,
+                                  style: const TextStyle(
+                                    fontSize: 14.0,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                  const SizedBox(height: 7),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -100,14 +141,6 @@ if (daysToExpiry < 0) {
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: expiryColor,
-                        ),
-                      ),
-                      Text(
-                        ingredient.storage,
-                        style: const TextStyle(
-                          fontSize: 14.0,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/models/ingredient.dart';
 
-
 class IngredientDetailPage extends StatelessWidget {
-  final Ingredient ingredient; // เปลี่ยนเป็นรับวัตถุ Ingredient แทน
+  final Ingredient ingredient;
 
   const IngredientDetailPage({super.key, required this.ingredient});
 
@@ -13,130 +13,87 @@ class IngredientDetailPage extends StatelessWidget {
     Size size = MediaQuery.of(context).size;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          ingredient.ingredientsName, // ใช้ข้อมูลจาก object ingredient
-          style: const TextStyle(color: Colors.black),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0.0,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: Padding(
+        padding: const EdgeInsets.only(top: 20, left: 10),
+        child: ListView(
           children: [
-            // ภาพส่วนหัว
-            Container(
-              width: size.width,
-              height: size.height * 0.4,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage(ingredient.imageUrl),
-                  fit: BoxFit.cover,
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  icon: FaIcon(FontAwesomeIcons.arrowLeft),
+                  color: Colors.black,
+                  iconSize: 20,
                 ),
-              ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () {},
+                  icon: FaIcon(FontAwesomeIcons.basketShopping),
+                  color: Colors.black,
+                  iconSize: 20,
+                ),
+                IconButton(
+                  onPressed: () {},
+                  icon: FaIcon(FontAwesomeIcons.trash),
+                  color: Colors.black,
+                  iconSize: 20,
+                ),
+                IconButton(
+                  onPressed: () {},
+                  icon: FaIcon(FontAwesomeIcons.pencil),
+                  color: Colors.black,
+                  iconSize: 20,
+                )
+              ],
             ),
-            const SizedBox(height: 16),
-            // รายละเอียด
+            const SizedBox(height: 10),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.only(left: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ชื่อวัตถุดิบ
                   Text(
                     ingredient.ingredientsName,
                     style: const TextStyle(
-                      fontSize: 24,
+                      color: Colors.black,
+                      fontSize: 30,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  // หมวดหมู่
-                  Text(
-                    "Category: ${ingredient.category}",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
-                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 5),
+            Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Image.network(
+                    ingredient.imageUrl,
+                    fit: BoxFit.contain,
+                    width: 40,
+                    height: 60,
                   ),
-                  const SizedBox(height: 8),
-                  // วันที่หมดอายุ
+                ],
+              ),
+            ),
+            const SizedBox(width: 5),
+            Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    "Expiry Date: ${ingredient.expDate}",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Constants.primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // ปริมาณและหน่วย
-                  Text(
-                    "Quantity: ${ingredient.quantity} ${ingredient.unit}",
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  // ราคา
-                  Text(
-                    "Price: \$${ingredient.price.toStringAsFixed(2)}",
+                    ingredient.category,
                     style: const TextStyle(
-                      fontSize: 16,
+                      color: Colors.black,
+                      fontSize: 30,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // ปุ่มดำเนินการ
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            // การดำเนินการเมื่อกดปุ่ม Add to Cart
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Added to cart!'),
-                              ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Constants.primaryColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: const Text("Add to Cart"),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            // การดำเนินการเมื่อกดปุ่ม Remove
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Removed from cart!'),
-                              ),
-                            );
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: Constants.primaryColor,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Text(
-                            "Remove",
-                            style: TextStyle(color: Constants.primaryColor),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
                 ],
               ),
             ),

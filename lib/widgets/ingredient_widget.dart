@@ -19,9 +19,9 @@ class IngredientWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ingredient = ingredientList[index];
-    String formattedDate = DateFormat('dd-MM-yyyy').format(ingredient.expDate);
+    String formattedDate = DateFormat('dd-MM-yyyy').format(ingredient.expirationDate);
     final DateTime now = DateTime.now();
-    final DateTime expiryDate = ingredient.expDate;
+    final DateTime expiryDate = ingredient.expirationDate;
     final int daysToExpiry = expiryDate.difference(now).inDays;
 
     String expiryText;
@@ -163,7 +163,7 @@ class IngredientWidget extends StatelessWidget {
               Container(
                 width: 70.0,
                 height: 70.0,
-                child: Image.asset(
+                child: Image.network(
                   ingredient.imageUrl ?? "assets/images/default.png",
                   fit: BoxFit.contain,
                 ),

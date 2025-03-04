@@ -10,10 +10,16 @@ import 'package:food_project/screens/ingredient/search_ingredient.dart';
 import 'package:food_project/screens/profile_screen.dart';
 import 'package:food_project/screens/recipe/recipe_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RootPage extends StatefulWidget {
   final String selectedGoal;
-  const RootPage({super.key, required this.selectedGoal});
+  final int initialIndex;
+   const RootPage({
+    Key? key, 
+    this.selectedGoal = '', 
+    this.initialIndex = 0,
+  }) : super(key: key);
 
   @override
   State<RootPage> createState() => _RootPageState();
@@ -26,6 +32,7 @@ class _RootPageState extends State<RootPage> {
   @override
   void initState() {
     super.initState();
+    _bottomNavIndex = widget.initialIndex;
     checkIfUserIsNew().then((isNew) {
       setState(() {
         isNewUser = isNew;
@@ -41,30 +48,39 @@ class _RootPageState extends State<RootPage> {
   }
 
   /// ✅ ตรวจสอบว่าผู้ใช้มีวัตถุดิบหรือไม่
-  Future<bool> checkIfUserIsNew() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return false;
+Future<bool> checkIfUserIsNew() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return false;
 
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
+  // ดึงค่าจาก SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+  bool? isNewUser = prefs.getBool('isNewUser');
 
-    if (!userDoc.exists) {
-      return true; // ถ้าไม่มีข้อมูล user ถือว่าเป็น user ใหม่
-    }
-
-    // เช็คว่ามีวัตถุดิบใน collection 'ingredients' หรือไม่
-    final ingredientDocs = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('ingredients')
-        .get();
-
-    return ingredientDocs.docs.isEmpty; // ถ้าไม่มีวัตถุดิบเลยถือว่าเป็น user ใหม่
+  // ถ้ามีการตั้งค่าการตรวจสอบ user ใหม่แล้ว
+  if (isNewUser != null) {
+    return isNewUser;
   }
 
-  /// ✅ Pop-up แจ้งให้เพิ่มวัตถุดิบ
+  // ตรวจสอบจาก Firestore ว่าผู้ใช้มีวัตถุดิบหรือไม่
+  final userDoc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(user.uid)
+      .collection('userIngredients')
+      .get();
+
+  bool result = userDoc.docs.isEmpty;
+
+  // บันทึกผลการตรวจสอบลงใน SharedPreferences
+  prefs.setBool('isNewUser', result);
+
+  // ตรวจสอบค่า initialIndex ที่ส่งมาจาก RootPage
+  print('Initial Index: ${widget.initialIndex}');
+
+  return result;
+}
+
+
+
   void _showAddIngredientAlert() {
   showDialog(
     context: context,
@@ -76,10 +92,10 @@ class _RootPageState extends State<RootPage> {
           children: [
             Image.asset(
               'assets/images/junk-food.png',
-              width: 150, // ขนาดรูปที่ต้องการ
-              height: 150, // ขนาดรูปที่ต้องการ
+              width: 150, 
+              height: 150, 
             ),
-            SizedBox(height: 15), // ระยะห่างระหว่างรูปกับข้อความ
+            SizedBox(height: 15), 
             Text(
               'No Ingredients Found',
               style: TextStyle(
@@ -100,11 +116,12 @@ class _RootPageState extends State<RootPage> {
             child: TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); 
-                Navigator.push(
+                Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
                     builder: (context) => SearchIngredientScreen(),
                   ),
+                  (route) => false,
                 );
               },
               style: TextButton.styleFrom(
@@ -151,11 +168,13 @@ class _RootPageState extends State<RootPage> {
     FontAwesomeIcons.solidUser,
   ];
 
+  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
-        index: _bottomNavIndex, // ใช้ค่าที่ตั้งใน _bottomNavIndex
+        index: _bottomNavIndex,
         children: _widgetOptions(),
       ),
       bottomNavigationBar: AnimatedBottomNavigationBar(
