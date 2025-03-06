@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/screens/ingredient/expired_ingredient.dart';
 import 'package:food_project/screens/ingredient/history_ingredient.dart';
+import 'package:food_project/screens/ingredient/ingrediant_detail.dart';
 import 'package:food_project/screens/ingredient/search_ingredient.dart';
 import 'package:food_project/widgets/ingredient_noexp.dart';
 import 'package:intl/intl.dart';
@@ -530,23 +531,29 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                     ),
                                   ),
                                 ),
-                                ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: filteredIngredientTypes
-                                      .length, // ใช้ filteredIngredientTypes
-                                  itemBuilder:
-                                      (BuildContext context, int index) {
-                                    final ingredient = filteredIngredientTypes[
-                                        index]; // ใช้ filteredIngredientTypes
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 3.0),
-                                      child: IngredientNoexp(
-                                          ingredient: ingredient),
-                                    );
-                                  },
-                                ),
+                               ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: filteredIngredientTypes.length, 
+                                    itemBuilder: (BuildContext context, int index) {
+                                      final ingredient = filteredIngredientTypes[index]; 
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 3.0),
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => IngredientDetailPage(ingredient: ingredient),
+                                              ),
+                                            );
+                                          },
+                                          child: IngredientNoexp(ingredient: ingredient),
+                                        ),
+                                      );
+                                    },
+                                  ),
+
                               ],
                             ),
                           )

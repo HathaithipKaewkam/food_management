@@ -143,6 +143,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
       await historyCollection.add({
         'ingredientsName': newIngredient['ingredientsName'],
+        'category': newIngredient['category'],
         'unit' : newIngredient['unit'],
         'quantityAdded': newIngredient['quantity'],
         'addedDate': Timestamp.now(), 
@@ -160,6 +161,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
       await historyCollection.add({
         'ingredientsName': newIngredient['ingredientsName'],
+        'category': newIngredient['category'],
         'unit' : newIngredient['unit'],
         'quantityAdded': newIngredient['quantity'],
         'addedDate': Timestamp.now(),
@@ -220,6 +222,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
 
     Map<String, dynamic> newIngredient = {
       'ingredientsName': _nameController.text,
+      'caregory': _categoryController.text,
       'storage': _storageController.text,
       'unit': _unitController.text,
       'quantity': int.parse(_quantityController.text),
@@ -286,6 +289,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
 
     Map<String, dynamic> newIngredient = {
       'ingredientsName': _nameController.text,
+      'category': _categoryController.text,
       'storage': _storageController.text,
       'unit': _unitController.text,
       'quantity': int.parse(_quantityController.text),
