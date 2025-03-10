@@ -54,7 +54,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   Text(
                     'Best Recipe For You',
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Constants.blackColor,
                     ),

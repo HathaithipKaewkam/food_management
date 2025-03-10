@@ -48,7 +48,7 @@ Future<List<String>> getRecipesByIngredients(List<String> ingredients) async {
   }
 }
 
-Future<List<Map<String, String>>> getRecipeAndPairings(String ingredientName) async {
+Future<List<String>> getRecipeAndPairings(String ingredientName) async {
   final response = await http.get(
     Uri.parse(
         'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientName&apiKey=bd24cc0518a546b3a16d79dee986ea98'),
@@ -58,20 +58,15 @@ Future<List<Map<String, String>>> getRecipeAndPairings(String ingredientName) as
     var data = json.decode(response.body);
 
     if (data is List && data.isNotEmpty) {
-      List<Map<String, String>> pairingIngredients = [];
+      Set<String> pairingIngredients = {};
 
       for (var recipe in data.take(20)) {
         List<dynamic> missedIngredients = recipe['missedIngredients'];
         for (var ingredient in missedIngredients) {
-          String image = ingredient['image'] ?? "";
           String ingredientName = ingredient['originalName'] ?? ingredient['name'] ?? "Unknown Ingredient";
-
-          // เพิ่มข้อมูลลงใน List<Map<String, String>>
-          pairingIngredients.add({
-            'name': ingredientName,
-            'image': image,
-          });
-
+          if (ingredientName.split(' ').length <= 2) {
+            pairingIngredients.add(ingredientName);
+          }
           if (pairingIngredients.length >= 10) {
             break;
           }
@@ -81,7 +76,7 @@ Future<List<Map<String, String>>> getRecipeAndPairings(String ingredientName) as
         }
       }
 
-      return pairingIngredients;
+      return pairingIngredients.toList();
     } else {
       throw Exception('No recipe data found.');
     }
@@ -89,7 +84,6 @@ Future<List<Map<String, String>>> getRecipeAndPairings(String ingredientName) as
     throw Exception('Failed to load recipe');
   }
 }
-
 
 void main() async {
   List<String> userIngredients = await fetchUserIngredients();

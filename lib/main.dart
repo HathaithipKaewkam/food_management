@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:food_project/screens/cart_screen.dart';
 import 'package:food_project/screens/home/home_screen.dart';
 import 'package:food_project/screens/ingredient/add_ingredient.dart';
 import 'package:food_project/screens/ingredient/history_ingredient.dart';
@@ -25,7 +26,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Onboarding Screen',
-      home: OnboardingScreen(),
+      home: RootPage(),
     );
   }
 }

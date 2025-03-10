@@ -234,7 +234,7 @@ class _HistoryIngredientState extends State<HistoryIngredient> {
                   const Text(
                     'Ingredients History',
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),

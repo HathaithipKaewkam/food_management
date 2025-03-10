@@ -118,7 +118,7 @@ class _IngredientScreenState extends State<IngredientScreen> {
                       Text(
                         'My Ingredients',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
                         ),

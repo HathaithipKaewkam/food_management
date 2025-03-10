@@ -15,7 +15,7 @@ class IngredientDetailPage extends StatefulWidget {
 }
 
 class _IngredientDetailPageState extends State<IngredientDetailPage> {
-  List<Map<String, String>> pairingIngredients = [];
+  List<String> pairingIngredients = [];
   bool isLoading = true;
 
   @override
@@ -25,25 +25,21 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
   }
 
   Future<void> fetchPairingIngredients() async {
-  try {
-    List<Map<String, String>> fetchedIngredients =
-        await getRecipeAndPairings(widget.ingredient.ingredientsName); // ฟังก์ชันนี้จะคืนค่า List<Map<String, String>>
-
-    setState(() {
-      pairingIngredients = fetchedIngredients;  // ใช้ List<Map<String, String>> ที่ถูกต้อง
-      isLoading = false;
-    });
-  } catch (e) {
-    print("Error fetching pairing ingredients: $e");
-    setState(() {
-      pairingIngredients = [];
-      isLoading = false;
-    });
+    try {
+      List<String> fetchedIngredients =
+          await getRecipeAndPairings(widget.ingredient.ingredientsName);
+      setState(() {
+        pairingIngredients = fetchedIngredients;
+        isLoading = false;
+      });
+    } catch (e) {
+      print("Error fetching pairing ingredients: $e");
+      setState(() {
+        pairingIngredients = [];
+        isLoading = false;
+      });
+    }
   }
-}
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -282,31 +278,6 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
               ),
             ),
             const SizedBox(height: 25),
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                    child: ClipOval(
-                      child: pairingIngredients.isNotEmpty
-                          ? Image.network(
-                              pairingIngredients[0]['image'] ?? "",  // ใช้ URL รูปภาพจาก pairingIngredients
-                              width: 100,
-                              height: 100,
-                              // ปรับภาพให้เต็มกรอบ
-                            )
-                          : Container(),  // แสดง Container เปล่าถ้าไม่มี pairingIngredients
-                    ),
-                  ),
-            const SizedBox(height: 25),
             // Display pairing ingredients
             Padding(
               padding: const EdgeInsets.only(left: 10),
@@ -315,7 +286,7 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
                   : Column(
                       children: pairingIngredients.map((ingredient) {
                         return Text(
-                          ingredient['name'] ?? '',
+                          ingredient,
                           style: TextStyle(fontSize: 18, color: Colors.black),
                         );
                       }).toList(),

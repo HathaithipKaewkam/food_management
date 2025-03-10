@@ -1,8 +1,8 @@
 import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/screens/ingredient/add_ingredient.dart';
 
 class SearchIngredientScreen extends StatefulWidget {
@@ -52,7 +52,6 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
     }
   }
 
-  // ค้นหาวัตถุดิบ
   List<Map<String, dynamic>> _searchIngredients(String query) {
     return ingredientList.where((ingredient) {
       final ingredientName = ingredient['ingredientsName'];
@@ -74,12 +73,6 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
     }
   }
 
-  void _setSelectedIngredient(String ingredientName) {
-    setState(() {
-      selectedIngredientName = ingredientName;
-    });
-  }
-
   void _onSearchChanged(String value) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
@@ -90,7 +83,7 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchIngredients(); // เรียกใช้ฟังก์ชันเพื่อดึงข้อมูลตอนเริ่มต้น
+    _fetchIngredients();
   }
 
   @override
@@ -102,22 +95,35 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final searchResults = _searchIngredients(_searchController.text);
+
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Ingredients'),
-           backgroundColor: Colors.white,
-            elevation: 1,
-            scrolledUnderElevation: 0,
-            titleTextStyle: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-        ),
-          centerTitle: true,
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(children: [
+      body: Padding(
+       padding: const EdgeInsets.only(top: 40, left: 10),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const FaIcon(FontAwesomeIcons.arrowLeft),
+                  color: Colors.black,
+                  iconSize: 20,
+                ),
+                const SizedBox(width: 5),
+                const Text(
+                  'Add Ingredients',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
             // ช่องค้นหา
             TextField(
               controller: _searchController,
@@ -139,71 +145,26 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
                 suffixIcon: const Icon(Icons.search),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // แสดงรายการที่ค้นหา
-
+            // รายการค้นหา
             Expanded(
               child: ListView(
                 children: [
                   if (_searchController.text.isNotEmpty &&
-                      _searchIngredients(_searchController.text).isEmpty)
+                      searchResults.isEmpty)
                     ListTile(
                       contentPadding: const EdgeInsets.only(left: 10),
-                      title: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Add new Ingredient',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFd7d8d8),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: ClipRRect(
-                                    child: SizedBox(
-                                      child: Image.asset(
-                                        'assets/images/default_ing.png',
-                                        fit: BoxFit.contain,
-                                        width: 50,
-                                        height: 50,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 30),
-                                Expanded(
-                                  child: Text(
-                                    _searchController.text,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 20,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                      title: const Text(
+                        'Add new Ingredient',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(_searchController.text),
+                      leading: Image.asset(
+                        'assets/images/default_ing.png',
+                        width: 50,
+                        height: 50,
                       ),
                       onTap: () {
                         Navigator.push(
@@ -225,8 +186,8 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
                         );
                       },
                     ),
-                  ..._searchIngredients(_searchController.text)
-                      .map((ingredient) {
+
+                  ...searchResults.map((ingredient) {
                     return ListTile(
                       leading: Image.network(
                         ingredient['imageUrl']!,
@@ -240,31 +201,22 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
                       title: Text(ingredient['ingredientsName']!),
                       onTap: () {
                         Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => AddIngredientScreen(
-                                      ingredient: {
-                                        'name': ingredient['ingredientsName'],
-                                        'image': ingredient['imageUrl'],
-                                        'category': ingredient['category'],
-                                        'unit': ingredient['unit'],
-                                        'shelflife': ingredient['shelflife'],
-                                        'storage': ingredient['storage'],
-                                        'quantity': ingredient['quantity'],
-                                        'minQuantity': ingredient['minQuantity'],
-                                      },
-                                    )
-                                  )
-                                );
-                              },
-                            );
-                          }).toList(),
-                        ],
-                      ),
-                    ),
-                  ]
-                ),
-              )
-            );
-          }
-        }
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AddIngredientScreen(
+                              ingredient: ingredient,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }).toList(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

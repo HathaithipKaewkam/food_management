@@ -146,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     'Hi, $userName',
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
                      color: Colors.black,
                     ),

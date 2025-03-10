@@ -183,7 +183,7 @@ class IngredientWidget extends StatelessWidget {
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 4),
