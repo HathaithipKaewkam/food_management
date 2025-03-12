@@ -489,8 +489,19 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                     }),
                     _buildPriceField(priceController),
                     const SizedBox(height: 10),
-                    ElevatedButton(
-                      onPressed: () {
+                   ElevatedButton(
+                  onPressed: () async {
+                    await _saveCart({
+                      'ingredientsName': ingredient['ingredientsName'],
+                      'imageUrl': ingredient['imageUrl'],
+                      'unit': selectedUnit,
+                      'storage': selectedStorage,
+                      'source': selectedSource,
+                      'quantity': quantity,
+                      'price': priceController.text.isEmpty
+                          ? 0
+                          : double.tryParse(priceController.text) ?? 0,
+                    });
                         setState(() {
                           addedToCartIngredients.add({
                             'ingredientsName': ingredient['ingredientsName'],
@@ -507,6 +518,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
 
                         print(
                             '✅ Added ${ingredient['ingredientsName']} to cart');
+                        
 
                         Navigator.push(
                           context,

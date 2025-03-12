@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class CartWidget extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
@@ -58,18 +59,18 @@ class _CartWidgetState extends State<CartWidget> {
                             ? '${item['ingredientsName']![0].toUpperCase()}${item['ingredientsName']!.substring(1).toLowerCase()}'
                             : '',
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         '${item['price']} ฿',
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 18,
                           color: Colors.green,
                           fontWeight: FontWeight.w600,
                         ),
-                      ),
+                     ),
                     ],
                   ),
                   const SizedBox(height: 5),
@@ -77,23 +78,23 @@ class _CartWidgetState extends State<CartWidget> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Storage: ${item['storage']}',
-                        style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        'Storage : ${item['storage']}',
+                        style: const TextStyle(fontSize: 16, color: Colors.black, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         '${item['quantity']} ${item['unit']}',
-                        style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        style: const TextStyle(fontSize: 16, color: Colors.black, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 5),
                   Row(
                     children: [
-                      const Icon(Icons.store, size: 16, color: Colors.blue),
-                      const SizedBox(width: 5),
+                      FaIcon(FontAwesomeIcons.shop, size: 16, color: Colors.green.shade900),
+                      const SizedBox(width: 8),
                       Text(
                         '${item['source'] ?? 'Unknown'}',
-                        style: const TextStyle(fontSize: 14, color: Colors.blue),
+                        style: const TextStyle(fontSize: 16, color: Colors.black , fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
