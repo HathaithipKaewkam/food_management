@@ -9,6 +9,7 @@ import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/screens/add_cart.dart';
 import 'package:food_project/screens/cart_screen.dart';
 import 'package:food_project/screens/ingredient/add_ingredient.dart';
+import 'package:food_project/screens/root_screen.dart';
 
 class SearchCartScreen extends StatefulWidget {
   final List<Map<String, dynamic>> addedToCartIngredients;
@@ -143,6 +144,18 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
       print("❌ Error saving cart: $e");
     }
   }
+
+  Future<void> checkUserIngredients() async {
+  String uid = FirebaseAuth.instance.currentUser!.uid;
+  QuerySnapshot snapshot = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('userIngredients')
+      .get();
+
+  print("📌 userIngredients มีทั้งหมด: ${snapshot.docs.length}");
+}
+
 
   Future<void> _fetchUserIngredients() async {
     try {
@@ -495,6 +508,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                       'ingredientsName': ingredient['ingredientsName'],
                       'imageUrl': ingredient['imageUrl'],
                       'unit': selectedUnit,
+                      'category': selectedCategory,
                       'storage': selectedStorage,
                       'source': selectedSource,
                       'quantity': quantity,
@@ -507,6 +521,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                             'ingredientsName': ingredient['ingredientsName'],
                             'imageUrl': ingredient['imageUrl'],
                             'unit': selectedUnit,
+                            'category': selectedCategory,
                             'storage': selectedStorage,
                             'source': selectedSource,
                             'quantity': quantity,
@@ -521,13 +536,14 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                         
 
                         Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CartScreen(
-                              addedToCartIngredients: addedToCartIngredients,
-                            ),
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => RootPage(
+                            initialIndex: 3, 
                           ),
-                        );
+                        ),
+                      );
+
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,

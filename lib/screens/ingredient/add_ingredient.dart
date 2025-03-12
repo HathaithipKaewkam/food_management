@@ -51,7 +51,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
   void initState() {
     super.initState();
     _nameController =
-        TextEditingController(text: widget.ingredient?['name'] ?? '');
+        TextEditingController(text: widget.ingredient?['ingredientsName'] ?? '');
     _categoryController =
         TextEditingController(text: widget.ingredient?['category'] ?? '');
     _unitController =
@@ -67,11 +67,11 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
         text: widget.ingredient?['shelflife']?.toString() ?? '');
     _storageController =
         TextEditingController(text: widget.ingredient?['storage'] ?? '');
-    imageUrl = widget.ingredient?['image'] ?? 'assets/images/default_ing.png';
+    imageUrl = widget.ingredient?['imageUrl'] ?? 'assets/images/default_ing.png';
     selectedStorageIndex =
         recipeTypes.indexOf(widget.ingredient?['storage'] ?? 'Fridge');
     selectedIngredientImage =
-        widget.ingredient?['image'] ?? 'assets/images/default_ing.png';
+        widget.ingredient?['imageUrl'] ?? 'assets/images/default_ing.png';
     originalImageUrl = selectedIngredientImage;
     selectedIngredientName = widget.ingredient?['name'] ?? '';
     selectedCategory = widget.ingredient?['category'] ?? 'Fruits';
@@ -205,9 +205,9 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => RootPage(
-                initialIndex: 1), // ไป RootPage และเริ่มที่ IngredientScreen
+                initialIndex: 1), 
           ),
-          (route) => false, // ลบ Stack ทั้งหมด
+          (route) => false, 
         );
       },
     );

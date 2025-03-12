@@ -15,9 +15,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class RootPage extends StatefulWidget {
   final String selectedGoal;
   final int initialIndex;
-   const RootPage({
-    Key? key, 
-    this.selectedGoal = '', 
+  const RootPage({
+    Key? key,
+    this.selectedGoal = '',
     this.initialIndex = 0,
   }) : super(key: key);
 
@@ -27,7 +27,8 @@ class RootPage extends StatefulWidget {
 
 class _RootPageState extends State<RootPage> {
   int _bottomNavIndex = 0;
-  bool isNewUser = false; // ตรวจสอบว่าเป็น user ใหม่หรือไม่
+  bool isNewUser = false;
+  List<Map<String, dynamic>> cartItems = [];
 
   @override
   void initState() {
@@ -36,7 +37,8 @@ class _RootPageState extends State<RootPage> {
     checkIfUserIsNew().then((isNew) {
       setState(() {
         isNewUser = isNew;
-        _bottomNavIndex = isNew ? 1 : 2; // ถ้าไม่มีวัตถุดิบ ไปหน้า IngredientScreen
+        _bottomNavIndex =
+            isNew ? 1 : 2; // ถ้าไม่มีวัตถุดิบ ไปหน้า IngredientScreen
       });
 
       if (isNewUser) {
@@ -48,102 +50,102 @@ class _RootPageState extends State<RootPage> {
   }
 
   /// ✅ ตรวจสอบว่าผู้ใช้มีวัตถุดิบหรือไม่
-Future<bool> checkIfUserIsNew() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return false;
+  Future<bool> checkIfUserIsNew() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
 
-  // ดึงค่าจาก SharedPreferences
-  final prefs = await SharedPreferences.getInstance();
-  bool? isNewUser = prefs.getBool('isNewUser');
+    // ดึงค่าจาก SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    bool? isNewUser = prefs.getBool('isNewUser');
 
-  // ถ้ามีการตั้งค่าการตรวจสอบ user ใหม่แล้ว
-  if (isNewUser != null) {
-    return isNewUser;
+    // ถ้ามีการตั้งค่าการตรวจสอบ user ใหม่แล้ว
+    if (isNewUser != null) {
+      return isNewUser;
+    }
+
+    // ตรวจสอบจาก Firestore ว่าผู้ใช้มีวัตถุดิบหรือไม่
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userIngredients')
+        .get();
+
+    bool result = userDoc.docs.isEmpty;
+
+    // บันทึกผลการตรวจสอบลงใน SharedPreferences
+    prefs.setBool('isNewUser', result);
+
+    // ตรวจสอบค่า initialIndex ที่ส่งมาจาก RootPage
+    print('Initial Index: ${widget.initialIndex}');
+
+    return result;
   }
 
-  // ตรวจสอบจาก Firestore ว่าผู้ใช้มีวัตถุดิบหรือไม่
-  final userDoc = await FirebaseFirestore.instance
-      .collection('users')
-      .doc(user.uid)
-      .collection('userIngredients')
-      .get();
-
-  bool result = userDoc.docs.isEmpty;
-
-  // บันทึกผลการตรวจสอบลงใน SharedPreferences
-  prefs.setBool('isNewUser', result);
-
-  // ตรวจสอบค่า initialIndex ที่ส่งมาจาก RootPage
-  print('Initial Index: ${widget.initialIndex}');
-
-  return result;
-}
-
-
-
   void _showAddIngredientAlert() {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        backgroundColor: Colors.white,
-        title: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/junk-food.png',
-              width: 150, 
-              height: 150, 
-            ),
-            SizedBox(height: 15), 
-            Text(
-              'No Ingredients Found',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          title: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/images/junk-food.png',
+                width: 150,
+                height: 150,
               ),
-            ),
-          ],
-        ),
-        content: Text(
-          'Your ingredient list is empty. \nAdd one to get started.',
-          style: TextStyle(color: Colors.black),
-          textAlign: TextAlign.center,
-        ),
-        actions: <Widget>[
-          Center( // ใช้ Center เพื่อให้ปุ่มอยู่กลาง
-            child: TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); 
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SearchIngredientScreen(),
-                  ),
-                  (route) => false,
-                );
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: Color(0xFF325b51), // ตั้งค่าสีพื้นหลังของปุ่ม
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10), // ตั้งค่าการเว้นระยะของปุ่ม
-              ),
-              child: Text(
-                'Add Ingredients Now !',
+              SizedBox(height: 15),
+              Text(
+                'No Ingredients Found',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Colors.black,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      );
-    },
-  );
-}
-
-
+          content: Text(
+            'Your ingredient list is empty. \nAdd one to get started.',
+            style: TextStyle(color: Colors.black),
+            textAlign: TextAlign.center,
+          ),
+          actions: <Widget>[
+            Center(
+              // ใช้ Center เพื่อให้ปุ่มอยู่กลาง
+              child: TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SearchIngredientScreen(),
+                    ),
+                    (route) => false,
+                  );
+                },
+                style: TextButton.styleFrom(
+                  backgroundColor:
+                      Color(0xFF325b51), // ตั้งค่าสีพื้นหลังของปุ่ม
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10), // ตั้งค่าการเว้นระยะของปุ่ม
+                ),
+                child: Text(
+                  'Add Ingredients Now !',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   /// ✅ รายการหน้าในแอป
   List<Widget> _widgetOptions() {
@@ -154,7 +156,7 @@ Future<bool> checkIfUserIsNew() async {
         ingredientList: Ingredient.ingredientList ?? [],
       ),
       const HomeScreen(selectedGoal: null),
-      CartScreen(addedToCartIngredients: []),
+      CartScreen(addedToCartIngredients: cartItems),
       const ProfileScreen(),
     ];
   }
@@ -167,8 +169,6 @@ Future<bool> checkIfUserIsNew() async {
     FontAwesomeIcons.cartShopping,
     FontAwesomeIcons.solidUser,
   ];
-
-  
 
   @override
   Widget build(BuildContext context) {

@@ -27,10 +27,10 @@ class _CartWidgetState extends State<CartWidget> {
     return Card(
       color: Colors.white,
       elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), 
       child: Padding(
-        padding: const EdgeInsets.all(12),
+         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -105,5 +105,6 @@ class _CartWidgetState extends State<CartWidget> {
         ),
       ),
     );
+    
   }
 }

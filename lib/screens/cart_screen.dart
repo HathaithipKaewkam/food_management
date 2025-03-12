@@ -40,13 +40,11 @@ class _CartScreenState extends State<CartScreen> {
 
         print("✅ Fetched ${snapshot.docs.length} ingredients.");
 
-         setState(() {
-          cartItems = snapshot.docs
-              .map((doc) {
-                final data = doc.data() as Map<String, dynamic>?; 
-                return data ?? {};  
-              })
-              .toList();
+        setState(() {
+          cartItems = snapshot.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>?;
+            return data ?? {};
+          }).toList();
 
           isLoading = false;
         });
@@ -60,138 +58,216 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
+  double getTotalPrice(List<Map<String, dynamic>> cartItems) {
+  double total = 0;
+  for (var item in cartItems) {
+    total += item['price'] ?? 0;
+  }
+  return total;
+}
+
+
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 35, left: 12, right: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                const Text(
-                  'Cart',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () {},
-                  icon: Icon(Icons.more_horiz),
-                  color: Colors.black,
-                  iconSize: 25,
-                ),
-              ],
-            ),
-          ),
-          if (cartItems.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 90),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 40),
-                    child: Image.asset(
-                      'assets/images/cart.png',
-                      height: 280,
-                      width: 300,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Nothing here yet!',
-                    style: TextStyle(
-                      color: Color(0xFF094507),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Let\'s add some items to stay organized',
-                    style: TextStyle(
-                      color: Color(0xFF094507),
-                      fontWeight: FontWeight.w500,
-                      fontSize: 20,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  // ปุ่ม Add Items
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final List<Ingredient>? addedItems =
-                            await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SearchCartScreen(
-                              addedToCartIngredients: cartItems,
+        body: user == null
+            ? Center(child: Text('User not logged in'))
+            : StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid) // Use user.uid here
+                    .collection('userCart')
+                    .snapshots(), // Real-time updates
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Something went wrong!'));
+                  }
+
+                  final cartItems = snapshot.data?.docs.map((doc) {
+                        return doc.data() as Map<String, dynamic>;
+                      }).toList() ??
+                      [];
+                  return Column(
+                    children: [
+                      Padding(
+                        padding:
+                            const EdgeInsets.only(top: 35, left: 12, right: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Cart',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
                             ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => SearchCartScreen(
+                                        addedToCartIngredients: []),
+                                  ),
+                                );
+                              },
+                              icon: Icon(Icons.add),
+                              color: Colors.black,
+                              iconSize: 25,
+                            ),
+                            IconButton(
+                              onPressed: () {},
+                              icon: Icon(Icons.more_horiz),
+                              color: Colors.black,
+                              iconSize: 25,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (cartItems.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 90),
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(right: 40),
+                                child: Image.asset(
+                                  'assets/images/cart.png',
+                                  height: 280,
+                                  width: 300,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'Nothing here yet!',
+                                style: TextStyle(
+                                  color: Color(0xFF094507),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 24,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Let\'s add some items to stay organized',
+                                style: TextStyle(
+                                  color: Color(0xFF094507),
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 20,
+                                ),
+                              ),
+                              const SizedBox(height: 40),
+                              // ปุ่ม Add Items
+                              Center(
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    final List<Ingredient>? addedItems =
+                                        await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => SearchCartScreen(
+                                          addedToCartIngredients: cartItems,
+                                        ),
+                                      ),
+                                    );
+
+                                    if (addedItems != null &&
+                                        addedItems.isNotEmpty) {
+                                      setState(() {
+                                        cartItems.addAll(
+                                            addedItems.map((ingredient) => {
+                                                  'ingredientsName': ingredient
+                                                      .ingredientsName,
+                                                  'imageUrl':
+                                                      ingredient.imageUrl,
+                                                  'unit': ingredient.unit,
+                                                  'storage': ingredient.storage,
+                                                  'source': ingredient.source,
+                                                  'quantity':
+                                                      ingredient.quantity,
+                                                  'price': ingredient.price,
+                                                }));
+                                      });
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF325b51),
+                                    minimumSize: const Size(50, 50),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 15, horizontal: 80),
+                                  ),
+                                  child: const Text(
+                                    'ADD ITEMS',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        );
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.only(top: 5, left: 15),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Total',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              SizedBox(width: 240),
+                              Text(
+                              '${getTotalPrice(cartItems).toStringAsFixed(2)} ฿',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                              ),
+                            ),
 
-                        if (addedItems != null && addedItems.isNotEmpty) {
-                          setState(() {
-                            cartItems.addAll(addedItems.map((ingredient) => {
-                                  'ingredientsName': ingredient.ingredientsName,
-                                  'imageUrl': ingredient.imageUrl,
-                                  'unit': ingredient.unit,
-                                  'storage': ingredient.storage,
-                                  'source': ingredient.source,
-                                  'quantity': ingredient.quantity,
-                                  'price': ingredient.price,
-                                }));
-                          });
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF325b51),
-                        minimumSize: const Size(50, 50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                            ],
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 15, horizontal: 80),
-                      ),
-                      child: const Text(
-                        'ADD ITEMS',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.builder(
-                physics: const BouncingScrollPhysics(),
-                itemCount: cartItems.length,
-                itemBuilder: (BuildContext context, int index) {
-                  final ingredient = cartItems[index];
+                      Expanded(
+                        child: ListView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: cartItems.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            final ingredient = cartItems[index];
 
-                  return GestureDetector(
-                    onTap: () {
-                      _showEditDialog(context, ingredient, index, cartItems);
-                    },
-                    child: CartWidget(
-                      cartItems: [ingredient],
-                    ),
+                            return GestureDetector(
+                              onLongPress: () {
+                                _showEditDialog(
+                                    context, ingredient, index, cartItems);
+                              },
+                              child: CartWidget(
+                                cartItems: [ingredient],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
+                }));
   }
 }
 
@@ -442,28 +518,93 @@ void _showEditDialog(BuildContext context, Map<String, dynamic> ingredient,
 
                   const SizedBox(height: 20),
 
-                  ElevatedButton(
-                    onPressed: () {
-                      double price = double.tryParse(priceController.text) ??
-                          ingredient['price'];
+ElevatedButton(
+  onPressed: () async {
+    double price = double.tryParse(priceController.text) ?? ingredient['price'];
 
-                      setState(() {
-                        cartItems[index] = {
-                          ...ingredient,
-                          'quantity': quantity,
-                          'price': price,
-                          'category': selectedCategory,
-                          'unit': selectedUnit,
-                          'storage': selectedStorage,
-                          'source': selectedSource,
-                        };
-                      });
+    setState(() {
+      cartItems[index] = {
+        ...ingredient,
+        'quantity': quantity,
+        'price': price,
+        'category': selectedCategory,
+        'unit': selectedUnit,
+        'storage': selectedStorage,
+        'source': selectedSource,
+      };
+    });
 
-                      print('✅ Updated ingredient: ${cartItems[index]}');
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Save Changes'),
-                  ),
+    print('✅ Updated ingredient: ${cartItems[index]}');
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        // ค่าที่จะใช้ตรวจสอบใน Firestore
+        String ingredientsName = cartItems[index]['ingredientsName'];
+        
+        // ค้นหาว่ามีรายการที่ตรงกับ ingredientsName ใน Firestore
+        var querySnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('userCart')
+            .where('ingredientsName', isEqualTo: ingredientsName)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          // ถ้ามีรายการที่ตรงกันใน Firestore
+          String docId = querySnapshot.docs.first.id; // ใช้ ID ของเอกสารที่พบ
+
+          // อัปเดทข้อมูลทั้งหมด
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('userCart')
+              .doc(docId) // อัปเดทเอกสารเดิม
+              .update({
+            'quantity': cartItems[index]['quantity'],
+            'price': cartItems[index]['price'],
+            'category': selectedCategory, // อัปเดต category ใหม่
+            'unit': selectedUnit, // อัปเดต unit ใหม่
+            'storage': selectedStorage, // อัปเดต storage ใหม่
+            'source': selectedSource, // อัปเดต source ใหม่
+            'imageUrl': cartItems[index]['imageUrl'],
+          }).then((_) {
+            print('Item updated successfully');
+          }).catchError((e) {
+            print('Error updating item: $e');
+          });
+        } else {
+          // ถ้าไม่มีรายการที่ตรงกันใน Firestore
+          String docId = ingredientsName + '-' + selectedCategory; // ใช้ combination นี้เป็น docId
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('userCart')
+              .doc(docId) // สร้างเอกสารใหม่
+              .set({
+            'ingredientsName': ingredientsName,
+            'quantity': cartItems[index]['quantity'],
+            'price': cartItems[index]['price'],
+            'category': selectedCategory,
+            'unit': selectedUnit,
+            'storage': selectedStorage,
+            'source': selectedSource,
+            'imageUrl': cartItems[index]['imageUrl'],
+          }).then((_) {
+            print('New item added');
+          }).catchError((e) {
+            print('Error adding new item: $e');
+          });
+        }
+      } catch (e) {
+        print('Error: $e');
+      }
+    }
+    Navigator.pop(context);
+  },
+  child: const Text('Update Item'),
+),
+
 
                   const SizedBox(height: 10),
 
