@@ -1,28 +1,32 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:food_project/constants.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/screens/search_cart.dart';
 import 'package:food_project/widgets/cart_widget.dart';
-import 'package:food_project/widgets/ingredient_widget.dart';
 
 class CartScreen extends StatefulWidget {
-  final List<Ingredient> addedToCartIngredients;
-  const CartScreen({super.key, required this.addedToCartIngredients, required Map<String, Object> ingredient});
+  final List<Map<String, dynamic>> addedToCartIngredients;
+
+  const CartScreen({Key? key, this.addedToCartIngredients = const []}) : super(key: key);
 
   @override
   State<CartScreen> createState() => _CartScreenState();
 }
-
 class _CartScreenState extends State<CartScreen> {
+  List<Map<String, dynamic>> cartItems = [];
+
+  @override
+  void initState() {
+    super.initState();
+    cartItems = List<Map<String, dynamic>>.from(widget.addedToCartIngredients); 
+    print("✅ cartItems in CartScreen: $cartItems");
+
+  }
+
   @override
   Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
     return Scaffold(
       body: Column(
         children: [
-          // Header Section
           Padding(
             padding: const EdgeInsets.only(top: 35, left: 12, right: 12),
             child: Row(
@@ -46,121 +50,98 @@ class _CartScreenState extends State<CartScreen> {
               ],
             ),
           ),
-          // Empty Cart View
-          if (widget.addedToCartIngredients.isEmpty)
+          if (cartItems.isEmpty)
             Expanded(
               child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 120, right: 30),
-                  child: Image.asset(
+                children: [
+                  Image.asset(
                     'assets/images/cart.png',
                     height: 280,
                     width: 300,
                   ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                        'Nothing here yet !',
-                        style: TextStyle(
-                          color: Color(0xFF094507),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 24,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Let\'s add some items to stay organized',
-                        style: TextStyle(
-                          color: Color(0xFF094507),
-                          fontWeight: FontWeight.w500,
-                          fontSize: 20,
-                        ),
-                      ),
-                       const SizedBox(height: 30),
-                     Center(
-                child: ElevatedButton(
-                  onPressed:
-                  () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SearchCartScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF325b51),
-                    minimumSize: const Size(50, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 15, horizontal: 80),
-                  ),
-                  child: const Text(
-                    'ADD ITEMS',
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Nothing here yet!',
                     style: TextStyle(
-                      fontSize: 16,
+                      color: Color(0xFF094507),
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      fontSize: 24,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Let\'s add some items to stay organized',
+                    style: TextStyle(
+                      color: Color(0xFF094507),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 20,
+                    ),
+                  ),
+                ],
               ),
-              ],
-            ),
             )
           else
-            // Cart Items List
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 30),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: ListView.builder(
-                  itemCount: widget.addedToCartIngredients.length,
-                  scrollDirection: Axis.vertical,
-                  physics: const BouncingScrollPhysics(),
-                  itemBuilder: (BuildContext context, int index) {
-                    return CartWidget(
-                      cartItems: [widget.addedToCartIngredients[index].toMap()], // ✅ ห่อเป็น List
-                    );
-                  },
-                ),
+              child: ListView.builder(
+                physics: const BouncingScrollPhysics(),
+                itemCount: cartItems.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final ingredient = cartItems[index];
 
+                  return GestureDetector(
+                    child: CartWidget(
+                      cartItems: [ingredient], 
                     ),
-                    Column(
-                      children: [
-                        const Divider(thickness: 1.0),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Text(
-                              'Totals',
-                              style: TextStyle(
-                                fontSize: 23,
-                                fontWeight: FontWeight.w300,
-                              ),
-                            ),
-                            Text(
-                              r'$65',
-                              style: TextStyle(
-                                fontSize: 24.0,
-                                color: Constants.primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  );
+                },
+              ),
+            ),
+          
+          // ปุ่มเพิ่มสินค้า
+          Center(
+            child: ElevatedButton(
+              onPressed: () async {
+                final List<Ingredient>? addedItems = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SearchCartScreen(
+                      addedToCartIngredients: cartItems, // ส่งค่าที่อัปเดตแล้วไป
                     ),
-                  ],
+                  ),
+                );
+
+                if (addedItems != null && addedItems.isNotEmpty) {
+                  setState(() {
+                    cartItems.addAll(addedItems.map((ingredient) => {
+                      'ingredientsName': ingredient.ingredientsName,
+                      'imageUrl': ingredient.imageUrl,
+                      'unit': ingredient.unit,
+                      'storage': ingredient.storage,
+                      'source': ingredient.source,
+                      'quantity': ingredient.quantity,
+                      'price': ingredient.price,
+                    }));
+                  });
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF325b51),
+                minimumSize: const Size(50, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 80),
+              ),
+              child: const Text(
+                'ADD ITEMS',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
             ),
+          ),
         ],
       ),
     );

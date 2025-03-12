@@ -154,7 +154,7 @@ Future<bool> checkIfUserIsNew() async {
         ingredientList: Ingredient.ingredientList ?? [],
       ),
       const HomeScreen(selectedGoal: null),
-      CartScreen(addedToCartIngredients: [], ingredient: {}),
+      CartScreen(addedToCartIngredients: []),
       const ProfileScreen(),
     ];
   }

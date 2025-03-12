@@ -11,6 +11,9 @@ import 'package:food_project/screens/cart_screen.dart';
 import 'package:food_project/screens/ingredient/add_ingredient.dart';
 
 class SearchCartScreen extends StatefulWidget {
+  final List<Map<String, dynamic>> addedToCartIngredients;
+  const SearchCartScreen({Key? key, required this.addedToCartIngredients})
+      : super(key: key);
   @override
   _SearchCartScreenState createState() => _SearchCartScreenState();
 }
@@ -21,6 +24,8 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
   List<Map<String, dynamic>> ingredientList = [];
   Timer? _debounce;
   Map<String, int> userIngredientsMap = {};
+  List<Map<String, dynamic>> addedToCartIngredients = [];
+  List<Ingredient> selectedItems = [];
 
   Future<void> _fetchIngredients() async {
     try {
@@ -94,80 +99,82 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
   }
 
   Future<void> _saveCart(Map<String, dynamic> ingredient) async {
-  try {
-    String uid = FirebaseAuth.instance.currentUser!.uid;
+    try {
+      String uid = FirebaseAuth.instance.currentUser!.uid;
 
-    // อ้างอิงไปยัง collection "userCart" และ "historyCart"
-    CollectionReference userCart = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('userCart');
+      // อ้างอิงไปยัง collection "userCart" และ "historyCart"
+      CollectionReference userCart = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('userCart');
 
-    CollectionReference historyCart = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('historyCart');
+      CollectionReference historyCart = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('historyCart');
 
-    // ตรวจสอบว่ามี ingredient นี้อยู่ใน cart แล้วหรือยัง
-    QuerySnapshot query = await userCart
-        .where('ingredientsName', isEqualTo: ingredient['ingredientsName'])
-        .get();
+      // ตรวจสอบว่ามี ingredient นี้อยู่ใน cart แล้วหรือยัง
+      QuerySnapshot query = await userCart
+          .where('ingredientsName', isEqualTo: ingredient['ingredientsName'])
+          .get();
 
-    if (query.docs.isNotEmpty) {
-      // ถ้ามีอยู่แล้ว → อัปเดตจำนวน (quantity)
-      DocumentSnapshot existingDoc = query.docs.first;
-      int existingQuantity = existingDoc['quantity'] ?? 0;
-      num newQuantity = existingQuantity + (ingredient['quantity'] ?? 1);
+      if (query.docs.isNotEmpty) {
+        // ถ้ามีอยู่แล้ว → อัปเดตจำนวน (quantity)
+        DocumentSnapshot existingDoc = query.docs.first;
+        int existingQuantity = existingDoc['quantity'] ?? 0;
+        num newQuantity = existingQuantity + (ingredient['quantity'] ?? 1);
 
-      await existingDoc.reference.update({'quantity': newQuantity});
-      print("✅ Updated quantity for ${ingredient['ingredientsName']}");
-    } else {
-      // ถ้ายังไม่มี → เพิ่มเข้า cart
-      await userCart.add(ingredient);
-      print("✅ Added ${ingredient['ingredientsName']} to cart");
+        await existingDoc.reference.update({'quantity': newQuantity});
+        print("✅ Updated quantity for ${ingredient['ingredientsName']}");
+      } else {
+        // ถ้ายังไม่มี → เพิ่มเข้า cart
+        await userCart.add(ingredient);
+        print("✅ Added ${ingredient['ingredientsName']} to cart");
+      }
+
+      // 🔥 เก็บประวัติการเพิ่มของลง historyCart พร้อม timestamp
+      await historyCart.add({
+        ...ingredient,
+        'addedAt': FieldValue.serverTimestamp(), // เพิ่ม timestamp
+      });
+
+      print("📜 History saved for ${ingredient['ingredientsName']}");
+    } catch (e) {
+      print("❌ Error saving cart: $e");
     }
-
-    // 🔥 เก็บประวัติการเพิ่มของลง historyCart พร้อม timestamp
-    await historyCart.add({
-      ...ingredient,
-      'addedAt': FieldValue.serverTimestamp(), // เพิ่ม timestamp
-    });
-
-    print("📜 History saved for ${ingredient['ingredientsName']}");
-
-  } catch (e) {
-    print("❌ Error saving cart: $e");
   }
-}
 
-Future<void> _fetchUserIngredients() async {
-  try {
-    String uid = FirebaseAuth.instance.currentUser!.uid;
-    QuerySnapshot snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('userIngredients')
-        .get();
+  Future<void> _fetchUserIngredients() async {
+    try {
+      String uid = FirebaseAuth.instance.currentUser!.uid;
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('userIngredients')
+          .get();
 
-    Map<String, int> tempUserIngredients = {};
-    for (var doc in snapshot.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      String name = data['ingredientsName'];
-      int quantity = data['quantity'] ?? 0;
-      tempUserIngredients[name] = quantity; 
+      Map<String, int> tempUserIngredients = {};
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        String name = data['ingredientsName'];
+        int quantity = data['quantity'] ?? 0;
+        tempUserIngredients[name] = quantity;
+
+         print("Loaded ingredient: $name with quantity: $quantity");
+
+      }
+
+      setState(() {
+        userIngredientsMap = tempUserIngredients;
+      });
+
+      print("✅ Loaded user ingredients: ${userIngredientsMap.length}");
+    } catch (e) {
+      print("❌ Error fetching user ingredients: $e");
     }
-
-    setState(() {
-      userIngredientsMap = tempUserIngredients;
-    });
-
-    print("✅ Loaded user ingredients: ${userIngredientsMap.length}");
-  } catch (e) {
-    print("❌ Error fetching user ingredients: $e");
   }
-}
 
-Future<List<Ingredient>> fetchIngredients() async {
+  Future<List<Ingredient>> fetchIngredients() async {
     String uid = FirebaseAuth.instance.currentUser!.uid;
     QuerySnapshot snapshot = await FirebaseFirestore.instance
         .collection('users')
@@ -181,15 +188,11 @@ Future<List<Ingredient>> fetchIngredients() async {
     }).toList();
   }
 
-
-  
   @override
   void initState() {
     super.initState();
     _fetchIngredients();
     _fetchUserIngredients();
-
-    
   }
 
   @override
@@ -202,292 +205,340 @@ Future<List<Ingredient>> fetchIngredients() async {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-         body: Padding(
-       padding: const EdgeInsets.only(top: 40, left: 10, right: 10),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const FaIcon(FontAwesomeIcons.arrowLeft),
-                  color: Colors.black,
-                  iconSize: 20,
-                ),
-                const SizedBox(width: 5),
-                const Text(
-                  'Add Ingredients',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-             TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                labelText: 'Search / Add Ingredient',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20.0),
-                  borderSide:
-                      BorderSide(color: Colors.grey.shade300, width: 1.0),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20.0),
-                  borderSide: const BorderSide(color: Colors.black, width: 1.0),
-                ),
-                suffixIcon: const Icon(Icons.search),
+        body: Padding(
+      padding: const EdgeInsets.only(top: 40, left: 10, right: 10),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const FaIcon(FontAwesomeIcons.arrowLeft),
+                color: Colors.black,
+                iconSize: 20,
               ),
+              const SizedBox(width: 5),
+              const Text(
+                'Add Ingredients',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              labelText: 'Search / Add Ingredient',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20.0),
+                borderSide: BorderSide(color: Colors.grey.shade300, width: 1.0),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20.0),
+                borderSide: const BorderSide(color: Colors.black, width: 1.0),
+              ),
+              suffixIcon: const Icon(Icons.search),
             ),
-            // แสดงรายการที่ค้นหา
-            Expanded(
-              child: _searchController.text.isEmpty
-                  ? const SizedBox()
-                  : ListView(
-                      children: [
-                        if (_searchController.text.isNotEmpty &&
-                            _searchIngredients(_searchController.text).isEmpty)
-                          ListTile(
-                              contentPadding: const EdgeInsets.only(left: 10),
-                              title: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          // แสดงรายการที่ค้นหา
+          Expanded(
+            child: _searchController.text.isEmpty
+                ? const SizedBox()
+                : ListView(
+                    children: [
+                      if (_searchController.text.isNotEmpty &&
+                          _searchIngredients(_searchController.text).isEmpty)
+                        ListTile(
+                          contentPadding: const EdgeInsets.only(left: 10),
+                          title: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
-                                  const Row(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Add Ingredient To Cart',
-                                        style: TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 0),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          width: 100,
-                                          height: 100,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFd7d8d8),
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                          ),
-                                          child: ClipRRect(
-                                            child: SizedBox(
-                                              child: Image.asset(
-                                                'assets/images/default_ing.png',
-                                                fit: BoxFit.contain,
-                                                width: 50,
-                                                height: 50,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 30),
-                                        Expanded(
-                                          child: Text(
-                                            _searchController.text,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 20,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                  Text(
+                                    'Add Ingredient To Cart',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ],
                               ),
-                            onTap: () {
-                              _showIngredientPopup(
-                                context,
-                                {
-                                  'ingredientsName': _searchController.text,
-                                  'imageUrl': 'assets/images/default_ing.png',
-                                  'unit': 'N/A',
-                                  'storage': 'N/A',
-                                },
-                              );
-                            },
-                            ),
-                        ..._searchIngredients(_searchController.text)
-                            .map((ingredient) {
-                          return ListTile(
-                            leading: Image.network(
-                              ingredient['imageUrl']!,
-                              width: 40,
-                              height: 40,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Image.asset(
-                                    'assets/images/default_ing.png',
-                                    width: 40,
-                                    height: 40);
-                              },
-                            ),
-                            title: Text(ingredient['ingredientsName']!),
-                            onTap: () {
-                              _showIngredientPopup(context, ingredient);
-                            },
-                                );
-                            }).toList(),
-                      ],
-                    ),
-            ),
-          ],
-          ),
-        )
-        );  
-  }
-void _showIngredientPopup(BuildContext context, Map<String, dynamic> ingredient) {
-  int quantity = 1;
-  TextEditingController priceController = TextEditingController();
-
-  List<String> unitOptions = ['Kilograms (kg)',
-                                    'Grams (g)',
-                                    'Pounds (lbs)',
-                                    'Ounces (oz)',
-                                    'Liters (L)',
-                                    'Milliliters (mL)',
-                                    'Gallons',
-                                    'Bottles',
-                                    'Pieces',
-                                    'Boxes',
-                                    'Cups',
-                                    'Cans',
-                                    'Packs',
-                                    'Bulb',
-                                    'Leaves',
-                                    'Loaf',
-                                    'Bunch',
-                                    'Head',
-                                    'Jar',
-                                    'Sheet',
-                                    'Bar',
-                                    'Container',
-                                    'Cob',];
-  List<String> storageOptions = ['Fridge', 'Freezer', 'Pantry'];
-  List<String> sourceOptions = ['Supermarket', 'Market', 'Online', 'Homegrown'];
-
-  String selectedUnit = unitOptions[0];
-  String selectedStorage = storageOptions[0];
-  String selectedSource = sourceOptions[0];
-
-  showDialog(
-  context: context,
-  barrierDismissible: false,
-  builder: (BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Stack( // ใช้ Stack เพื่อรองรับการใช้ Positioned
-        children: [
-          SingleChildScrollView( // ใช้ SingleChildScrollView ภายใน Stack
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      ingredient['imageUrl'],
-                      width: 100,
-                      height: 100,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // ชื่อวัตถุดิบ
-                  Text(
-                    ingredient['ingredientsName'],
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  // ปรับค่า Quantity (+ -)
-                  _buildQuantitySelector(ingredient, userIngredientsMap, quantity, (newQuantity) {
-                    setState(() => quantity = newQuantity);
-                  }),
-                  const SizedBox(height: 10),
-                  // Dropdown เลือกหน่วย (Unit)
-                  _buildDropdown('Unit', unitOptions, selectedUnit, (newValue) {
-                    setState(() => selectedUnit = newValue);
-                  }),
-                  // Dropdown เลือกที่เก็บ (Storage)
-                  _buildDropdown('Storage', storageOptions, selectedStorage, (newValue) {
-                    setState(() => selectedStorage = newValue);
-                  }),
-                  // Dropdown เลือกแหล่งที่มา (Source)
-                  _buildDropdown('Source', sourceOptions, selectedSource, (newValue) {
-                    setState(() => selectedSource = newValue);
-                  }),
-                  // ช่องกรอกราคา (Price)
-                  _buildPriceField(priceController),
-                  const SizedBox(height: 10),
-                  // ปุ่มเพิ่มไปยังตะกร้า
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CartScreen(
-                            ingredient: {
-                              'ingredientsName': ingredient['ingredientsName'],
-                              'imageUrl': 'assets/images/default_ing.png',
-                              'unit': selectedUnit,
-                              'storage': selectedStorage,
-                              'source': selectedSource,
-                              'quantity': quantity,
-                              'price': priceController.text.isEmpty ? 0 : double.tryParse(priceController.text) ?? 0,
-                            },
-                            addedToCartIngredients: [],
+                              const SizedBox(height: 10),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 0),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 100,
+                                      height: 100,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFd7d8d8),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: ClipRRect(
+                                        child: SizedBox(
+                                          child: Image.asset(
+                                            'assets/images/default_ing.png',
+                                            fit: BoxFit.contain,
+                                            width: 50,
+                                            height: 50,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 30),
+                                    Expanded(
+                                      child: Text(
+                                        _searchController.text,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
+                          onTap: () {
+                            _showIngredientPopup(
+                              context,
+                              {
+                                'ingredientsName': _searchController.text,
+                                'imageUrl': 'assets/images/default_ing.png',
+                                'unit': 'N/A',
+                                'storage': 'N/A',
+                              },
+                            );
+                          },
                         ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('Add to Cart', style: TextStyle(color: Colors.white)),
+                      ..._searchIngredients(_searchController.text)
+                          .map((ingredient) {
+                        return ListTile(
+                          leading: Image.network(
+                            ingredient['imageUrl']!,
+                            width: 40,
+                            height: 40,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                  'assets/images/default_ing.png',
+                                  width: 40,
+                                  height: 40);
+                            },
+                          ),
+                          title: Text(ingredient['ingredientsName']!),
+                          onTap: () {
+                            _showIngredientPopup(context, ingredient);
+                          },
+                        );
+                      }).toList(),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          ),
-          // ปุ่มปิด (X) ที่มุมขวาบน
-          Positioned(
-            top: 5,
-            right: 5,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.black54),
-              onPressed: () => Navigator.pop(context),
-            ),
           ),
         ],
       ),
+    ));
+  }
+
+  void _showIngredientPopup(
+      BuildContext context, Map<String, dynamic> ingredient) {
+    int quantity = 1;
+    TextEditingController priceController = TextEditingController();
+
+    List<String> categoryOptions = [
+                            'Fruits',
+                            'Vegetables',
+                            'Meat',
+                            'Seafood',
+                            'Cold Cuts',
+                            'Dairy',
+                            'Bread',
+                            'Cake & Biscuits',
+                            'Alcoholic Beverages',
+                            'Beverages',
+                            'Coffee & Tea',
+                            'Snacks',
+                            'Sweets',
+                            'Condiments & Dips',
+                            'Dry Goods',
+                            'Nuts & Seeds',
+                            'Canned Food',
+                            'Cereals',
+                            'Leftovers',
+                            'Easy Meals',
+                            'Household Essentials',
+                            'Baking Goods',
+                            'Other goods',
+                            'Frozen foods',
+                            'Spices',
+    ];
+
+    List<String> unitOptions = [
+      'Kilograms (kg)',
+      'Grams (g)',
+      'Pounds (lbs)',
+      'Ounces (oz)',
+      'Liters (L)',
+      'Milliliters (mL)',
+      'Gallons',
+      'Bottles',
+      'Pieces',
+      'Boxes',
+      'Cups',
+      'Cans',
+      'Packs',
+      'Bulb',
+      'Leaves',
+      'Loaf',
+      'Bunch',
+      'Head',
+      'Jar',
+      'Sheet',
+      'Bar',
+      'Container',
+      'Cob',
+    ];
+    List<String> storageOptions = ['Fridge', 'Freezer', 'Pantry'];
+    List<String> sourceOptions = [
+      'Supermarket',
+      'Market',
+      'Online',
+      'Homegrown'
+    ];
+
+    String selectedCategory = ingredient['category'] ?? categoryOptions[0]; 
+    String selectedUnit = ingredient['unit'] ?? unitOptions[0]; 
+    String selectedStorage = ingredient['storage'] ?? storageOptions[0]; 
+    String selectedSource = sourceOptions[0];
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: IconButton(
+                        icon: Icon(Icons.close, color: Colors.black),
+                        onPressed: () {
+                          Navigator.pop(context); 
+                        },
+                      ),
+                    ),
+                    ClipRRect(
+                      child: Image.network(
+                        ingredient['imageUrl'],
+                        width: 100,
+                        height: 100,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Image.asset('assets/images/default_ing.png',
+                              width: 100, height: 100);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      ingredient['ingredientsName'],
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildQuantitySelector(ingredient, userIngredientsMap, quantity,
+                        (newQuantity) {
+                      setDialogState(() => quantity = newQuantity);
+                    }),
+
+                    const SizedBox(height: 10),
+                    _buildDropdown('Category', categoryOptions, selectedCategory,
+                        (newValue) {
+                      setDialogState(() => selectedCategory = newValue);
+                    }),
+                    _buildDropdown('Unit', unitOptions, selectedUnit,
+                        (newValue) {
+                      setDialogState(() => selectedUnit = newValue);
+                    }),
+                    _buildDropdown('Storage', storageOptions, selectedStorage,
+                        (newValue) {
+                      setDialogState(() => selectedStorage = newValue);
+                    }),
+                    _buildDropdown('Source', sourceOptions, selectedSource,
+                        (newValue) {
+                      setDialogState(() => selectedSource = newValue);
+                    }),
+                    _buildPriceField(priceController),
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          addedToCartIngredients.add({
+                            'ingredientsName': ingredient['ingredientsName'],
+                            'imageUrl': ingredient['imageUrl'],
+                            'unit': selectedUnit,
+                            'storage': selectedStorage,
+                            'source': selectedSource,
+                            'quantity': quantity,
+                            'price': priceController.text.isEmpty
+                                ? 0
+                                : double.tryParse(priceController.text) ?? 0,
+                          });
+                        });
+
+                        print(
+                            '✅ Added ${ingredient['ingredientsName']} to cart');
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CartScreen(
+                              addedToCartIngredients: addedToCartIngredients,
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Add to Cart',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
-  },
-);
-}
+  }
 }
 
 // Dropdown Widget
-Widget _buildDropdown(String label, List<String> options, String selectedValue, Function(String) onChanged) {
+Widget _buildDropdown(String label, List<String> options, String selectedValue,
+    Function(String) onChanged) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
     child: DropdownButtonFormField<String>(
@@ -495,7 +546,8 @@ Widget _buildDropdown(String label, List<String> options, String selectedValue, 
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
       items: options.map((String value) {
         return DropdownMenuItem<String>(
@@ -509,8 +561,14 @@ Widget _buildDropdown(String label, List<String> options, String selectedValue, 
 }
 
 // Quantity Selector Widget (+ -)
-Widget _buildQuantitySelector(Map<String, dynamic> ingredient, Map<String, int> userIngredientsMap, int quantity, Function(int) onQuantityChanged) {
-  int userQuantity = userIngredientsMap[ingredient['ingredientsName']] ?? 0;
+Widget _buildQuantitySelector(
+    Map<String, dynamic> ingredient,
+    Map<String, int> userIngredientsMap,
+    int quantity,
+    Function(int) onQuantityChanged) {
+    int userQuantity = userIngredientsMap[ingredient['ingredientsName']] ?? 0;
+
+
 
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
@@ -521,7 +579,7 @@ Widget _buildQuantitySelector(Map<String, dynamic> ingredient, Map<String, int> 
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'Quantity', 
+              'Quantity',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -530,10 +588,14 @@ Widget _buildQuantitySelector(Map<String, dynamic> ingredient, Map<String, int> 
             Row(
               children: [
                 IconButton(
-                  onPressed: quantity > 1 ? () => onQuantityChanged(quantity - 1) : null,
+                  onPressed: quantity > 1
+                      ? () => onQuantityChanged(quantity - 1)
+                      : null,
                   icon: const Icon(Icons.remove, color: Colors.red),
                 ),
-                Text(quantity.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(quantity.toString(),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
                 IconButton(
                   onPressed: () => onQuantityChanged(quantity + 1),
                   icon: const Icon(Icons.add, color: Colors.green),
@@ -543,11 +605,11 @@ Widget _buildQuantitySelector(Map<String, dynamic> ingredient, Map<String, int> 
           ],
         ),
         // ตรวจสอบว่า ingredient มี `quantity` หรือไม่จาก userIngredientsMap
-        if (userQuantity > 0) 
+        if (userQuantity > 0)
           Row(
             children: [
               Image.asset(
-                'assets/images/about.png', 
+                'assets/images/about.png',
                 width: 20,
                 height: 20,
               ),
@@ -562,14 +624,12 @@ Widget _buildQuantitySelector(Map<String, dynamic> ingredient, Map<String, int> 
               ),
             ],
           )
-        else 
-          const SizedBox(), // ไม่แสดงอะไรเมื่อไม่มี quantity
+        else
+          const SizedBox(), 
       ],
     ),
   );
 }
-
-
 
 // ช่องกรอกราคา (Price)
 Widget _buildPriceField(TextEditingController controller) {
@@ -582,7 +642,8 @@ Widget _buildPriceField(TextEditingController controller) {
         labelText: 'Price (฿)',
         suffixText: '฿',
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
       onChanged: (value) {
         if (value.isNotEmpty && double.tryParse(value) == null) {
@@ -592,7 +653,3 @@ Widget _buildPriceField(TextEditingController controller) {
     ),
   );
 }
-
- 
-
-
