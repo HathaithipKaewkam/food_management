@@ -29,35 +29,35 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> fetchUserCart() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user != null) {
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('userCart')
-          .get();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('userCart')
+            .get();
 
-      print("✅ Fetched ${snapshot.docs.length} ingredients.");
+        print("✅ Fetched ${snapshot.docs.length} ingredients.");
 
-      setState(() {
-        cartItems = snapshot.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>? ?? {};
-          data['docId'] = doc.id; // เพิ่ม docId เข้าไปในข้อมูล
-          return data;
-        }).toList();
+        setState(() {
+          cartItems = snapshot.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>? ?? {};
+            data['docId'] = doc.id; // เพิ่ม docId เข้าไปในข้อมูล
+            return data;
+          }).toList();
 
-        isLoading = false;
-      });
-      print("🎉 Fetch complete! isLoading: $isLoading");
-    } catch (e) {
-      print("Error fetching ingredients: $e");
-      setState(() {
-        isLoading = false;
-      });
+          isLoading = false;
+        });
+        print("🎉 Fetch complete! isLoading: $isLoading");
+      } catch (e) {
+        print("Error fetching ingredients: $e");
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
-}
 
   double getTotalPrice(List<Map<String, dynamic>> cartItems) {
     double total = 0;
@@ -67,26 +67,57 @@ class _CartScreenState extends State<CartScreen> {
     return total;
   }
 
-  Future<void> _togglePurchased(String docId, bool isPurchased) async {
-  String uid = FirebaseAuth.instance.currentUser!.uid;
-
-  try {
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('userCart')
-        .doc(docId)
-        .update({
-      'purchased': isPurchased,
-      'purchasedAt': isPurchased ? FieldValue.serverTimestamp() : null, 
+  void onMarkAllPurchased(bool isPurchased) {
+    setState(() {
+      for (var item in cartItems) {
+        final docId = item['docId'];
+        if (docId != null) {
+          _togglePurchased(docId, isPurchased);
+          item['purchased'] = isPurchased;
+        }
+      }
     });
-
-    print("✅ Updated item: $docId, Purchased: $isPurchased");
-  } catch (e) {
-    print("❌ Error updating item: $e");
   }
-}
 
+  Future<void> _togglePurchased(String docId, bool isPurchased) async {
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('userCart')
+          .doc(docId)
+          .update({
+        'purchased': isPurchased,
+        'purchasedAt': isPurchased ? FieldValue.serverTimestamp() : null,
+      });
+
+      print("✅ Updated item: $docId, Purchased: $isPurchased");
+    } catch (e) {
+      print("❌ Error updating item: $e");
+    }
+  }
+
+  Future<void> _deleteAllItems() async {
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+
+    try {
+      var cartCollection = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('userCart');
+
+      var snapshot = await cartCollection.get();
+      for (var doc in snapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      print("✅ All items deleted successfully.");
+    } catch (e) {
+      print("❌ Error deleting items: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,8 +142,8 @@ class _CartScreenState extends State<CartScreen> {
 
                   final cartItems = snapshot.data?.docs.map((doc) {
                         final data = doc.data() as Map<String, dynamic> ?? {};
-      data['docId'] = doc.id;  
-      return data;
+                        data['docId'] = doc.id;
+                        return data;
                       }).toList() ??
                       [];
                   return Column(
@@ -152,12 +183,66 @@ class _CartScreenState extends State<CartScreen> {
                               color: Colors.black,
                               iconSize: 25,
                             ),
-                            IconButton(
-                              onPressed: () {},
-                              icon: Icon(Icons.more_horiz),
-                              color: Colors.black,
-                              iconSize: 25,
-                            ),
+                            PopupMenuButton<String>(
+                              onSelected: (String value) async {
+                                if (value == 'Mark all as bought') {
+                                  onMarkAllPurchased(true);
+                                } else if (value == 'Delete all') {
+                                  bool? confirmDelete = await showDialog<bool>(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text("Confirm Deletion"),
+                                        content: Text(
+                                            "Are you sure you want to delete all items?"),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () {
+                                              Navigator.of(context).pop(false);
+                                            },
+                                            child: Text("Cancel"),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              Navigator.of(context).pop(true);
+                                            },
+                                            child: Text("Delete",
+                                                style: TextStyle(
+                                                    color: Colors.red)),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  if (confirmDelete == true) {
+                                    await _deleteAllItems();
+
+                                    setState(() {
+                                      cartItems.clear();
+                                    });
+                                  }
+                                }
+                              },
+                              icon: Icon(Icons.more_horiz,
+                                  color: Colors.black, size: 25),
+                              itemBuilder: (BuildContext context) => [
+                                PopupMenuItem<String>(
+                                  value: 'Mark all as bought',
+                                  child: Text('Mark all as bought'),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'Move to storage',
+                                  child: Text('Move to storage'),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'Delete all',
+                                  child: DefaultTextStyle(
+                                    style: TextStyle(color: Colors.red),
+                                    child: Text('Delete all'),
+                                  ),
+                                ),
+                              ],
+                            )
                           ],
                         ),
                       ),
@@ -287,13 +372,26 @@ class _CartScreenState extends State<CartScreen> {
                                     context, ingredient, index, cartItems);
                               },
                               child: CartWidget(
-                                  cartItems: [ingredient],
-                                    onPurchasedChanged: (String docId, bool isPurchased) async {
-                                    await _togglePurchased(docId, isPurchased);
-                                    setState(() {
-                                      ingredient['purchased'] = isPurchased;
-                                    });
-                                  },),
+                                cartItems: [ingredient],
+                                onPurchasedChanged:
+                                    (String docId, bool isPurchased) async {
+                                  await _togglePurchased(docId, isPurchased);
+                                  setState(() {
+                                    ingredient['purchased'] = isPurchased;
+                                  });
+                                },
+                                onMarkAllPurchased: (bool isPurchased) {
+                                  setState(() {
+                                    for (var item in cartItems) {
+                                      final docId = item['docId'];
+                                      if (docId != null) {
+                                        _togglePurchased(docId, isPurchased);
+                                        item['purchased'] = isPurchased;
+                                      }
+                                    }
+                                  });
+                                },
+                              ),
                             );
                           },
                         ),

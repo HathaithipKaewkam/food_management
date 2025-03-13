@@ -8,11 +8,13 @@ class CartWidget extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
 
   final Future<void> Function(String docId, bool isPurchased) onPurchasedChanged;
+  final Function(bool isPurchased) onMarkAllPurchased;
 
   const CartWidget({
     Key? key,
     required this.cartItems,
     required this.onPurchasedChanged,
+    required this.onMarkAllPurchased,
   }) : super(key: key);
 
   @override
@@ -39,6 +41,8 @@ String formatDate(dynamic dateValue) {
   }
 }
 
+
+
 class _CartWidgetState extends State<CartWidget> {
   Map<String, bool> selectedItems = {};
 
@@ -53,7 +57,18 @@ void initState() {
     }
   }
 }
-
+void _markAllPurchased(bool isPurchased) {
+    setState(() {
+      for (var item in widget.cartItems) {
+        final docId = item['docId'];
+        if (docId != null) {
+          selectedItems[docId] = isPurchased;
+          item['purchased'] = isPurchased;
+          widget.onPurchasedChanged(docId, isPurchased);
+        }
+      }
+    });
+  }
 
 
   @override
