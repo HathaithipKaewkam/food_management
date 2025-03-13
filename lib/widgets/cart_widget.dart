@@ -4,7 +4,13 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 class CartWidget extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
 
-  const CartWidget({Key? key, required this.cartItems}) : super(key: key);
+  final Future<void> Function(String docId, bool isPurchased) onPurchasedChanged;
+
+  const CartWidget({
+    Key? key,
+    required this.cartItems,
+    required this.onPurchasedChanged,
+  }) : super(key: key);
 
   @override
   _CartWidgetState createState() => _CartWidgetState();
@@ -14,12 +20,18 @@ class _CartWidgetState extends State<CartWidget> {
   Map<String, bool> selectedItems = {};
 
   @override
-  void initState() {
-    super.initState();
-    for (var item in widget.cartItems) {
-      selectedItems[item['ingredientsName']] = false;
+void initState() {
+  super.initState();
+  for (var item in widget.cartItems) {
+    if (item['docId'] != null) {
+      selectedItems[item['docId']] = item['purchased'] ?? false;
+    } else {
+      print("DocId is null for item: ${item['ingredientsName']}");
     }
   }
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -35,16 +47,42 @@ class _CartWidgetState extends State<CartWidget> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Transform.translate(
-              offset: const Offset(-5, 0), 
+              offset: const Offset(-5, 0),
               child: Checkbox(
-                value: selectedItems[item['ingredientsName']] ?? false,
-                activeColor: const Color(0xFF78d454),
-                onChanged: (bool? value) {
-                  setState(() {
-                    selectedItems[item['ingredientsName']] = value ?? false;
-                  });
-                },
-              ),
+  value: selectedItems.containsKey(item['docId'] ?? 'defaultDocId')
+      ? selectedItems[item['docId']] 
+      : false,  // เช็คว่า docId ที่ถูกต้องมีค่า
+
+  activeColor: const Color(0xFF78d454),
+  onChanged: (bool? value) async {
+    final docId = item['docId'];  // ตอนนี้ docId ควรจะมีค่าถูกต้อง
+
+    print("DocId: $docId");  // แสดงค่า docId ใน console
+    print("SelectedItems: $selectedItems");  // แสดงค่า selectedItems ใน console
+
+    // ตรวจสอบว่า docId ที่ใช้สามารถอัปเดตได้ใน Firestore หรือไม่
+    if (docId == null || docId == 'defaultDocId') {
+      // ถ้า docId เป็น null หรือ defaultDocId ก็จะไม่ทำการอัปเดต
+      print("DocId is invalid, cannot update Firestore.");
+      return;
+    }
+
+    try {
+      setState(() {
+        selectedItems[docId] = value ?? false;  // อัปเดต selectedItems
+        item['purchased'] = value;  // อัปเดตค่า purchased ใน item ด้วย
+      });
+
+      await widget.onPurchasedChanged(docId, value ?? false);  // อัปเดต Firestore
+    } catch (e) {
+      print("❌ Error updating item: $e");
+    }
+  },
+)
+
+
+
+
             ),
             const SizedBox(width: 10), 
             Expanded(
@@ -54,15 +92,16 @@ class _CartWidgetState extends State<CartWidget> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        item['ingredientsName'] != null
-                            ? '${item['ingredientsName']![0].toUpperCase()}${item['ingredientsName']!.substring(1).toLowerCase()}'
-                            : '',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    Text(
+  item['ingredientsName'] != null
+      ? '${item['ingredientsName']![0].toUpperCase()}${item['ingredientsName']!.substring(1).toLowerCase()}'
+      : 'Unknown',
+  style: const TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.bold,
+  ),
+),
+
                       Text(
                         '${item['price']} ฿',
                         style: const TextStyle(
@@ -98,6 +137,7 @@ class _CartWidgetState extends State<CartWidget> {
                       ),
                     ],
                   ),
+                  
                 ],
               ),
             ),

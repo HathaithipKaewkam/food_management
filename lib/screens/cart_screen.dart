@@ -29,41 +29,62 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> fetchUserCart() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        final snapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('userCart')
-            .get();
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('userCart')
+          .get();
 
-        print("✅ Fetched ${snapshot.docs.length} ingredients.");
+      print("✅ Fetched ${snapshot.docs.length} ingredients.");
 
-        setState(() {
-          cartItems = snapshot.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>?;
-            return data ?? {};
-          }).toList();
+      setState(() {
+        cartItems = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>? ?? {};
+          data['docId'] = doc.id; // เพิ่ม docId เข้าไปในข้อมูล
+          return data;
+        }).toList();
 
-          isLoading = false;
-        });
-        print("🎉 Fetch complete! isLoading: $isLoading");
-      } catch (e) {
-        print("Error fetching ingredients: $e");
-        setState(() {
-          isLoading = false;
-        });
-      }
+        isLoading = false;
+      });
+      print("🎉 Fetch complete! isLoading: $isLoading");
+    } catch (e) {
+      print("Error fetching ingredients: $e");
+      setState(() {
+        isLoading = false;
+      });
     }
   }
+}
 
   double getTotalPrice(List<Map<String, dynamic>> cartItems) {
-  double total = 0;
-  for (var item in cartItems) {
-    total += item['price'] ?? 0;
+    double total = 0;
+    for (var item in cartItems) {
+      total += item['price'] ?? 0;
+    }
+    return total;
   }
-  return total;
+
+  Future<void> _togglePurchased(String docId, bool isPurchased) async {
+  String uid = FirebaseAuth.instance.currentUser!.uid;
+
+  try {
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('userCart')
+        .doc(docId)
+        .update({
+      'purchased': isPurchased,
+      'purchasedAt': isPurchased ? FieldValue.serverTimestamp() : null, 
+    });
+
+    print("✅ Updated item: $docId, Purchased: $isPurchased");
+  } catch (e) {
+    print("❌ Error updating item: $e");
+  }
 }
 
 
@@ -89,7 +110,9 @@ class _CartScreenState extends State<CartScreen> {
                   }
 
                   final cartItems = snapshot.data?.docs.map((doc) {
-                        return doc.data() as Map<String, dynamic>;
+                        final data = doc.data() as Map<String, dynamic> ?? {};
+      data['docId'] = doc.id;  
+      return data;
                       }).toList() ??
                       [];
                   return Column(
@@ -120,6 +143,12 @@ class _CartScreenState extends State<CartScreen> {
                                 );
                               },
                               icon: Icon(Icons.add),
+                              color: Colors.black,
+                              iconSize: 25,
+                            ),
+                            IconButton(
+                              onPressed: () {},
+                              icon: Icon(Icons.history),
                               color: Colors.black,
                               iconSize: 25,
                             ),
@@ -235,14 +264,13 @@ class _CartScreenState extends State<CartScreen> {
                               ),
                               SizedBox(width: 240),
                               Text(
-                              '${getTotalPrice(cartItems).toStringAsFixed(2)} ฿',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black,
+                                '${getTotalPrice(cartItems).toStringAsFixed(2)} ฿',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
+                                ),
                               ),
-                            ),
-
                             ],
                           ),
                         ),
@@ -259,8 +287,13 @@ class _CartScreenState extends State<CartScreen> {
                                     context, ingredient, index, cartItems);
                               },
                               child: CartWidget(
-                                cartItems: [ingredient],
-                              ),
+                                  cartItems: [ingredient],
+                                    onPurchasedChanged: (String docId, bool isPurchased) async {
+                                    await _togglePurchased(docId, isPurchased);
+                                    setState(() {
+                                      ingredient['purchased'] = isPurchased;
+                                    });
+                                  },),
                             );
                           },
                         ),
@@ -518,93 +551,99 @@ void _showEditDialog(BuildContext context, Map<String, dynamic> ingredient,
 
                   const SizedBox(height: 20),
 
-ElevatedButton(
-  onPressed: () async {
-    double price = double.tryParse(priceController.text) ?? ingredient['price'];
+                  ElevatedButton(
+                    onPressed: () async {
+                      double price = double.tryParse(priceController.text) ??
+                          ingredient['price'];
 
-    setState(() {
-      cartItems[index] = {
-        ...ingredient,
-        'quantity': quantity,
-        'price': price,
-        'category': selectedCategory,
-        'unit': selectedUnit,
-        'storage': selectedStorage,
-        'source': selectedSource,
-      };
-    });
+                      setState(() {
+                        cartItems[index] = {
+                          ...ingredient,
+                          'quantity': quantity,
+                          'price': price,
+                          'category': selectedCategory,
+                          'unit': selectedUnit,
+                          'storage': selectedStorage,
+                          'source': selectedSource,
+                        };
+                      });
 
-    print('✅ Updated ingredient: ${cartItems[index]}');
+                      print('✅ Updated ingredient: ${cartItems[index]}');
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        // ค่าที่จะใช้ตรวจสอบใน Firestore
-        String ingredientsName = cartItems[index]['ingredientsName'];
-        
-        // ค้นหาว่ามีรายการที่ตรงกับ ingredientsName ใน Firestore
-        var querySnapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('userCart')
-            .where('ingredientsName', isEqualTo: ingredientsName)
-            .get();
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user != null) {
+                        try {
+                          // ค่าที่จะใช้ตรวจสอบใน Firestore
+                          String ingredientsName =
+                              cartItems[index]['ingredientsName'];
 
-        if (querySnapshot.docs.isNotEmpty) {
-          // ถ้ามีรายการที่ตรงกันใน Firestore
-          String docId = querySnapshot.docs.first.id; // ใช้ ID ของเอกสารที่พบ
+                          // ค้นหาว่ามีรายการที่ตรงกับ ingredientsName ใน Firestore
+                          var querySnapshot = await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(user.uid)
+                              .collection('userCart')
+                              .where('ingredientsName',
+                                  isEqualTo: ingredientsName)
+                              .get();
 
-          // อัปเดทข้อมูลทั้งหมด
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .collection('userCart')
-              .doc(docId) // อัปเดทเอกสารเดิม
-              .update({
-            'quantity': cartItems[index]['quantity'],
-            'price': cartItems[index]['price'],
-            'category': selectedCategory, // อัปเดต category ใหม่
-            'unit': selectedUnit, // อัปเดต unit ใหม่
-            'storage': selectedStorage, // อัปเดต storage ใหม่
-            'source': selectedSource, // อัปเดต source ใหม่
-            'imageUrl': cartItems[index]['imageUrl'],
-          }).then((_) {
-            print('Item updated successfully');
-          }).catchError((e) {
-            print('Error updating item: $e');
-          });
-        } else {
-          // ถ้าไม่มีรายการที่ตรงกันใน Firestore
-          String docId = ingredientsName + '-' + selectedCategory; // ใช้ combination นี้เป็น docId
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .collection('userCart')
-              .doc(docId) // สร้างเอกสารใหม่
-              .set({
-            'ingredientsName': ingredientsName,
-            'quantity': cartItems[index]['quantity'],
-            'price': cartItems[index]['price'],
-            'category': selectedCategory,
-            'unit': selectedUnit,
-            'storage': selectedStorage,
-            'source': selectedSource,
-            'imageUrl': cartItems[index]['imageUrl'],
-          }).then((_) {
-            print('New item added');
-          }).catchError((e) {
-            print('Error adding new item: $e');
-          });
-        }
-      } catch (e) {
-        print('Error: $e');
-      }
-    }
-    Navigator.pop(context);
-  },
-  child: const Text('Update Item'),
-),
+                          if (querySnapshot.docs.isNotEmpty) {
+                            // ถ้ามีรายการที่ตรงกันใน Firestore
+                            String docId = querySnapshot
+                                .docs.first.id; // ใช้ ID ของเอกสารที่พบ
 
+                            // อัปเดทข้อมูลทั้งหมด
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(user.uid)
+                                .collection('userCart')
+                                .doc(docId) // อัปเดทเอกสารเดิม
+                                .update({
+                              'quantity': cartItems[index]['quantity'],
+                              'price': cartItems[index]['price'],
+                              'category':
+                                  selectedCategory, // อัปเดต category ใหม่
+                              'unit': selectedUnit, // อัปเดต unit ใหม่
+                              'storage': selectedStorage, // อัปเดต storage ใหม่
+                              'source': selectedSource, // อัปเดต source ใหม่
+                              'imageUrl': cartItems[index]['imageUrl'],
+                            }).then((_) {
+                              print('Item updated successfully');
+                            }).catchError((e) {
+                              print('Error updating item: $e');
+                            });
+                          } else {
+                            // ถ้าไม่มีรายการที่ตรงกันใน Firestore
+                            String docId = ingredientsName +
+                                '-' +
+                                selectedCategory; // ใช้ combination นี้เป็น docId
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(user.uid)
+                                .collection('userCart')
+                                .doc(docId) // สร้างเอกสารใหม่
+                                .set({
+                              'ingredientsName': ingredientsName,
+                              'quantity': cartItems[index]['quantity'],
+                              'price': cartItems[index]['price'],
+                              'category': selectedCategory,
+                              'unit': selectedUnit,
+                              'storage': selectedStorage,
+                              'source': selectedSource,
+                              'imageUrl': cartItems[index]['imageUrl'],
+                            }).then((_) {
+                              print('New item added');
+                            }).catchError((e) {
+                              print('Error adding new item: $e');
+                            });
+                          }
+                        } catch (e) {
+                          print('Error: $e');
+                        }
+                      }
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Update Item'),
+                  ),
 
                   const SizedBox(height: 10),
 
