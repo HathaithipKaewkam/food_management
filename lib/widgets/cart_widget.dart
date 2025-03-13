@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class CartWidget extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
@@ -14,6 +17,26 @@ class CartWidget extends StatefulWidget {
 
   @override
   _CartWidgetState createState() => _CartWidgetState();
+}
+
+String formatDate(dynamic dateValue) {
+  try {
+    DateTime dateTime;
+    
+    if (dateValue is Timestamp) {
+      dateTime = dateValue.toDate();  
+    } else if (dateValue is String) {
+      dateTime = DateTime.parse(dateValue); 
+    } else {
+      return 'N/A';  
+    }
+
+    final DateFormat formatter = DateFormat('dd/MM/yy');  
+    return formatter.format(dateTime);  
+  } catch (e) {
+    print("Error parsing date: $e");
+    return 'N/A'; 
+  }
 }
 
 class _CartWidgetState extends State<CartWidget> {
@@ -36,6 +59,9 @@ void initState() {
   @override
   Widget build(BuildContext context) {
     final item = widget.cartItems[0]; 
+    dynamic purchasedAt = item['purchasedAt'] ?? 'N/A';
+    String formattedDate = formatDate(purchasedAt);
+
     return Card(
       color: Colors.white,
       elevation: 2,
@@ -50,15 +76,15 @@ void initState() {
               offset: const Offset(-5, 0),
               child: Checkbox(
   value: selectedItems.containsKey(item['docId'] ?? 'defaultDocId')
-      ? selectedItems[item['docId']] 
-      : false,  // เช็คว่า docId ที่ถูกต้องมีค่า
+      ? selectedItems[item['docId']]
+      : false, // เช็คว่า docId ที่ถูกต้องมีค่า
 
   activeColor: const Color(0xFF78d454),
   onChanged: (bool? value) async {
-    final docId = item['docId'];  // ตอนนี้ docId ควรจะมีค่าถูกต้อง
+    final docId = item['docId']; // ตอนนี้ docId ควรจะมีค่าถูกต้อง
 
-    print("DocId: $docId");  // แสดงค่า docId ใน console
-    print("SelectedItems: $selectedItems");  // แสดงค่า selectedItems ใน console
+    print("DocId: $docId"); // แสดงค่า docId ใน console
+    print("SelectedItems: $selectedItems"); // แสดงค่า selectedItems ใน console
 
     // ตรวจสอบว่า docId ที่ใช้สามารถอัปเดตได้ใน Firestore หรือไม่
     if (docId == null || docId == 'defaultDocId') {
@@ -67,18 +93,21 @@ void initState() {
       return;
     }
 
+    // อัปเดต Firestore โดยตรงโดยไม่ต้องเรียก setState
     try {
-      setState(() {
-        selectedItems[docId] = value ?? false;  // อัปเดต selectedItems
-        item['purchased'] = value;  // อัปเดตค่า purchased ใน item ด้วย
-      });
+      await widget.onPurchasedChanged(docId, value ?? false); // อัปเดต Firestore
 
-      await widget.onPurchasedChanged(docId, value ?? false);  // อัปเดต Firestore
+      // อัปเดต selectedItems หลังจากการอัปเดต Firestore สำเร็จ
+      setState(() {
+        selectedItems[docId] = value ?? false; // อัปเดต selectedItems
+        item['purchased'] = value; // อัปเดตค่า purchased ใน item ด้วย
+      });
     } catch (e) {
       print("❌ Error updating item: $e");
     }
   },
 )
+
 
 
 
@@ -137,6 +166,15 @@ void initState() {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 5),
+                   Text(
+                  'Last buy: $formattedDate',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                   
                 ],
               ),
