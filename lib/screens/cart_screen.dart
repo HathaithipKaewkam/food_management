@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
+import 'package:food_project/screens/history_buy.dart';
 import 'package:food_project/screens/search_cart.dart';
 import 'package:food_project/widgets/cart_widget.dart';
 
@@ -80,24 +81,80 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _togglePurchased(String docId, bool isPurchased) async {
-    String uid = FirebaseAuth.instance.currentUser!.uid;
+  String uid = FirebaseAuth.instance.currentUser!.uid;
 
-    try {
-      await FirebaseFirestore.instance
+  try {
+    // อัปเดตใน collection userCart
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('userCart')
+        .doc(docId)
+        .update({
+      'purchased': isPurchased,
+      'purchaseDate': isPurchased ? FieldValue.serverTimestamp() : null,
+    });
+
+    // ถ้า user ติ๊กออก (ไม่ซื้อ)
+    if (!isPurchased) {
+      // ลบข้อมูลจาก purchaseHistory
+      QuerySnapshot purchaseHistory = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('purchaseHistory')
+          .where('itemId', isEqualTo: docId)
+          .get();
+
+      for (var doc in purchaseHistory.docs) {
+        // ลบเอกสารที่ตรงกับ itemId
+        await doc.reference.delete();
+      }
+
+      print("✅ Removed item from purchaseHistory: $docId");
+    } else {
+      // ถ้า user ซื้อสินค้าใหม่ (isPurchased = true)
+      // ดึงข้อมูลสินค้าจาก userCart (เช่น ราคา จำนวน แหล่ง หน่วย)
+      DocumentSnapshot cartItem = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
           .collection('userCart')
           .doc(docId)
-          .update({
-        'purchased': isPurchased,
-        'purchasedAt': isPurchased ? FieldValue.serverTimestamp() : null,
-      });
+          .get();
 
-      print("✅ Updated item: $docId, Purchased: $isPurchased");
-    } catch (e) {
-      print("❌ Error updating item: $e");
+      // ตรวจสอบว่าได้ข้อมูลสินค้าที่ต้องการหรือไม่
+      if (cartItem.exists) {
+        Map<String, dynamic> cartData = cartItem.data() as Map<String, dynamic>;
+
+        // เพิ่มข้อมูลลงใน purchaseHistory
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('purchaseHistory')
+            .add({
+          'itemId': docId,
+          'purchaseDate': FieldValue.serverTimestamp(),
+          'price': cartData['price'], 
+          'quantity': cartData['quantity'], 
+          'source': cartData['source'], 
+          'unit': cartData['unit'],
+          'ingredientsName' : cartData['ingredientsName'],
+          'imageUrl' : cartData['imageUrl']
+        });
+
+        print("✅ Added item to purchaseHistory: $docId");
+      } else {
+        print("❌ Item not found in userCart.");
+      }
     }
+
+    print("✅ Updated item: $docId, Purchased: $isPurchased");
+  } catch (e) {
+    print("❌ Error updating item: $e");
   }
+}
+
+
+
 
   Future<void> _deleteAllItems() async {
     String uid = FirebaseAuth.instance.currentUser!.uid;
@@ -118,6 +175,136 @@ class _CartScreenState extends State<CartScreen> {
       print("❌ Error deleting items: $e");
     }
   }
+
+  Future<void> _moveToStorage(String docId, Map<String, dynamic> item) async {
+  String uid = FirebaseAuth.instance.currentUser!.uid;
+  DateTime now = DateTime.now();
+
+ 
+  DateTime expirationDate = now.add(Duration(days: 7));
+
+  var userIngredientsRef = FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('userIngredients');
+
+ 
+  var existingIngredientSnapshot = await userIngredientsRef
+      .where('docId', isEqualTo: docId) 
+      .get();
+
+ 
+  if (existingIngredientSnapshot.docs.isEmpty) {
+    await userIngredientsRef.add({
+      'docId': docId,
+      'ingredientsName': item['ingredientsName'],
+      'quantity': item['quantity'], 
+      'createDate': now,             
+      'expirationDate': expirationDate, 
+      'minQuantity': 1,             
+      'allergenInfo': item['allergenInfo'] ?? [], 
+      'price': item['price'],        
+      'imageUrl': item['imageUrl'],  
+      'category': item['category'],  
+      'unit': item['unit'],          
+      'storage': item['storage'],    
+      'source': item['source'],     
+    });
+    print("✅ New item added to storage.");
+  } else {
+   
+    var existingIngredientDoc = existingIngredientSnapshot.docs.first;
+    var currentQuantity = existingIngredientDoc['quantity'];
+
+    await existingIngredientDoc.reference.update({
+      'quantity': currentQuantity + item['quantity'], 
+      'createDate': now,  
+      'expirationDate': expirationDate, 
+      'price': item['price'], 
+      'imageUrl': item['imageUrl'], 
+      'category': item['category'], 
+      'unit': item['unit'],
+      'storage': item['storage'], 
+      'source': item['source'], 
+    });
+    print("✅ Item quantity updated in storage.");
+  }
+
+  
+  await _addToPurchaseHistory(docId, item);
+  await _removeFromUserCart(docId);
+
+ 
+  await _addToIngredientsHistory(item);
+}
+
+Future<void> _addToPurchaseHistory(String docId, Map<String, dynamic> item) async {
+  String uid = FirebaseAuth.instance.currentUser!.uid;
+  var userCartRef = FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('userCart')
+      .doc(docId);
+
+  try {
+    // เพิ่มข้อมูลใน purchaseHistory
+    await userCartRef.update({
+      'purchaseHistory': FieldValue.arrayUnion([{
+        'moveToStorageDate': DateTime.now(),
+        'itemDetails': item,
+      }]),
+    });
+    print("✅ Item added to purchase history.");
+  } catch (e) {
+    print("❌ Error adding to purchase history: $e");
+  }
+}
+
+Future<void> _removeFromUserCart(String docId) async {
+  String uid = FirebaseAuth.instance.currentUser!.uid;
+  var userCartRef = FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('userCart')
+      .doc(docId);
+
+  try {
+    // ลบข้อมูลจาก userCart
+    await userCartRef.delete();
+    print("✅ Item removed from userCart.");
+  } catch (e) {
+    print("❌ Error removing item from userCart: $e");
+  }
+}
+
+// เพิ่มประวัติการเพิ่มจำนวนวัตถุดิบใน ingredientsHistory
+Future<void> _addToIngredientsHistory(Map<String, dynamic> item) async {
+  String uid = FirebaseAuth.instance.currentUser!.uid;
+  DateTime now = DateTime.now();
+
+  var ingredientsHistoryRef = FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('ingredientsHistory');
+
+  try {
+    await ingredientsHistoryRef.add({
+      'ingredientsName': item['ingredientsName'],
+      'quantityAdded': item['quantity'], // จำนวนที่เพิ่ม
+      'addedDate': now,  // วันที่เพิ่ม
+      'category': item['category'],  // หมวดหมู่
+      'imageUrl': item['imageUrl'],  // URL ของภาพ
+      'storage': item['storage'],  // ที่เก็บ
+      'source': item['source'],  // แหล่งที่มา
+      'unit': item['unit'],  // หน่วย
+    });
+    print("✅ Item added to ingredientsHistory.");
+  } catch (e) {
+    print("❌ Error adding to ingredientsHistory: $e");
+  }
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +365,14 @@ class _CartScreenState extends State<CartScreen> {
                               iconSize: 25,
                             ),
                             IconButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                 Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => HistoryBuy(),
+                                  ),
+                                );
+                              },
                               icon: Icon(Icons.history),
                               color: Colors.black,
                               iconSize: 25,
@@ -222,6 +416,23 @@ class _CartScreenState extends State<CartScreen> {
                                     });
                                   }
                                 }
+                                else if (value == 'Move to storage') { 
+                                  for (var item in cartItems) {
+                                    if (item['purchased'] == true) {
+                                     
+                                      await _moveToStorage(item['docId'], item);
+                                    } else {
+                                      
+                                    }
+                                  }
+                                } else if (value == 'Move all items to storage') { 
+                                  for (var item in cartItems) {
+                                    if (item['purchased'] == true) {
+                                      // เรียกฟังก์ชันย้ายไป storage
+                                      await _moveToStorage(item['docId'], item);
+                                    }
+                                  }
+                                }
                               },
                               icon: Icon(Icons.more_horiz,
                                   color: Colors.black, size: 25),
@@ -233,6 +444,10 @@ class _CartScreenState extends State<CartScreen> {
                                 PopupMenuItem<String>(
                                   value: 'Move to storage',
                                   child: Text('Move to storage'),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'Move all items to storage',
+                                  child: Text('Move all items to storage'),
                                 ),
                                 PopupMenuItem<String>(
                                   value: 'Delete all',
@@ -347,7 +562,7 @@ class _CartScreenState extends State<CartScreen> {
                                   color: Colors.black,
                                 ),
                               ),
-                              SizedBox(width: 240),
+                              SizedBox(width: 250),
                               Text(
                                 '${getTotalPrice(cartItems).toStringAsFixed(2)} ฿',
                                 style: TextStyle(

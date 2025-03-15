@@ -201,6 +201,8 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
     }).toList();
   }
 
+  
+
   @override
   void initState() {
     super.initState();
@@ -220,6 +222,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
     return Scaffold(
         body: Padding(
       padding: const EdgeInsets.only(top: 40, left: 10, right: 10),
+      
       child: Column(
         children: [
           Row(
@@ -368,8 +371,19 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
 
   void _showIngredientPopup(
       BuildContext context, Map<String, dynamic> ingredient) {
+      
     int quantity = 1;
     TextEditingController priceController = TextEditingController();
+
+    List<Map<String, dynamic>> userIngredients = userIngredientsMap.entries.map((entry) {
+      print("📦 userIngredientsMap: $userIngredientsMap");
+    return {
+      'ingredientsName': entry.key,
+      'quantity': entry.value, 
+      
+    };
+
+  }).toList();
 
     List<String> categoryOptions = [
                             'Fruits',
@@ -478,7 +492,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                           fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
-                    _buildQuantitySelector(ingredient, userIngredientsMap, quantity,
+                    _buildQuantitySelector(ingredient, userIngredients, quantity,
                         (newQuantity) {
                       setDialogState(() => quantity = newQuantity);
                     }),
@@ -590,13 +604,15 @@ Widget _buildDropdown(String label, List<String> options, String selectedValue,
 
 // Quantity Selector Widget (+ -)
 Widget _buildQuantitySelector(
-    Map<String, dynamic> ingredient,
-    Map<String, int> userIngredientsMap,
-    int quantity,
-    Function(int) onQuantityChanged) {
-    int userQuantity = userIngredientsMap[ingredient['ingredientsName']] ?? 0;
-
-
+  Map<String, dynamic> ingredient,
+ List<Map<String, dynamic>> userIngredients,
+  int quantity,
+  Function(int) onQuantityChanged,
+) {
+  // ใช้ quantity ที่มาอัปเดตจาก userIngredientsMap
+ int userQuantity = userIngredients
+      .where((item) => item['ingredientsName'] == ingredient['ingredientsName'])
+      .fold(0, (sum, item) => sum + (item['quantity'] as int));
 
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
@@ -643,7 +659,7 @@ Widget _buildQuantitySelector(
               ),
               const SizedBox(width: 8),
               Text(
-                '$userQuantity ${ingredient['unit']} in stock',
+                '$userQuantity ${ingredient['unit']} in stock',  // แสดงจำนวนที่มีใน stock
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
@@ -653,11 +669,12 @@ Widget _buildQuantitySelector(
             ],
           )
         else
-          const SizedBox(), 
+          const SizedBox(),
       ],
     ),
   );
 }
+
 
 // ช่องกรอกราคา (Price)
 Widget _buildPriceField(TextEditingController controller) {

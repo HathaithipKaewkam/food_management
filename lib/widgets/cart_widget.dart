@@ -74,8 +74,8 @@ void _markAllPurchased(bool isPurchased) {
   @override
   Widget build(BuildContext context) {
     final item = widget.cartItems[0]; 
-    dynamic purchasedAt = item['purchasedAt'] ?? 'N/A';
-    String formattedDate = formatDate(purchasedAt);
+    dynamic purchaseDate = item['purchaseDate'] ?? 'N/A';
+    String formattedDate = formatDate(purchaseDate);
 
     return Card(
       color: Colors.white,

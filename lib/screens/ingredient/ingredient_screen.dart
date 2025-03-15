@@ -107,7 +107,30 @@ class _IngredientScreenState extends State<IngredientScreen> {
       return Scaffold(
           body: Padding(
               padding: const EdgeInsets.only(top: 20, left: 0),
-              child: ListView(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(FirebaseAuth.instance.currentUser!.uid)
+                    .collection('userIngredients')
+                    .snapshots(),  // เรียกข้อมูลแบบ real-time
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator()); // ถ้ายังไม่โหลดเสร็จ
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}')); // ถ้ามีข้อผิดพลาด
+                  }
+
+                  // ดึงข้อมูลจาก snapshot
+                  final filteredIngredientTypes = snapshot.data!.docs.map((doc) {
+                    return doc.data() as Map<String, dynamic>;
+                  }).toList();
+                
+              
+          
+              
+              return ListView(
                 children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -536,7 +559,7 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                     physics: const NeverScrollableScrollPhysics(),
                                     itemCount: filteredIngredientTypes.length, 
                                     itemBuilder: (BuildContext context, int index) {
-                                      final ingredient = filteredIngredientTypes[index]; 
+                                      final ingredient = Ingredient.fromJson(filteredIngredientTypes[index]);
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(vertical: 3.0),
                                         child: GestureDetector(
@@ -558,7 +581,12 @@ class _IngredientScreenState extends State<IngredientScreen> {
                             ),
                           )
                         ])))
-              ])));
+              ]
+              );
+    }
+    )
+
+              ));
     });
   }
 }
