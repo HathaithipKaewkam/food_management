@@ -85,11 +85,11 @@ if (daysToExpiry < 0) {
                         ),
                       ),
                       Text(
-                        '${ingredient.quantityAdded} ${ingredient.unit}',
+                        '${ingredient.price} ฿',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                          fontSize: 14,
+                          color: Color(0xFF16a34a),
+                          fontSize: 16,
                         ),
                       ),
                     ],
@@ -119,16 +119,17 @@ if (daysToExpiry < 0) {
                                     ),
                                   ],
                                 ),
+                                 Text(
+                        '${ingredient.quantity} ${ingredient.unit}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                          fontSize: 14,
+                        ),
+                      ),
 
-                                // Storage
-                                Text(
-                                  ingredient.storage,
-                                  style: const TextStyle(
-                                    fontSize: 14.0,
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                
+                                
                               ],
                             ),
                   const SizedBox(height: 7),

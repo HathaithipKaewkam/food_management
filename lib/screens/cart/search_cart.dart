@@ -6,8 +6,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/models/ingredient.dart';
-import 'package:food_project/screens/add_cart.dart';
-import 'package:food_project/screens/cart_screen.dart';
+import 'package:food_project/screens/cart/add_cart.dart';
+import 'package:food_project/screens/cart/cart_screen.dart';
 import 'package:food_project/screens/ingredient/add_ingredient.dart';
 import 'package:food_project/screens/root_screen.dart';
 

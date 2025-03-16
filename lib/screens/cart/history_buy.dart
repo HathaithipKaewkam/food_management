@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/models/ingredient.dart';
+import 'package:food_project/screens/cart/analysis_buy.dart';
 import 'package:food_project/widgets/history_buy_show.dart';
 import 'package:intl/intl.dart';
 
@@ -203,23 +204,39 @@ class _HistoryBuyState extends State<HistoryBuy> {
     return groupedHistory;
   }
 
+  double getTotalPriceForMonth(List<Map<String, dynamic>> cartItems, int year, int month) {
+  double total = 0;
+  
+  for (var item in cartItems) {
+    if (item['purchaseDate'] != null && item['price'] != null) {
+      DateTime date = item['purchaseDate'] is Timestamp
+          ? (item['purchaseDate'] as Timestamp).toDate()
+          : DateTime.parse(item['purchaseDate']);
+
+      if (date.year == year && date.month == month) {
+        total += (item['price'] as num).toDouble(); 
+      }
+    }
+  }
+  return total;
+}
+
+int currentYear = DateTime.now().year;
+int currentMonth = DateTime.now().month;
+
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
-    print("🔍 Debug -> selectedMonth: $selectedMonth");
-    print("🔍 Debug -> selectedYear: $selectedYear");
-    print("🔍 Debug -> availableMonths: $availableMonths");
-
-    // Find the correct month string for the selected month and year
     String selectedMonthString =
         DateFormat('MMMM yyyy').format(DateTime(selectedYear, selectedMonth));
 
-    print("🔍 Debug -> ค่าที่ใช้ใน Dropdown: $selectedMonthString");
     return Scaffold(
         body: Padding(
-            padding: const EdgeInsets.only(top: 20, left: 10),
+            padding: const EdgeInsets.only(top: 10, left: 10),
             child: ListView(children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
                     onPressed: () {
@@ -229,8 +246,26 @@ class _HistoryBuyState extends State<HistoryBuy> {
                     color: Colors.black,
                     iconSize: 20,
                   ),
-                  const SizedBox(width: 5),
-                  const Text(
+                  IconButton(
+                    onPressed: () {
+                    Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AnalysisBuy(
+                                       ),
+                                  ),
+                                );
+                    },
+                    icon: const Icon(FontAwesomeIcons.chartLine),
+                    color: Colors.black,
+                    iconSize: 20,
+                  ),
+                  
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: const Text(
                     'Purchase History',
                     style: TextStyle(
                       fontSize: 22,
@@ -238,8 +273,8 @@ class _HistoryBuyState extends State<HistoryBuy> {
                       color: Colors.black,
                     ),
                   ),
-                ],
               ),
+              SizedBox(height: 10),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Row(
@@ -250,7 +285,7 @@ class _HistoryBuyState extends State<HistoryBuy> {
                       width: size.width * .92,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(10),
                         border:
                             Border.all(color: Colors.grey.shade300, width: 1),
                         boxShadow: [
@@ -290,6 +325,7 @@ class _HistoryBuyState extends State<HistoryBuy> {
                   ],
                 ),
               ),
+             
               const SizedBox(height: 10),
               Padding(
                 padding: const EdgeInsets.only(left: 10),
@@ -303,7 +339,7 @@ class _HistoryBuyState extends State<HistoryBuy> {
                         buttonStyleData: const ButtonStyleData(
                           padding: EdgeInsets.symmetric(horizontal: 10),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.all(Radius.circular(15)),
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
                             color: Color(0xFFb2e6b2),
                           ),
                         ),
@@ -351,6 +387,32 @@ class _HistoryBuyState extends State<HistoryBuy> {
                   ],
                 ),
               ),
+               const SizedBox(height: 10),
+              Padding(
+                          padding: const EdgeInsets.only(top: 5, left: 15),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Total',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              SizedBox(width: 250),
+                              Text(
+                              '${getTotalPriceForMonth(ingredientList.map((ingredient) => ingredient.toJson()).toList(), currentYear, currentMonth).toStringAsFixed(2)} ฿',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF16a34a),
+                              ),
+                            ),
+                            ],
+                          ),
+                        ),
               const SizedBox(height: 10),
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance

@@ -41,7 +41,7 @@ dependencies:
   calendar_agenda:
     path: dev_lib/calendar_agenda/
   simple_animation_progress_bar: ^1.8.2
-  fl_chart: ^0.70.0
+  fl_chart: ^0.70.2
   iconsax: ^0.0.8
   http: ^1.3.0
   dotted_dashed_line: ^0.0.3

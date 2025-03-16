@@ -2,8 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
-import 'package:food_project/screens/history_buy.dart';
-import 'package:food_project/screens/search_cart.dart';
+import 'package:food_project/screens/cart/history_buy.dart';
+import 'package:food_project/screens/cart/search_cart.dart';
 import 'package:food_project/widgets/cart_widget.dart';
 
 class CartScreen extends StatefulWidget {
@@ -138,7 +138,8 @@ class _CartScreenState extends State<CartScreen> {
           'source': cartData['source'], 
           'unit': cartData['unit'],
           'ingredientsName' : cartData['ingredientsName'],
-          'imageUrl' : cartData['imageUrl']
+          'imageUrl' : cartData['imageUrl'],
+          'category' : cartData['category']
         });
 
         print("✅ Added item to purchaseHistory: $docId");
