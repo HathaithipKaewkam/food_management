@@ -48,7 +48,7 @@ Future<List<String>> getRecipesByIngredients(List<String> ingredients) async {
   }
 }
 
-Future<List<String>> getRecipeAndPairings(String ingredientName) async {
+Future<List<Map<String, String>>> getRecipeAndPairings(String ingredientName) async {
   final response = await http.get(
     Uri.parse(
         'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientName&apiKey=bd24cc0518a546b3a16d79dee986ea98'),
@@ -58,15 +58,28 @@ Future<List<String>> getRecipeAndPairings(String ingredientName) async {
     var data = json.decode(response.body);
 
     if (data is List && data.isNotEmpty) {
-      Set<String> pairingIngredients = {};
+      List<Map<String, String>> pairingIngredients = [];
+      Set<String> uniqueNames = {}; 
 
       for (var recipe in data.take(20)) {
         List<dynamic> missedIngredients = recipe['missedIngredients'];
         for (var ingredient in missedIngredients) {
+          String image = ingredient['image'] ?? "";
           String ingredientName = ingredient['originalName'] ?? ingredient['name'] ?? "Unknown Ingredient";
-          if (ingredientName.split(' ').length <= 2) {
-            pairingIngredients.add(ingredientName);
+
+         
+          ingredientName = ingredientName.toLowerCase().replaceFirstMapped(RegExp(r'^\w'), (match) => match.group(0)!.toUpperCase());
+
+          
+          if (!uniqueNames.contains(ingredientName) && ingredientName.split(' ').length <= 2) {
+            uniqueNames.add(ingredientName);
+            pairingIngredients.add({
+              'name': ingredientName,
+              'image': image,
+            });
           }
+
+          
           if (pairingIngredients.length >= 10) {
             break;
           }
@@ -76,7 +89,7 @@ Future<List<String>> getRecipeAndPairings(String ingredientName) async {
         }
       }
 
-      return pairingIngredients.toList();
+      return pairingIngredients;
     } else {
       throw Exception('No recipe data found.');
     }
@@ -84,6 +97,7 @@ Future<List<String>> getRecipeAndPairings(String ingredientName) async {
     throw Exception('Failed to load recipe');
   }
 }
+
 
 void main() async {
   List<String> userIngredients = await fetchUserIngredients();

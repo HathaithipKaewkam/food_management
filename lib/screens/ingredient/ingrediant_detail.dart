@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:food_project/constants.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/services/pairing_service.dart';
 import 'package:intl/intl.dart';
@@ -15,7 +14,7 @@ class IngredientDetailPage extends StatefulWidget {
 }
 
 class _IngredientDetailPageState extends State<IngredientDetailPage> {
-  List<String> pairingIngredients = [];
+  List<Map<String, String>> pairingIngredients = [];
   bool isLoading = true;
 
   @override
@@ -26,7 +25,7 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
 
   Future<void> fetchPairingIngredients() async {
     try {
-      List<String> fetchedIngredients =
+      List<Map<String, String>> fetchedIngredients =
           await getRecipeAndPairings(widget.ingredient.ingredientsName);
       setState(() {
         pairingIngredients = fetchedIngredients;
@@ -277,21 +276,63 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: pairingIngredients.map((ingredient) {
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                        child: Column( // ครอบรูปและชื่อให้อยู่ด้วยกัน
+                                          children: [
+                                            // รูปภาพ
+                                            Container(
+                                              width: 100,
+                                              height: 100,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: Colors.white,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.1),
+                                                    blurRadius: 10,
+                                                    spreadRadius: 2,
+                                                    offset: Offset(0, 4),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Center(
+                                                child: ClipOval(
+                                                  child: Image.network(
+                                                    ingredient['image']?? '',
+                                                    width: 80,
+                                                    height: 80,
+                                                    fit: BoxFit.cover, // ปรับให้รูปพอดีกับวงกลม
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8), // ระยะห่างระหว่างรูปกับชื่อ
+
+                                            // ชื่อส่วนผสม
+                                            Text(
+                                              ingredient['name'] ?? '',
+                                              style: TextStyle(
+                                                fontSize: 14, 
+                                                color: Color(0xFF595959),
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              textAlign: TextAlign.center, // จัดให้อยู่ตรงกลาง
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+
             const SizedBox(height: 25),
-            // Display pairing ingredients
-            Padding(
-              padding: const EdgeInsets.only(left: 10),
-              child: isLoading
-                  ? CircularProgressIndicator()
-                  : Column(
-                      children: pairingIngredients.map((ingredient) {
-                        return Text(
-                          ingredient,
-                          style: TextStyle(fontSize: 18, color: Colors.black),
-                        );
-                      }).toList(),
-                    ),
-            ),
+          
           ],
         ),
       ),

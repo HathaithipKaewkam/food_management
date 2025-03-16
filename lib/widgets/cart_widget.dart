@@ -106,10 +106,10 @@ class _CartWidgetState extends State<CartWidget> {
     return Card(
       color: Colors.white,
       elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      margin: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        padding: const EdgeInsets.only(top: 10, left: 5, right: 2, bottom: 15),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -154,7 +154,7 @@ class _CartWidgetState extends State<CartWidget> {
                     }
                   },
                 )),
-            const SizedBox(width: 10),
+            const SizedBox(width: 5),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,6 +173,7 @@ class _CartWidgetState extends State<CartWidget> {
                       ),
                       Text(
                         '${item['price']} ฿',
+                        textAlign: TextAlign.right,
                         style: TextStyle(
                           fontSize: 18,
                           color: Color(0xFF16a34a),
@@ -187,7 +188,7 @@ class _CartWidgetState extends State<CartWidget> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 4),
+                            horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
                           color: Color(0xFFf3f4f6),
                           borderRadius: BorderRadius.circular(7),
@@ -232,13 +233,23 @@ class _CartWidgetState extends State<CartWidget> {
                           ),
                         ]),
                       ),
-                      SizedBox(width: 28),
-                      Text(
-                        '${item['quantity']} ${item['unit']}',
-                        style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold),
+                      SizedBox(width: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Color(0xFFf3f4f6),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Text(
+                            '${item['quantity']} ${item['unit']}',
+                            style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ]),
                       ),
                     ],
                   ),
@@ -255,6 +266,7 @@ class _CartWidgetState extends State<CartWidget> {
                             color: Colors.black,
                             fontWeight: FontWeight.bold),
                       ),
+                      const SizedBox(height: 15),
                     ],
                   ),
                 ],

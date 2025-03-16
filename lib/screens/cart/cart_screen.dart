@@ -551,12 +551,13 @@ Future<void> _addToIngredientsHistory(Map<String, dynamic> item) async {
                         )
                       else
                         Padding(
-                          padding: const EdgeInsets.only(top: 5, left: 15),
+                          padding: const EdgeInsets.only(top: 5, left: 15, right: 10),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
                                 'Total',
+                                textAlign: TextAlign.right,
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w500,
