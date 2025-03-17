@@ -100,7 +100,7 @@ class _SignInScreenState extends State<SignInScreen> {
         Navigator.pushReplacement(
           context,
           PageTransition(
-            child: const RootPage(selectedGoal: '',),
+            child: const RootPage(),
             type: PageTransitionType.bottomToTop,
           ),
         );
@@ -228,7 +228,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 Navigator.pushReplacement(
                   context,
                   PageTransition(
-                    child: const ForgotPassword(),
+                    child: ForgotPassword(),
                     type: PageTransitionType.bottomToTop,
                   ),
                 );
@@ -286,7 +286,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           Navigator.pushReplacement(
                             context,
                             PageTransition(
-                              child: const RootPage(selectedGoal: '',),
+                              child: const RootPage(),
                               type: PageTransitionType.bottomToTop,
                             ),
                           );
