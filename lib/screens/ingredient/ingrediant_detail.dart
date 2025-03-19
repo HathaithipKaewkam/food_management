@@ -209,11 +209,58 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
                   iconSize: 20,
                 ),
                 IconButton(
-                  onPressed: () {},
-                  icon: FaIcon(FontAwesomeIcons.trash),
-                  color: Colors.black,
-                  iconSize: 20,
-                ),
+                onPressed: () async {
+                  QuickAlert.show(
+                    context: context,
+                    type: QuickAlertType.confirm,
+                    title: 'Delete Ingredient',
+                    text: 'Are you sure you want to delete ${widget.ingredient.ingredientsName}?',
+                    confirmBtnText: 'Delete',
+                    cancelBtnText: 'Cancel',
+                    confirmBtnColor: Colors.red,
+                    onConfirmBtnTap: () async {
+                      try {
+                        String uid = FirebaseAuth.instance.currentUser!.uid;
+                        var querySnapshot = await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(uid)
+                            .collection('userIngredients')
+                            .where('ingredientsName', isEqualTo: widget.ingredient.ingredientsName)
+                            .get();
+
+                        if (querySnapshot.docs.isNotEmpty) {
+                          await querySnapshot.docs.first.reference.delete();
+                          print("✅ Deleted ${widget.ingredient.ingredientsName}");
+
+                          
+                          Navigator.pop(context); 
+                          QuickAlert.show(
+                            context: context,
+                            type: QuickAlertType.success,
+                            title: 'Success',
+                            text: '${widget.ingredient.ingredientsName} has been deleted',
+                            onConfirmBtnTap: () {
+                              Navigator.pop(context); 
+                              Navigator.pop(context); 
+                            }
+                          );
+                        }
+                      } catch (e) {
+                        print("❌ Error deleting ingredient: $e");
+                        QuickAlert.show(
+                          context: context,
+                          type: QuickAlertType.error,
+                          title: 'Error',
+                          text: 'Failed to delete ingredient'
+                        );
+                      }
+                    }
+                  );
+                },
+                icon: FaIcon(FontAwesomeIcons.trash),
+                color: Colors.black,
+                iconSize: 20,
+              ),
                 IconButton(
                   onPressed: () {},
                   icon: FaIcon(FontAwesomeIcons.pencil),
