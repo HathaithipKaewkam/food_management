@@ -60,7 +60,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Colors.blue,
+              primary: Colors.green,
               onPrimary: Colors.white,
               onSurface: Colors.black,
             ),
@@ -84,7 +84,8 @@ class _CompleteProfileState extends State<CompleteProfile> {
     required double height,
     required String activity,
   }) async {
-    final userProfileRef = FirebaseFirestore.instance.collection('userProfiles').doc(userId);
+    final userProfileRef =
+        FirebaseFirestore.instance.collection('userProfiles').doc(userId);
 
     await userProfileRef.set({
       'gender': gender,
@@ -110,22 +111,27 @@ class _CompleteProfileState extends State<CompleteProfile> {
     final String? userId = currentUser?.uid;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Let's complete your profile"),
-        backgroundColor: Colors.white,
-        elevation: 1,
-        titleTextStyle: const TextStyle(
-          fontSize: 25,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
-      ),
-      resizeToAvoidBottomInset: true,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 15),
+        padding: const EdgeInsets.only(top: 50, left: 10 , right: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: const Text(
+                "Let's complete your profile",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             const Text(
               "It will help us to know more about you!",
               style: TextStyle(fontSize: 18),
@@ -192,14 +198,18 @@ class _CompleteProfileState extends State<CompleteProfile> {
               icon: FontAwesomeIcons.dumbbell,
               value: selectedActivity.isEmpty ? null : selectedActivity,
               hint: "Choose Activity",
-              items: ['Sedentary', 'Light', 'Moderate', 'Active'],
+              items: [
+              'Sedentary', 
+              'Light', 
+              'Moderate', 
+              'Active'],
               onChanged: (value) {
                 setState(() {
                   selectedActivity = value!;
                 });
               },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 40),
             // Next Button
             Center(
               child: ElevatedButton(
@@ -220,11 +230,13 @@ class _CompleteProfileState extends State<CompleteProfile> {
                             );
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => FoodPreferences()),
+                              MaterialPageRoute(
+                                  builder: (context) => FoodPreferences()),
                             );
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Failed to save profile: $e")),
+                              SnackBar(
+                                  content: Text("Failed to save profile: $e")),
                             );
                           } finally {
                             setState(() {
@@ -237,7 +249,8 @@ class _CompleteProfileState extends State<CompleteProfile> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF325b51),
                   minimumSize: const Size(50, 50),
-                  padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 15),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 80, vertical: 15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
@@ -286,7 +299,15 @@ class _CompleteProfileState extends State<CompleteProfile> {
               child: DropdownButton<String>(
                 value: value,
                 items: items.map((item) {
-                  return DropdownMenuItem(value: item, child: Text(item));
+                  return DropdownMenuItem(
+                    value: item, 
+                    child: Text(
+                      item,
+                      style: const TextStyle(
+                      fontWeight: FontWeight.bold, 
+                      )
+                    )
+                      );
                 }).toList(),
                 onChanged: onChanged,
                 isExpanded: true,
@@ -312,7 +333,8 @@ class _CompleteProfileState extends State<CompleteProfile> {
             width: 50,
             height: 50,
             padding: const EdgeInsets.symmetric(horizontal: 15),
-            child: const FaIcon(FontAwesomeIcons.calendarDays, color: Colors.black54),
+            child: const FaIcon(FontAwesomeIcons.calendarDays,
+                color: Colors.black54),
           ),
           Expanded(
             child: GestureDetector(
@@ -360,14 +382,23 @@ class _CompleteProfileState extends State<CompleteProfile> {
           Expanded(
             child: TextFormField(
               controller: controller,
-              keyboardType: TextInputType.number,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')), 
+                _CustomInputFormatter(), 
+              ],
+              style: const TextStyle(
+                 fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black
+              ),
               decoration: InputDecoration(
                 hintText: hint,
                 border: InputBorder.none,
                 hintStyle: const TextStyle(
-                  fontSize: 16, 
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black54),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black54),
               ),
               onChanged: (value) {
                 setState(() {});
@@ -379,19 +410,44 @@ class _CompleteProfileState extends State<CompleteProfile> {
             height: 50,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Colors.greenAccent, Colors.lightGreen],
-                      ),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Text(unit, 
-                    style: const TextStyle(
-                      fontSize: 16, 
-                      fontWeight: FontWeight.bold)
-                      ),
+              gradient: const LinearGradient(
+                colors: [Colors.greenAccent, Colors.lightGreen],
+              ),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Text(unit,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
+  }
+}
+
+class _CustomInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+
+    
+    if (text.startsWith('-')) {
+      return oldValue;
+    }
+
+    
+    if (text.startsWith('00')) {
+      return oldValue;
+    }
+
+    
+    if (text.startsWith('0') && text.length > 1 && text[1] != '.') {
+      return oldValue;
+    }
+
+    return newValue;
   }
 }

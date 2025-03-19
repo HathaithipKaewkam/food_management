@@ -185,6 +185,7 @@ class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
           icon: const FaIcon(
             FontAwesomeIcons.arrowLeft,
             color: Colors.black,
+            size: 20,
           ),
           onPressed: () {
             Navigator.pop(context);

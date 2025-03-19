@@ -57,26 +57,28 @@ class _FoodAllergiesState extends State<FoodAllergies> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const FaIcon(
-            FontAwesomeIcons.arrowLeft,
-            color: Colors.black,
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-         actions: [
-        TextButton(
+      body: SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 30, left: 5),
+            child: Column
+            (crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    icon: const FaIcon(FontAwesomeIcons.arrowLeft),
+                    color: Colors.black,
+                    iconSize: 20,
+                  ),
+          TextButton(
             onPressed: () {
               Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) =>
-                      CaloriesMacronutrient()),);
+                context,
+                MaterialPageRoute(builder: (context) => CaloriesMacronutrient()),
+              );
             },
             child: const Text(
               'Skip',
@@ -87,10 +89,11 @@ class _FoodAllergiesState extends State<FoodAllergies> {
               ),
             ),
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
+        
+                  
+                ],
+              ),
+      Padding(
           padding: const EdgeInsets.only( left: 15 , right: 15 , bottom: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,7 +114,7 @@ class _FoodAllergiesState extends State<FoodAllergies> {
                   color: Colors.black54,
                 ),
               ),
-              const SizedBox(height: 20),
+              
               // Grid ของอาหาร
              GridView.builder(
                 shrinkWrap: true, // ให้ GridView ไม่ขยายเกินพื้นที่
@@ -211,7 +214,9 @@ class _FoodAllergiesState extends State<FoodAllergies> {
             ],
           ),
         ),
+      ]
       ),
+    )
     );
   }
 }

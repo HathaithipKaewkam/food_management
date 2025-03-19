@@ -76,20 +76,22 @@ class _FoodPreferencesState extends State<FoodPreferences> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const FaIcon(
-            FontAwesomeIcons.arrowLeft,
-            color: Colors.black,
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        actions: [
+      body: SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 30, left: 5),
+            child: Column
+            (crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    icon: const FaIcon(FontAwesomeIcons.arrowLeft),
+                    color: Colors.black,
+                    iconSize: 20,
+                  ),
           TextButton(
             onPressed: () {
               Navigator.push(
@@ -106,10 +108,11 @@ class _FoodPreferencesState extends State<FoodPreferences> {
               ),
             ),
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
+        
+                  
+                ],
+              ),
+      Padding(
           padding: const EdgeInsets.only(left: 15, right: 15, bottom: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,7 +263,9 @@ class _FoodPreferencesState extends State<FoodPreferences> {
             ],
           ),
         ),
+      ]
       ),
+    )
     );
   }
 }

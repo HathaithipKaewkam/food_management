@@ -128,7 +128,7 @@ class _GoalScreenState extends State<GoalScreen> {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 25),
+              padding: const EdgeInsets.only(top: 40),
               width: media.width,
               child: Column(
                 children: [

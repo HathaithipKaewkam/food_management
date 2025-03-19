@@ -127,10 +127,15 @@ class _HomeScreenState extends State<HomeScreen> {
     fetchUserIngredients();
   }
 
+
+  
+
   @override
   Widget build(BuildContext context) {
     print("isLoading: $isLoading");
     Size size = MediaQuery.of(context).size;
+
+    
 
     return Scaffold(
       body: Padding(
