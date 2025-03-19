@@ -36,6 +36,8 @@ class _IngredientScreenState extends State<IngredientScreen> {
 
   StreamSubscription<QuerySnapshot>? _ingredientSubscription;
 
+  TextEditingController searchController = TextEditingController();
+
   Future<void> fetchUserIngredients() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -74,27 +76,62 @@ class _IngredientScreenState extends State<IngredientScreen> {
 
   void filterIngredientsByType() {
   setState(() {
-    print('Filtering by type: $selectedType');
     DateTime now = DateTime.now();
 
+    
+    List<Ingredient> notExpiredIngredients = ingredientList.where((ingredient) {
+      return ingredient.expirationDate.isAfter(now);
+    }).toList();
+
+    
     if (selectedType == 'All') {
-      filteredIngredientTypes = ingredientList.where((ingredient) {
-        bool notExpired = ingredient.expirationDate.isAfter(now);
-        return notExpired;
-      }).toList();
+      filteredIngredientTypes = notExpiredIngredients;
     } else {
-      
-      filteredIngredientTypes = ingredientList.where((ingredient) {
-        bool matchesType = ingredient.storage == selectedType;
-        bool notExpired = ingredient.expirationDate.isAfter(now);
-        return matchesType && notExpired;
+      filteredIngredientTypes = notExpiredIngredients.where((ingredient) {
+        return ingredient.storage == selectedType;
       }).toList();
     }
 
     
-    filteredIngredientTypes.forEach((ingredient) {
+    filteredIngredientTypes.sort((a, b) {
+     
+      int dateComparison = a.expirationDate.compareTo(b.expirationDate);
+      if (dateComparison != 0) {
+        return dateComparison;
+      }
       
+      
+      return a.ingredientsName.toLowerCase().compareTo(b.ingredientsName.toLowerCase());
     });
+
+    
+  });
+}
+
+void searchIngredients(String query) {
+  setState(() {
+    if (query.isEmpty) {
+      filterIngredientsByType();
+    } else {
+      List<Ingredient> searchResults = ingredientList.where((ingredient) {
+        bool matchesSearch = ingredient.ingredientsName
+            .toLowerCase()
+            .contains(query.toLowerCase());
+        bool matchesType = selectedType == 'All' || ingredient.storage == selectedType;
+        bool notExpired = ingredient.expirationDate.isAfter(DateTime.now());
+        return matchesSearch && matchesType && notExpired;
+      }).toList();
+
+      searchResults.sort((a, b) {
+        int dateComparison = a.expirationDate.compareTo(b.expirationDate);
+        if (dateComparison != 0) {
+          return dateComparison;
+        }
+        return a.ingredientsName.toLowerCase().compareTo(b.ingredientsName.toLowerCase());
+      });
+
+      filteredIngredientTypes = searchResults;
+    }
   });
 }
 
@@ -133,6 +170,7 @@ class _IngredientScreenState extends State<IngredientScreen> {
 
   @override
   void dispose() {
+    searchController.dispose();
     _ingredientSubscription?.cancel(); 
     super.dispose();
   }
@@ -212,7 +250,11 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                             ),
                                             Expanded(
                                               child: TextField(
+                                                controller: searchController,
                                                 showCursor: true,
+                                                onChanged: (value) {
+                                                  searchIngredients(value);
+                                                },
                                                 decoration: InputDecoration(
                                                   hintText: 'Search Ingredient',
                                                   hintStyle: TextStyle(

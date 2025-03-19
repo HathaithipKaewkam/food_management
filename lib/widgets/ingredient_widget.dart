@@ -220,7 +220,7 @@ class IngredientWidget extends StatelessWidget {
                 ),
               ),
               Text(
-                '${ingredient.quantity.toString()} ${ingredient.unit}',
+                '${ingredient.quantity} ${_formatUnit(ingredient.unit)}',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -232,6 +232,27 @@ class IngredientWidget extends StatelessWidget {
       ),
     );
   }
+
+ String _formatUnit(String unit) {
+  final Map<String, String> unitAbbreviations = {
+    'Kilograms (kg)': 'kg',
+    'Grams (g)': 'g',
+    'Pounds (lbs)': 'lbs',
+    'Ounces (oz)': 'oz',
+    'Liters (L)': 'L',
+    'Milliliters (mL)': 'mL',
+  };
+
+  // ถ้าหน่วยมีวงเล็บให้เอาแค่ตัวย่อในวงเล็บ
+  if (unit.contains('(') && unit.contains(')')) {
+    final start = unit.indexOf('(') + 1;
+    final end = unit.indexOf(')');
+    return unit.substring(start, end);
+  }
+
+  // ถ้าไม่มีวงเล็บ ให้ใช้ map หาตัวย่อ
+  return unitAbbreviations[unit] ?? unit;
+}
 
   Widget swipeActionBackground(Alignment alignment, Color color, IconData icon, String label) {
     return Container(
