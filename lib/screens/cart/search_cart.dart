@@ -10,6 +10,8 @@ import 'package:food_project/screens/cart/add_cart.dart';
 import 'package:food_project/screens/cart/cart_screen.dart';
 import 'package:food_project/screens/ingredient/add_ingredient.dart';
 import 'package:food_project/screens/root_screen.dart';
+import 'package:quickalert/models/quickalert_type.dart';
+import 'package:quickalert/widgets/quickalert_dialog.dart';
 
 class SearchCartScreen extends StatefulWidget {
   final List<Map<String, dynamic>> addedToCartIngredients;
@@ -549,15 +551,23 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                             '✅ Added ${ingredient['ingredientsName']} to cart');
                         
 
-                        Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => RootPage(
-                            initialIndex: 3, 
-                          ),
-                        ),
-                      );
-
+                       QuickAlert.show(
+                          context: context,
+                          type: QuickAlertType.success,
+                          title: 'Success!',
+                          text: '${ingredient['ingredientsName']} added to cart.',
+                          confirmBtnText: 'OK',
+                          onConfirmBtnTap: () {
+                            Navigator.pop(context);
+                            Navigator.pop(context); 
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => RootPage(initialIndex: 3),
+                              ),
+                            );
+                          },
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,

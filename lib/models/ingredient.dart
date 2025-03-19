@@ -57,7 +57,7 @@ class Ingredient {
       minQuantity: doc['minQuantity'] ?? 0,
       unit: doc['unit'] ?? 'Kilograms (kg)',
       status: doc['status'] ?? 'Unknown',
-      price: doc['price'] ?? 0.0,
+       price: (doc['price'] is int) ? (doc['price'] as int).toDouble() : doc['price'] ?? 0.0,
       expirationDate: _parseDate(doc['expirationDate']),
       purchaseDate: _parseDate(doc['purchaseDate']),
       updateDate: _parseDate(doc['updateDate']),

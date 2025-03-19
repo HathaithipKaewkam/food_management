@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -20,14 +22,37 @@ class _CartScreenState extends State<CartScreen> {
   List<Map<String, dynamic>> cartItems = [];
   List<Ingredient> ingredientList = [];
   bool isLoading = true;
+  StreamSubscription<QuerySnapshot>? _cartSubscription;
 
   @override
   void initState() {
     fetchUserCart();
     super.initState();
     cartItems = List<Map<String, dynamic>>.from(widget.addedToCartIngredients);
-    print("✅ cartItems in CartScreen: $cartItems");
+    setupCartListener();
   }
+
+  void setupCartListener() {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    _cartSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userCart')
+        .snapshots()
+        .listen((snapshot) {
+      setState(() {
+        cartItems = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['docId'] = doc.id;
+          return data;
+        }).toList();
+        isLoading = false;
+      });
+    });
+  }
+}
+
 
   Future<void> fetchUserCart() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -305,6 +330,12 @@ Future<void> _addToIngredientsHistory(Map<String, dynamic> item) async {
   }
 }
 
+@override
+void dispose() {
+  _cartSubscription?.cancel();
+  super.dispose();
+}
+
 
 
   @override
@@ -313,28 +344,9 @@ Future<void> _addToIngredientsHistory(Map<String, dynamic> item) async {
     return Scaffold(
         body: user == null
             ? Center(child: Text('User not logged in'))
-            : StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(user.uid) // Use user.uid here
-                    .collection('userCart')
-                    .snapshots(), // Real-time updates
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Something went wrong!'));
-                  }
-
-                  final cartItems = snapshot.data?.docs.map((doc) {
-                        final data = doc.data() as Map<String, dynamic> ?? {};
-                        data['docId'] = doc.id;
-                        return data;
-                      }).toList() ??
-                      [];
-                  return Column(
+            : isLoading 
+            ? Center(child: CircularProgressIndicator())
+            : Column(
                     children: [
                       Padding(
                         padding:
@@ -614,10 +626,10 @@ Future<void> _addToIngredientsHistory(Map<String, dynamic> item) async {
                         ),
                       ),
                     ],
-                  );
-                }));
+                  ));
+                }
   }
-}
+
 
 void _showEditDialog(BuildContext context, Map<String, dynamic> ingredient,
     int index, List<Map<String, dynamic>> cartItems) {

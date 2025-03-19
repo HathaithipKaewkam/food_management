@@ -257,6 +257,7 @@ class _CartWidgetState extends State<CartWidget> {
                        const SizedBox(height: 7),
                   Row(
                     children: [
+                      Padding(padding: const EdgeInsets.only(left: 9)),
                       Icon(Icons.calendar_today,
                           size: 18, color: Colors.green.shade900),
                       const SizedBox(width: 8),

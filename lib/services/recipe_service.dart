@@ -29,54 +29,55 @@ Future<List<String>> fetchUserIngredients() async {
 
 Future<List<Map<String, String>>> getRecipesWithImages(List<String> ingredients) async {
   if (ingredients.isEmpty) {
-    print("No ingredients provided for the recipe search.");
+    print("❌ No ingredients provided for the recipe search.");
     return [];
   }
 
-  String ingredientString = ingredients.join(',');
+  String ingredientString = ingredients
+      .map((e) => e.trim().toLowerCase())
+      .map((e) => Uri.encodeComponent(e))
+      .join(',');
+  
+  print("🔍 Searching recipes for: $ingredientString");
 
-  // เรียก API ของ Spoonacular
-  final response = await http.get(
-    Uri.parse(
-      'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientString&apiKey=bd24cc0518a546b3a16d79dee986ea98',
-    ),
-  );
+  final String apiUrl = 'https://api.spoonacular.com/recipes/findByIngredients';
+  final String apiKey = 'bd24cc0518a546b3a16d79dee986ea98';
+  // Set number=10 for exact number of recipes and ranking=2 for best matches
+  final Uri uri = Uri.parse('$apiUrl?ingredients=$ingredientString&apiKey=$apiKey&number=10&ranking=2&limitLicense=true');
 
-  if (response.statusCode == 200) {
-    var data = json.decode(response.body);
+  try {
+    final response = await http.get(uri);
 
-    // สร้าง List ที่เก็บชื่อสูตรและภาพ
-    List<Map<String, String>> recipes = [];
-
-    for (var recipe in data.take(5)) { // จำกัดให้ได้แค่ 5 สูตร
-      String title = utf8.decode(recipe['title'].runes.toList()) ?? 'Unknown Recipe';
-      String image = recipe['image'] ?? '';
-
-      // ตรวจสอบว่าในสูตรอาหารมีส่วนผสมที่ตรงกับ userIngredients เท่าไหร่
-      int matchedIngredients = 0;
-
-      // เอาส่วนผสมที่มีในสูตรอาหารมานับว่าเจอส่วนผสมจาก ingredients ที่ผู้ใช้ให้มาเท่าไหร่
-      List<String> recipeIngredients = List<String>.from(recipe['usedIngredients']?.map((ingredient) => ingredient['name']) ?? []);
-
-      // นับส่วนผสมที่ตรง
-      for (var ingredient in ingredients) {
-        if (recipeIngredients.contains(ingredient)) {
-          matchedIngredients++;
-        }
-      }
-
-      // ถ้ามีส่วนผสมตรงกันแม้จะไม่ครบทุกอย่าง ก็จะเพิ่มสูตรอาหารเข้าไป
-      // ในที่นี้เราใช้ว่า ถ้ามีส่วนผสมตรง 1 อย่างก็แสดงสูตรนั้น
-      if (matchedIngredients > 0) {
+    if (response.statusCode == 200) {
+      var data = json.decode(response.body) as List;
+      List<Map<String, String>> recipes = [];
+      
+      // Take only the first 10 recipes
+      for (var recipe in data.take(10)) {
+        String title = recipe['title'] ?? 'Unknown Recipe';
+        String image = recipe['image'] ?? '';
+        int usedCount = recipe['usedIngredientCount'] ?? 0;
+        int missedCount = recipe['missedIngredientCount'] ?? 0;
+        
         recipes.add({
           'title': title,
           'image': image,
+          'usedIngredientCount': usedCount.toString(),
+          'missedIngredientCount': missedCount.toString(),
+          'matchPercentage': ((usedCount / (usedCount + missedCount)) * 100).toStringAsFixed(0)
         });
+        
+        print("✅ Recipe: $title (Matching: $usedCount, Missing: $missedCount)");
       }
-    }
 
-    return recipes;
-  } else {
-    throw Exception('Failed to load recipes, status code: ${response.statusCode}');
+      print("📊 Found ${recipes.length} recipes");
+      return recipes;
+    } else {
+      print("❌ API Error: ${response.statusCode}");
+      return [];
+    }
+  } catch (e) {
+    print("❌ API Error: $e");
+    return [];
   }
 }
