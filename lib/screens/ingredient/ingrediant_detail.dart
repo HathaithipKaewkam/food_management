@@ -358,82 +358,102 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
               ],
             ),
             const SizedBox(height: 15),
-            Row(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 10),
-                  child: Text(
-                    "Source",
-                    style: const TextStyle(
-                      color: Color(0xFF595959),
-                      fontSize: 18,
+            Padding(padding: const EdgeInsets.only(left: 5, right: 5 ),
+            child:  Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                       Text(
+                        "Source",
+                        style: const TextStyle(
+                          color: Color(0xFF595959),
+                          fontSize: 18,
+                        ),
+                      ),
+                    
+                    const SizedBox(height: 10),
+                    Row(
+                        children: [
+                          Text(
+                            widget.ingredient.source,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Image.asset(
+                            widget.ingredient.source.toLowerCase() == 'home'
+                                ? 'assets/images/house_detail.png'
+                                : 'assets/images/cart_detail.png',
+                            width: 20,
+                            height: 20,
+                          ),
+                        ],
+                      ),
+                    
+                  ],
+                ),
+              ),
+              // Expiring column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Expiring",
+                      style: TextStyle(
+                        color: expiryColor,
+                        fontSize: 18,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        expiryText,
+                        style: TextStyle(
+                          color: expiryColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  ],
                 ),
-                const Spacer(),
-                Text(
-                  "Expiring",
-                  style: TextStyle(
-                    color: expiryColor,
-                    fontSize: 18,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  "Amount",
-                  style: const TextStyle(
-                    color: Color(0xFF595959),
-                    fontSize: 18,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 10),
-                  child: Text(
-                    widget.ingredient.source,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+              ),
+              // Amount column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      "Amount",
+                      style: const TextStyle(
+                        color: Color(0xFF595959),
+                        fontSize: 18,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "${widget.ingredient.quantity} ${widget.ingredient.unit[0].toLowerCase()}${widget.ingredient.unit.substring(1)}",
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 1),
-                Padding(
-                  padding: const EdgeInsets.only(left: 5),
-                  child: Image.asset(
-                    widget.ingredient.source == 'home' ||
-                            widget.ingredient.source == 'Home'
-                        ? 'assets/images/house_detail.png'
-                        : 'assets/images/cart_detail.png',
-                    width: 20,
-                    height: 20,
-                  ),
-                ),
-                const SizedBox(width: 38),
-                Text(
-                  expiryText,
-                  style: TextStyle(
-                    color: expiryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  "${widget.ingredient.quantity} ${widget.ingredient.unit[0].toLowerCase()}${widget.ingredient.unit.substring(1)}",
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          ),
             const SizedBox(height: 25),
             Padding(
               padding: const EdgeInsets.only(left: 10),

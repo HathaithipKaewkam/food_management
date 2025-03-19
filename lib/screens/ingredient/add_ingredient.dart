@@ -198,7 +198,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       context: context,
       type: QuickAlertType.success,
       title: 'Success',
-      text: 'Ingredient saved successfully!',
+      text: 'Ingredient add successfully!',
       confirmBtnText: 'OK',
       onConfirmBtnTap: () {
         Navigator.pushAndRemoveUntil(
@@ -285,12 +285,10 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                 .add(Duration(days: int.parse(_shelflifeController.text)))
             : DateTime.now().add(Duration(days: 7)));
 
-    
-
     Map<String, dynamic> newIngredient = {
       'ingredientsName': _nameController.text,
       'category': _categoryController.text,
-      'storage': _storageController.text,
+      'storage': recipeTypes[selectedStorageIndex],
       'unit': _unitController.text,
       'quantity': int.parse(_quantityController.text),
       'minQuantity': int.parse(_minQuantityController.text),
@@ -674,6 +672,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                           onTap: () {
                             setState(() {
                               selectedStorageIndex = index;
+                              _storageController.text = recipeTypes[index];
                             });
                           },
                           child: Container(
