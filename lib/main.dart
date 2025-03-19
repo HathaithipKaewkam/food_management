@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Onboarding Screen',
-      home: CompleteProfile(),
+      home: OnboardingScreen(),
     );
   }
 }

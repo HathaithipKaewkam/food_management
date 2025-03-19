@@ -188,30 +188,6 @@ class _CartWidgetState extends State<CartWidget> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Color(0xFFf3f4f6),
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(
-                            _getStorageIcon(item['storage']),
-                            color: Colors.blue,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${item['storage']}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ]),
-                      ),
-                      SizedBox(width: 5),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 4),
                         decoration: BoxDecoration(
                           color: Color(0xFFf3f4f6),
@@ -254,6 +230,31 @@ class _CartWidgetState extends State<CartWidget> {
                     ],
                   ),
                   const SizedBox(height: 7),
+                 
+                        Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Color(0xFFf3f4f6),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(
+                            _getStorageIcon(item['storage']),
+                            color: Colors.blue,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${item['storage']}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ]),
+                      ),
+                       const SizedBox(height: 7),
                   Row(
                     children: [
                       Icon(Icons.calendar_today,

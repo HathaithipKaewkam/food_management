@@ -98,7 +98,7 @@ class IngredientWidget extends StatelessWidget {
             context,
             PageTransition(
               child: IngredientDetailPage(
-                ingredient: ingredient,
+                ingredient: ingredient, recipes: [],
               ),
               type: PageTransitionType.bottomToTop,
             ),

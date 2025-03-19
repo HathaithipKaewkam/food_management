@@ -5,6 +5,7 @@ import 'dart:convert';
 
 Future<List<String>> fetchUserIngredients() async {
   final user = FirebaseAuth.instance.currentUser;
+  
   if (user != null) {
     try {
       final snapshot = await FirebaseFirestore.instance

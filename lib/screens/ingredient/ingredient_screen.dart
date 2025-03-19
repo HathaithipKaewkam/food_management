@@ -567,7 +567,7 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                             Navigator.push(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) => IngredientDetailPage(ingredient: ingredient),
+                                                builder: (context) => IngredientDetailPage(ingredient: ingredient, recipes: []),
                                               ),
                                             );
                                           },

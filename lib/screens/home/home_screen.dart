@@ -364,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       context,
                       PageTransition(
                         child: IngredientDetailPage(
-                          ingredient: ingredientList[index],
+                          ingredient: ingredientList[index], recipes: [],
                         ),
                         type: PageTransitionType.bottomToTop,
                       ),
