@@ -10,7 +10,7 @@ import 'package:food_project/screens/ingredient/search_ingredient.dart';
 import 'package:food_project/screens/profile_screen.dart';
 import 'package:food_project/screens/recipe/recipe_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 
 class RootPage extends StatefulWidget {
   final String selectedGoal;
@@ -33,53 +33,25 @@ class _RootPageState extends State<RootPage> {
   @override
   void initState() {
     super.initState();
-    _bottomNavIndex = widget.initialIndex;
-    checkIfUserIsNew().then((isNew) {
-      setState(() {
-        isNewUser = isNew;
-        _bottomNavIndex =
-            isNew ? 1 : 2; // ถ้าไม่มีวัตถุดิบ ไปหน้า IngredientScreen
-      });
-
-      if (isNewUser) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _showAddIngredientAlert();
-        });
-      }
-    });
+     _bottomNavIndex = 2;
+     _checkUserIngredients();
+    
   }
 
-  /// ✅ ตรวจสอบว่าผู้ใช้มีวัตถุดิบหรือไม่
-  Future<bool> checkIfUserIsNew() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return false;
+  void _checkUserIngredients() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
 
-    // ดึงค่าจาก SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    bool? isNewUser = prefs.getBool('isNewUser');
+  final userDoc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(user.uid)
+      .collection('userIngredients')
+      .get();
 
-    // ถ้ามีการตั้งค่าการตรวจสอบ user ใหม่แล้ว
-    if (isNewUser != null) {
-      return isNewUser;
-    }
-
-    // ตรวจสอบจาก Firestore ว่าผู้ใช้มีวัตถุดิบหรือไม่
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('userIngredients')
-        .get();
-
-    bool result = userDoc.docs.isEmpty;
-
-    // บันทึกผลการตรวจสอบลงใน SharedPreferences
-    prefs.setBool('isNewUser', result);
-
-    // ตรวจสอบค่า initialIndex ที่ส่งมาจาก RootPage
-    print('Initial Index: ${widget.initialIndex}');
-
-    return result;
+  if (userDoc.docs.isEmpty) {
+    _showAddIngredientAlert();
   }
+}
 
   void _showAddIngredientAlert() {
     showDialog(
