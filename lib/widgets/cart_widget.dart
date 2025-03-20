@@ -212,27 +212,6 @@ class _CartWidgetState extends State<CartWidget> {
                       SizedBox(width: 5),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Color(0xFFf3f4f6),
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Text(
-                            '${item['quantity']} ${item['unit']}',
-                            style: const TextStyle(
-                                fontSize: 16,
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ]),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 7),
-                 
-                        Container(
-                        padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
                           color: Color(0xFFf3f4f6),
@@ -254,7 +233,17 @@ class _CartWidgetState extends State<CartWidget> {
                           ),
                         ]),
                       ),
-                       const SizedBox(height: 7),
+                      Spacer(),
+                      Text(
+                        '${item['quantity']} ${_formatUnit(item['unit'])}',
+                        style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 7),
                   Row(
                     children: [
                       Padding(padding: const EdgeInsets.only(left: 9)),
@@ -279,4 +268,25 @@ class _CartWidgetState extends State<CartWidget> {
       ),
     );
   }
+}
+
+String _formatUnit(String unit) {
+  final Map<String, String> unitAbbreviations = {
+    'Kilograms (kg)': 'kg',
+    'Grams (g)': 'g',
+    'Pounds (lbs)': 'lbs',
+    'Ounces (oz)': 'oz',
+    'Liters (L)': 'L',
+    'Milliliters (mL)': 'mL',
+  };
+
+  // ถ้าหน่วยมีวงเล็บให้เอาแค่ตัวย่อในวงเล็บ
+  if (unit.contains('(') && unit.contains(')')) {
+    final start = unit.indexOf('(') + 1;
+    final end = unit.indexOf(')');
+    return unit.substring(start, end);
+  }
+
+  // ถ้าไม่มีวงเล็บ ให้ใช้ map หาตัวย่อ
+  return unitAbbreviations[unit] ?? unit;
 }

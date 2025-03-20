@@ -382,21 +382,28 @@ class _HistoryIngredientState extends State<HistoryIngredient> {
                     return Ingredient.fromJson(data);
                   }).toList();
 
-                  Map<DateTime, List<Ingredient>> filteredGroupedHistory = {};
+                 Map<DateTime, List<Ingredient>> filteredGroupedHistory = {};
                   for (var ingredient in allIngredients) {
-                    DateTime date = DateTime(ingredient.addedDate.year,
-                        ingredient.addedDate.month, ingredient.addedDate.day);
-                    if (date.month == selectedMonth &&
-                        date.year == selectedYear) {
-                      if (!filteredGroupedHistory.containsKey(date)) {
-                        filteredGroupedHistory[date] = [];
+                    // Add null check for addedDate
+                    if (ingredient.addedDate != null) {
+                      // Create date object with null-safe operator
+                      DateTime date = DateTime(
+                        ingredient.addedDate!.year,
+                        ingredient.addedDate!.month,
+                        ingredient.addedDate!.day
+                      );
+                      
+                      // Check if date matches selected month and year
+                      if (date.month == selectedMonth && date.year == selectedYear) {
+                        // Use more concise way to add to map
+                        filteredGroupedHistory.putIfAbsent(date, () => []).add(ingredient);
                       }
-                      filteredGroupedHistory[date]!.add(ingredient);
                     }
                   }
 
-                  print(
-                      '📌 Filtered Grouped History: $filteredGroupedHistory'); // Debug
+                  // Add debug print to help with troubleshooting
+                  print('📅 Selected Month/Year: $selectedMonth/$selectedYear');
+                  print('📊 Number of dates: ${filteredGroupedHistory.length}');
 
                   if (filteredGroupedHistory.isEmpty) {
                     return const Text('No ingredient for this month',

@@ -30,6 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
     'Running Out Of',
   ];
 
+  TextEditingController searchController = TextEditingController();
+
   Future<void> fetchUserIngredients() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -125,6 +127,49 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _fetchUserName();
     fetchUserIngredients();
+  }
+
+  void searchIngredients(String query) {
+  setState(() {
+    if (query.isEmpty) {
+     
+      filterIngredient();
+    } else {
+    
+      filteredIngredients = ingredientList.where((ingredient) {
+       
+        bool matchesSearch = ingredient.ingredientsName
+            .toLowerCase()
+            .contains(query.toLowerCase());
+
+       
+        bool matchesFilter = false;
+        if (selectedType == 'Expire In 3 Days') {
+          matchesFilter = ingredient.expirationDate.isAfter(DateTime.now()) &&
+              ingredient.expirationDate
+                  .isBefore(DateTime.now().add(const Duration(days: 3)));
+        } else if (selectedType == 'Expired Items') {
+          matchesFilter = ingredient.expirationDate.isBefore(DateTime.now());
+        } else if (selectedType == 'Running Out Of') {
+          matchesFilter = ingredient.quantity <= ingredient.minQuantity;
+        }
+
+        
+        return matchesSearch && matchesFilter;
+      }).toList();
+
+      
+      filteredIngredients.sort((a, b) {
+        return a.expirationDate.compareTo(b.expirationDate);
+      });
+    }
+  });
+}
+
+@override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
 
@@ -247,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       child: TextField(
                         decoration: InputDecoration(
-                          hintText: 'Search ingredients',
+                          hintText: 'Search ingredient',
                           hintStyle: TextStyle(
                             color: Colors.grey.shade400,
                             fontSize: 14,
@@ -261,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               const EdgeInsets.symmetric(vertical: 10),
                         ),
                         onChanged: (value) {
-                          print('ค้นหา: $value');
+                         searchIngredients(value);
                         },
                       ),
                     ),

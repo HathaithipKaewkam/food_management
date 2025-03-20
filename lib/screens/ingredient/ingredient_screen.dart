@@ -208,11 +208,9 @@ void searchIngredients(String query) {
                       Padding(
                           padding: const EdgeInsets.only(top: 10, left: 0),
                           child: SingleChildScrollView(
-                              // ใช้ SingleChildScrollView เพื่อเลื่อนทั้งหน้าจอ
                               child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                // Search Bar + Button
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 12),

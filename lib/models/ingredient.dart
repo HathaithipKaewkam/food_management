@@ -1,27 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Ingredient {
-  final String userId; // userId ของผู้ใช้
-  final String ingredientId; // รหัสวัตถุดิบ
-  final String ingredientsName; // ชื่อวัตถุดิบ
-  final String category; // หมวดหมู่วัตถุดิบ
-  final String storage; // วิธีการเก็บรักษา
-  final int quantity; // ปริมาณ
-  final int minQuantity; // ปริมาณขั้นต่ำ
+  
+  final String ingredientId; 
+  final String ingredientsName; 
+  final String category; 
+  final String storage; 
+  final int quantity; 
+  final int minQuantity; 
   final String unit;
-  final String status; // สถานะ (เช่น วัตถุดิบที่หมดอายุ, ปกติ)
-  final double price; // ราคา
-  final DateTime expirationDate; // วันหมดอายุ
-  final DateTime purchaseDate; // วันซื้อ
-  final DateTime updateDate; // วันที่อัปเดตล่าสุด
-  final String source; // แหล่งที่มาจากหน้า Cart
-  final int quantityAdded;
-  final DateTime addedDate;
-  final Map<String, bool> allergenInfo;
+  final DateTime expirationDate; 
+  final String source; 
   final String imageUrl;
+
+  final String status; 
+  final double price; 
+  final DateTime? purchaseDate; 
+  final DateTime? updateDate; 
+  final int quantityAdded;
+  final DateTime? addedDate; 
+  final Map<String, bool> allergenInfo;
+  final String userId; 
+  
   bool isSelected;
 
-  static List<Ingredient> ingredientList = []; // ข้อมูลสารก่อภูมิแพ้
+  static List<Ingredient> ingredientList = []; 
 
   Ingredient({
     required this.userId,
@@ -32,18 +35,39 @@ class Ingredient {
     required this.quantity,
     required this.minQuantity,
     required this.unit,
-    required this.status,
-    required this.price,
+    this.status = 'active',
+    this.price = 0.0,
     required this.expirationDate,
-    required this.purchaseDate,
-    required this.updateDate,
+    this.purchaseDate,
+    this.updateDate,
+    this.allergenInfo = const {},
+    this.quantityAdded = 1, 
+    this.addedDate,
     required this.source,
-    required this.allergenInfo,
     required this.imageUrl,
-    required this.quantityAdded,
-    required this.addedDate,
     this.isSelected = false,
   });
+
+  factory Ingredient.fromAPI({
+    required String id,
+    required String name,
+    required double amount,
+    required String unit,
+  }) {
+     return Ingredient(
+      userId: '',              
+      ingredientId: id,
+      ingredientsName: name,
+      category: '',
+      storage: '',
+      quantity: amount.round(),
+      minQuantity: 0,
+      unit: unit,
+      expirationDate: DateTime.now().add(const Duration(days: 7)),
+      source: 'API',
+      imageUrl: '',
+    );
+  }
 
   // ฟังก์ชันแปลงข้อมูลจาก Map (ที่ได้จาก Firebase) ให้เป็น Ingredient object
   factory Ingredient.fromMap(Map<String, dynamic> doc) {
@@ -73,7 +97,7 @@ class Ingredient {
   }
 
   // ฟังก์ชันแปลงข้อมูลเป็น Map (เพื่อส่งไป Firebase)
-  Map<String, dynamic> toMap() {
+ Map<String, dynamic> toMap() {
     return {
       'userId': userId,
       'ingredientId': ingredientId,
@@ -86,13 +110,13 @@ class Ingredient {
       'status': status,
       'price': price,
       'expirationDate': expirationDate.toIso8601String(),
-      'purchaseDate': purchaseDate.toIso8601String(),
-      'updateDate': updateDate.toIso8601String(),
+      'purchaseDate': purchaseDate?.toIso8601String(),  
+      'updateDate': updateDate?.toIso8601String(),      
       'source': source,
       'allergenInfo': allergenInfo,
       'imageUrl': imageUrl,
       'quantityAdded': quantityAdded,
-      'addedDate': addedDate.toIso8601String(),
+      'addedDate': addedDate?.toIso8601String(),      
       'isSelected': isSelected,
     };
   }
@@ -129,7 +153,7 @@ class Ingredient {
 
 
   // ✅ ฟังก์ชันแปลง Ingredient -> JSON
-  Map<String, dynamic> toJson() {
+ Map<String, dynamic> toJson() {
     return {
       'userId': userId,
       'ingredientId': ingredientId,
@@ -142,22 +166,23 @@ class Ingredient {
       'status': status,
       'price': price,
       'expirationDate': expirationDate.toIso8601String(),
-      'purchaseDate': purchaseDate.toIso8601String(),
-      'updateDate': updateDate.toIso8601String(),
+      'purchaseDate': purchaseDate?.toIso8601String(), 
+      'updateDate': updateDate?.toIso8601String(),      
       'source': source,
       'allergenInfo': allergenInfo,
       'imageUrl': imageUrl,
       'quantityAdded': quantityAdded,
-      'addedDate' : addedDate.toIso8601String(),
+      'addedDate': addedDate?.toIso8601String(),      
       'isSelected': isSelected,
     };
   }
 
   static DateTime _parseDate(dynamic date) {
-    if (date == null) return DateTime.now().add(Duration(days: 7));
-    if (date is String)
-      return DateTime.tryParse(date) ?? DateTime.now().add(Duration(days: 7));
+    if (date == null) return DateTime.now().add(const Duration(days: 7));
+    if (date is String) {
+      return DateTime.tryParse(date) ?? DateTime.now().add(const Duration(days: 7));
+    }
     if (date is Timestamp) return date.toDate();
-    return DateTime.now().add(Duration(days: 7));
+    return DateTime.now().add(const Duration(days: 7));
   }
 }

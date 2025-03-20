@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:food_project/screens/cart/cart_screen.dart';
-import 'package:food_project/screens/home/home_screen.dart';
-import 'package:food_project/screens/ingredient/add_ingredient.dart';
-import 'package:food_project/screens/ingredient/history_ingredient.dart';
-import 'package:food_project/screens/login/complete_profile.dart';
 import 'package:food_project/screens/onboarding_screen.dart';
-import 'package:food_project/screens/root_screen.dart';
-import 'package:quick_actions/quick_actions.dart';
+
 
 
 

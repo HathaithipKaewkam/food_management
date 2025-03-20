@@ -14,6 +14,7 @@ import 'package:quickalert/widgets/quickalert_dialog.dart';
 class IngredientDetailPage extends StatefulWidget {
   final Ingredient ingredient;
   final List<Map<String, String>> recipes;
+  
 
   const IngredientDetailPage(
       {super.key, required this.ingredient, required this.recipes});
@@ -24,9 +25,10 @@ class IngredientDetailPage extends StatefulWidget {
 
 class _IngredientDetailPageState extends State<IngredientDetailPage> {
   List<Map<String, String>> pairingIngredients = [];
-  List<Map<String, String>> recipes = [];
+  List<Map<String, dynamic>> recipes = [];
   Map<String, int> userIngredientsMap = {};
   bool isLoading = true;
+  final RecipeService _recipeService = RecipeService();
 
   @override
   void initState() {
@@ -38,26 +40,19 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
 
   Future<void> fetchRecipe() async {
     try {
-      // Get the ingredient name and clean it up
+  
       String ingredientName = widget.ingredient.ingredientsName.trim();
-      print("🔍 Original ingredient name: $ingredientName");
-
-      // Don't split by comma since we're searching for a single ingredient
       List<String> userIngredients = [ingredientName];
 
-      // Format ingredient name for API
+      
       String formattedIngredient = ingredientName
           .toLowerCase()
-          .replaceAll(RegExp(r'[^\w\s]'), '') // Remove special characters
+          .replaceAll(RegExp(r'[^\w\s]'), '') 
           .trim();
 
-      print("🔍 Formatted ingredient for API: $formattedIngredient");
+      List<Map<String, dynamic>> fetchedRecipes =
+    await _recipeService.getRecipesWithImages([formattedIngredient]);
 
-      // Call API with formatted ingredient
-      List<Map<String, String>> fetchedRecipes =
-          await getRecipesWithImages([formattedIngredient]);
-
-      print("📊 API Response length: ${fetchedRecipes.length}");
       if (fetchedRecipes.isEmpty) {
         print("⚠️ No recipes found in API response");
       } else {

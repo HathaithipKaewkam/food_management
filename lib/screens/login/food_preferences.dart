@@ -12,6 +12,15 @@ class FoodPreferences extends StatefulWidget {
 class _FoodPreferencesState extends State<FoodPreferences> {
   String searchQuery = '';
   final List<Map<String, String>> foodPreferences = [
+    {'name': 'Keto', 'image': 'assets/images/keto.png'},
+    {'name': 'Vegetarian', 'image': 'assets/images/vegetarian.png'},
+    {'name': 'Vegan', 'image': 'assets/images/vegan.png'},
+    {'name': 'Low Carb', 'image': 'assets/images/low_carb.png'},
+    {'name': 'Gluten Free', 'image': 'assets/images/gluten_free.png'},
+    {'name': 'Lactose Free', 'image': 'assets/images/lactose_free.png'},
+    
+    {'name': 'Paleo', 'image': 'assets/images/paleo.png'},
+    {'name': 'Halal', 'image': 'assets/images/halal.png'},
     {'name': 'Pizza', 'image': 'assets/images/pizza.png'},
     {'name': 'Sushi', 'image': 'assets/images/sushi.png'},
     {'name': 'Burger', 'image': 'assets/images/burger.png'},
@@ -131,40 +140,6 @@ class _FoodPreferencesState extends State<FoodPreferences> {
                 style: TextStyle(
                   fontSize: 18,
                   color: Colors.black54,
-                ),
-              ),
-              const SizedBox(height: 20),
-              // ค้นหาอาหาร
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Row(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(right: 8.0),
-                      child: FaIcon(
-                        FontAwesomeIcons.magnifyingGlass,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        onChanged: (value) {
-                          setState(() {
-                            searchQuery = value;
-                          });
-                        },
-                        decoration: const InputDecoration(
-                          hintText: 'Search for a specific food',
-                          border: InputBorder.none,
-                        ),
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ],
                 ),
               ),
               const SizedBox(height: 20),

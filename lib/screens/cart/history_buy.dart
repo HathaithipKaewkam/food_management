@@ -443,22 +443,28 @@ int currentMonth = DateTime.now().month;
                     return Ingredient.fromJson(data);
                   }).toList();
 
+                  
+
                   Map<DateTime, List<Ingredient>> filteredGroupedHistory = {};
                   for (var ingredient in allIngredients) {
-                    DateTime date = DateTime(ingredient.purchaseDate.year,
-                        ingredient.purchaseDate.month, ingredient.purchaseDate.day);
-                    if (date.month == selectedMonth &&
-                        date.year == selectedYear) {
-                      if (!filteredGroupedHistory.containsKey(date)) {
-                        filteredGroupedHistory[date] = [];
+                    if (ingredient.purchaseDate != null) {
+                      DateTime date = DateTime(
+                        ingredient.purchaseDate!.year,
+                        ingredient.purchaseDate!.month,
+                        ingredient.purchaseDate!.day
+                      );
+                      
+                      
+                      if (date.month == selectedMonth && date.year == selectedYear) {
+                       
+                        filteredGroupedHistory.putIfAbsent(date, () => []).add(ingredient);
                       }
-                      filteredGroupedHistory[date]!.add(ingredient);
                     }
                   }
 
-                  print(
-                      '📌 Filtered Grouped History: $filteredGroupedHistory'); // Debug
-
+                  // Add debug print
+                  print('📅 Selected Month/Year: $selectedMonth/$selectedYear');
+                  print('📊 Number of dates: ${filteredGroupedHistory.length}');
                   if (filteredGroupedHistory.isEmpty) {
                     return const Text('No ingredient for this month',
                         style: TextStyle(fontSize: 14, color: Colors.black54));
