@@ -6,6 +6,7 @@ import 'package:food_project/widgets/profile_widget.dart';
 import 'package:food_project/screens/login/signin_screen.dart';
 import 'package:page_transition/page_transition.dart';
 
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
