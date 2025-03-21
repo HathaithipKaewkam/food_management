@@ -65,8 +65,13 @@ class RecipeService {
           int recipeId = recipe['id'];
           var recipeInfo = await getRecipeInformation(recipeId);
           String readyInMinutes = recipeInfo['readyInMinutes'] ?? 'N/A';
-         List<dynamic> dishTypes = recipeInfo['dishTypes'] is List ? recipeInfo['dishTypes'] : [];
-          String firstDishType = dishTypes.isNotEmpty ? dishTypes.first : 'Main Course';
+         String dishType = 'Main Course';
+            if (recipeInfo['dishTypes'] != null && recipeInfo['dishTypes'] is List) {
+              var types = recipeInfo['dishTypes'] as List<String>;
+              if (types.isNotEmpty) {
+                dishType = types.first;
+              }
+            }
           
           recipes.add({
             'title': title,
@@ -77,11 +82,11 @@ class RecipeService {
                 .toStringAsFixed(0),
             'readyInMinutes': readyInMinutes,
            
-            'dishTypes': firstDishType,
+            'dishTypes': dishType,
 
             
           });
-         print("✅ Recipe: $title (Dish Type: $firstDishType)");
+         print("✅ Recipe: $title (Dish Type: $dishType)");
   ;
          
         }
@@ -110,13 +115,12 @@ Future<Map<String, dynamic>> getRecipeInformation(int recipeId) async {
       if (response.statusCode == 200) {
       var data = json.decode(response.body);
 
-       var dishTypes = <String>[];
+       List<String> dishTypes = [];
         if (data['dishTypes'] != null && data['dishTypes'] is List) {
-          dishTypes = List<String>.from(
-            (data['dishTypes'] as List).map((x) => x.toString())
-          );
+          dishTypes = (data['dishTypes'] as List)
+              .map((x) => x.toString())
+              .toList();
         }
-     
       
       return {
         'readyInMinutes': data['readyInMinutes']?.toString() ?? 'N/A',
@@ -127,7 +131,6 @@ Future<Map<String, dynamic>> getRecipeInformation(int recipeId) async {
         'title': data['title'] ?? '',
         'image': data['image'] ?? '',
        'dishTypes': dishTypes,
-
        
        
       

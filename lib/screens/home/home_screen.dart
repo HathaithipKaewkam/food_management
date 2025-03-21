@@ -33,48 +33,43 @@ class _HomeScreenState extends State<HomeScreen> {
   TextEditingController searchController = TextEditingController();
 
   Future<void> fetchUserIngredients() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        final snapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('userIngredients')
-            .get();
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('userIngredients')
+          .get();
 
-        print("✅ Fetched ${snapshot.docs.length} ingredients.");
+      setState(() {
+        ingredientList = snapshot.docs.map((doc) {
+          Map<String, dynamic> data = doc.data();
+          // Add the ID to the data map
+          data['ingredientId'] = doc.id;
+          
+          print("📌 Debug - Processing ingredient: ${doc.id}");
+          return Ingredient.fromJson(data);
+        }).toList();
 
-        setState(() {
-          ingredientList = snapshot.docs
-              .map((doc) {
-                final data =
-                    doc.data() as Map<String, dynamic>?; // แปลงเป็น Map
-                return data != null ? Ingredient.fromJson(data) : null;
-              })
-              .whereType<Ingredient>()
-              .toList(); // กรองค่า null ออก
-
-          filterIngredient();
-          print("🔍 Filtered Ingredients Count: ${filteredIngredients.length}");
-
-          isLoading = false;
-        });
-        print("🎉 Fetch complete! isLoading: $isLoading");
-      } catch (e) {
-        print("Error fetching ingredients: $e");
-        setState(() {
-          isLoading = false;
-        });
-      }
+        filterIngredient();
+        isLoading = false;
+      });
+    } catch (e) {
+      print("Error fetching ingredients: $e");
+      setState(() {
+        isLoading = false;
+      });
     }
   }
+}
 
  void filterIngredient() {
   setState(() {
     print("📌 Selected Filter: $selectedType");
     
     for (var ingredient in ingredientList) {
-      print("📝 ${ingredient.ingredientsName} - Expiration Date: ${ingredient.expirationDate}");
+     
     }
 
     if (selectedType == 'Expire In 3 Days') {
@@ -85,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }).toList();
     } else if (selectedType == 'Expired Items') {
       filteredIngredients = ingredientList.where((ingredient) {
-        print("🔍 Checking expired: ${ingredient.ingredientsName} - ${ingredient.expirationDate}");
+        
         return ingredient.expirationDate != null &&
             ingredient.expirationDate!.isBefore(DateTime.now());
       }).toList();
@@ -95,7 +90,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }).toList();
     }
 
-    print("🔍 Filtered Ingredients Count: ${filteredIngredients.length}");
   });
 }
 

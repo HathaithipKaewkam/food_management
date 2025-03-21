@@ -20,7 +20,8 @@ class Ingredient {
   final int quantityAdded;
   final DateTime? addedDate; 
   final Map<String, bool> allergenInfo;
-  final String userId; 
+  final String userId;
+  final List<dynamic> usageHistory; 
   
   bool isSelected;
 
@@ -46,6 +47,7 @@ class Ingredient {
     required this.source,
     required this.imageUrl,
     this.isSelected = false,
+    this.usageHistory = const [],
   });
 
   factory Ingredient.fromAPI({
@@ -122,34 +124,34 @@ class Ingredient {
   }
 
   factory Ingredient.fromJson(Map<String, dynamic> json) {
-    return Ingredient(
-      userId: json['userId'] ?? '',
-      ingredientId: json['ingredientId'] ?? '',
-      ingredientsName: json['ingredientsName'] ?? 'Unknown',
-      category: json['category'] ?? 'Unknown',
-      storage: json['storage'] ?? 'Unknown',
-      quantity: json['quantity'] ?? 0,
-      minQuantity: json['minQuantity'] ?? 0,
-      unit: json['unit'] ?? 'Kilograms (kg)',
-      status: json['status'] ?? 'Unknown',
-      price: (json['price'] ?? 0.0).toDouble(),
-      expirationDate: _parseDate(json['expirationDate']),
-      purchaseDate: _parseDate(json['purchaseDate']),
-      updateDate: _parseDate(json['updateDate']),
+  return Ingredient(
+    ingredientId: json['id'] ?? '',
+    ingredientsName: json['ingredientsName'] ?? '',
+    category: json['category'] ?? '',
+    storage: json['storage'] ?? '',
+    quantity: (json['quantity'] ?? 0).toInt(),
+    minQuantity: json['minQuantity'] ?? 0,
+    unit: json['unit'] ?? '',
+    expirationDate: _parseDate(json['expirationDate']),
+    price: (json['price'] ?? 0.0).toDouble(),
+    purchaseDate: _parseDate(json['purchaseDate']),
+    updateDate: _parseDate(json['updateDate']),
+    source: json['source'] ?? '',
+    imageUrl: json['imageUrl'] ?? '',
+    status: json['status'] ?? '',
+    quantityAdded: json['quantityAdded'] ?? 0,
+    addedDate: _parseDate(json['addedDate']),
+    allergenInfo: json['allergenInfo'] is Map
+        ? Map<String, bool>.from(json['allergenInfo'])
+        : {},  // หากเป็น List หรือค่าผิดประเภท ให้กำหนดค่าเป็น Map ว่าง
+    userId: json['userId'] ?? '',
+    usageHistory: json['usageHistory'] is List
+        ? List<Map<String, dynamic>>.from(json['usageHistory'])
+        : [],  // หากเป็น Map ให้แปลงเป็น List ว่าง
+  );
+}
 
-      source: json['source'] ?? 'Home',
 
-      // ✅ ตรวจสอบ `allergenInfo`
-      allergenInfo: json['allergenInfo'] is Map<String, dynamic>
-          ? Map<String, bool>.from(json['allergenInfo'])
-          : {},
-      imageUrl: json['imageUrl'] ?? '',
-      quantityAdded: json['quantityAdded'] ?? 0,
-      addedDate: _parseDate(json['addedDate']),
-
-      isSelected: json['isSelected'] ?? false,
-    );
-  }
 
 
   // ✅ ฟังก์ชันแปลง Ingredient -> JSON
