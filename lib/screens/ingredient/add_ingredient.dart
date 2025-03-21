@@ -50,8 +50,10 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController =
-        TextEditingController(text: widget.ingredient?['ingredientsName'] ?? '');
+
+    // ตั้งค่า controllers
+    _nameController = TextEditingController(
+        text: widget.ingredient?['ingredientsName'] ?? '');
     _categoryController =
         TextEditingController(text: widget.ingredient?['category'] ?? '');
     _unitController =
@@ -67,12 +69,21 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
         text: widget.ingredient?['shelflife']?.toString() ?? '');
     _storageController =
         TextEditingController(text: widget.ingredient?['storage'] ?? '');
-    imageUrl = widget.ingredient?['imageUrl'] ?? 'assets/images/default_ing.png';
-    selectedStorageIndex =
-        recipeTypes.indexOf(widget.ingredient?['storage'] ?? 'Fridge');
-    selectedIngredientImage =
-        widget.ingredient?['imageUrl'] ?? 'assets/images/default_ing.png';
+
+    // ตรวจสอบว่า imageUrl เป็น URL หรือเป็น asset
+    String? ingredientImageUrl = widget.ingredient?['imageUrl'];
+    imageUrl = ingredientImageUrl ?? 'assets/images/default_ing.png';
+    selectedIngredientImage = imageUrl;
     originalImageUrl = selectedIngredientImage;
+
+    // ถ้าเป็น URL ใช้ NetworkImage ถ้าเป็น asset ใช้ AssetImage
+    if (imageUrl != null && imageUrl!.startsWith('http')) {
+      selectedIngredientImage = imageUrl; // ใช้ URL ถ้า imageUrl เป็น URL
+    } else {
+      selectedIngredientImage =
+          'assets/images/default_ing.png'; // ใช้ asset ถ้าไม่ใช่ URL
+    }
+
     selectedIngredientName = widget.ingredient?['name'] ?? '';
     selectedCategory = widget.ingredient?['category'] ?? 'Fruits';
     selectedUnit = widget.ingredient?['unit'] ?? 'Kilograms (kg)';
@@ -81,6 +92,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
     selectedStorageIndex =
         recipeTypes.contains(storage) ? recipeTypes.indexOf(storage) : 0;
 
+    // เช็ค expirationDate
     if (widget.ingredient?['expirationDate'] != null) {
       selectedDate = DateTime.tryParse(widget.ingredient!['expirationDate']);
     } else {
@@ -105,64 +117,74 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
   List<String> recipeTypes = ['Fridge', 'Freezer', 'Pantry'];
 
   Future<void> _saveIngredient(Map<String, dynamic> newIngredient) async {
-  int shelflife = int.tryParse(newIngredient['shelflife']?.toString() ?? '0') ?? 0;
-  if (!_formKey.currentState!.validate()) return;
+    int shelflife =
+        int.tryParse(newIngredient['shelflife']?.toString() ?? '0') ?? 0;
+    if (!_formKey.currentState!.validate()) return;
 
-  try {
-    String uid = FirebaseAuth.instance.currentUser!.uid;
-    CollectionReference userIngredients = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('userIngredients');
+    try {
+      String uid = FirebaseAuth.instance.currentUser!.uid;
+      CollectionReference userIngredients = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('userIngredients');
 
-    CollectionReference historyCollection = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('ingredientsHistory');
+      CollectionReference historyCollection = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('ingredientsHistory'); // 🟢 เพิ่ม Collection ประวัติ
 
-    // Query for existing ingredient with same name AND storage
-    QuerySnapshot existingIngredients = await userIngredients
-        .where('ingredientsName', isEqualTo: newIngredient['ingredientsName'])
-        .where('storage', isEqualTo: newIngredient['storage'])
-        .get();
+      QuerySnapshot existingIngredients = await userIngredients
+          .where('ingredientsName', isEqualTo: newIngredient['ingredientsName'])
+          .get();
 
-    if (existingIngredients.docs.isNotEmpty) {
-      // Update existing ingredient if name AND storage match
-      DocumentSnapshot doc = existingIngredients.docs.first;
-      
-      await userIngredients.doc(doc.id).update({
-        'quantity': FieldValue.increment(newIngredient['quantity']),
-        'expirationDate': newIngredient['expirationDate'] ??
-            (shelflife > 0
-                ? DateTime.now().add(Duration(days: shelflife)).toIso8601String()
-                : doc['expirationDate'] ??
-                    DateTime.now().add(Duration(days: 7)).toIso8601String()),
-        'updateDate': Timestamp.now(),
-      });
-    } else {
-      // Create new ingredient if either name OR storage is different
-      newIngredient['createDate'] = Timestamp.now();
-      await userIngredients.add(newIngredient);
+      if (existingIngredients.docs.isNotEmpty) {
+        DocumentSnapshot doc = existingIngredients.docs.first;
+
+        await userIngredients.doc(doc.id).update({
+          'quantity': FieldValue.increment(newIngredient['quantity']),
+          'expirationDate': newIngredient['expirationDate'] ??
+              (shelflife > 0
+                  ? DateTime.now()
+                      .add(Duration(days: shelflife))
+                      .toIso8601String()
+                  : doc['expirationDate'] ??
+                      DateTime.now().add(Duration(days: 7)).toIso8601String()),
+          'updateDate': Timestamp.now(),
+        });
+
+        // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
+        await historyCollection.add({
+          'ingredientsName': newIngredient['ingredientsName'],
+          'category': newIngredient['category'],
+          'unit': newIngredient['unit'],
+          'quantityAdded': newIngredient['quantity'],
+          'addedDate': Timestamp.now(),
+          'source': 'home',
+          'imageUrl': newIngredient['imageUrl'] ?? '',
+          'storage': newIngredient['storage'],
+        });
+      } else {
+        newIngredient['createDate'] = Timestamp.now();
+
+        DocumentReference newDoc = await userIngredients.add(newIngredient);
+
+        // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
+        await historyCollection.add({
+          'ingredientsName': newIngredient['ingredientsName'],
+          'category': newIngredient['category'],
+          'unit': newIngredient['unit'],
+          'quantityAdded': newIngredient['quantity'],
+          'addedDate': Timestamp.now(),
+          'source': 'home',
+          'imageUrl': newIngredient['imageUrl'] ?? '',
+          'storage': newIngredient['storage'],
+        });
+      }
+    } catch (e) {
+      print("❌ Error saving ingredient: $e");
+      throw e;
     }
-
-    // Add to history collection
-    await historyCollection.add({
-      'ingredientsName': newIngredient['ingredientsName'],
-      'category': newIngredient['category'],
-      'unit': newIngredient['unit'],
-      'quantityAdded': newIngredient['quantity'],
-      'addedDate': Timestamp.now(),
-      'source': 'home',
-      'imageUrl': newIngredient['imageUrl'] ?? '',
-      'storage': newIngredient['storage'],
-    });
-
-  } catch (e) {
-    print("❌ Error saving ingredient: $e");
-    throw e;
   }
-}
-
 
   Future<List<Ingredient>> fetchIngredients() async {
     String uid = FirebaseAuth.instance.currentUser!.uid;
@@ -190,10 +212,9 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            builder: (context) => RootPage(
-                initialIndex: 1), 
+            builder: (context) => RootPage(initialIndex: 1),
           ),
-          (route) => false, 
+          (route) => false,
         );
       },
     );
@@ -204,7 +225,6 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
 
     DateTime calculatedExpirationDate = selectedDate ??
         DateTime.now().add(Duration(days: shelflife > 0 ? shelflife : 7));
-
 
     Map<String, dynamic> newIngredient = {
       'ingredientsName': _nameController.text,
@@ -220,43 +240,16 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       'allergenInfo': selectedAllergens,
     };
 
-    List<String> userAllergies = await fetchUserAllergies("user123");
+    // List<String> userAllergies = await fetchUserAllergies("user123");
 
-    List<String> matchedAllergens = [];
-    if (newIngredient['allergenInfo'] != null) {
-      matchedAllergens = List<String>.from(newIngredient['allergenInfo'])
-          .where((allergen) => userAllergies.contains(allergen))
-          .toList();
-    }
+    // List<String> matchedAllergens = [];
+    // if (newIngredient['allergenInfo'] != null) {
+    //   matchedAllergens = List<String>.from(newIngredient['allergenInfo'])
+    //       .where((allergen) => userAllergies.contains(allergen))
+    //       .toList();
+    // }
 
-    if (matchedAllergens.isNotEmpty) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text("⚠️ Warning: Allergens Detected"),
-            content: Text(
-                "This ingredient contains: ${matchedAllergens.join(', ')}. Are you sure you want to add it?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text("Cancel"),
-              ),
-              TextButton(
-                onPressed: () async {
-                  Navigator.of(context).pop();
-                  await _saveIngredient(newIngredient);
-                  List<Ingredient> updatedIngredientList =
-                      await fetchIngredients();
-                  showSuccessAlert(context, updatedIngredientList);
-                },
-                child: Text("Continue"),
-              ),
-            ],
-          );
-        },
-      );
-    } else {
+    {
       await _saveIngredient(newIngredient);
       List<Ingredient> updatedIngredientList = await fetchIngredients();
       showSuccessAlert(context, updatedIngredientList);
@@ -264,7 +257,6 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
   }
 
   void _onPressedAdd() async {
-
     DateTime expirationDate = _expirationDate ??
         (int.tryParse(_shelflifeController.text) != null
             ? DateTime.now()
@@ -446,8 +438,17 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                         child: _imageFile != null
                             ? Image.file(_imageFile!,
                                 height: 100, width: 100, fit: BoxFit.contain)
-                            : Image.network(selectedIngredientImage!,
-                                height: 100, width: 100, fit: BoxFit.contain),
+                            : (Uri.tryParse(selectedIngredientImage)
+                                        ?.hasAbsolutePath ==
+                                    true
+                                ? Image.network(selectedIngredientImage,
+                                    height: 100,
+                                    width: 100,
+                                    fit: BoxFit.contain)
+                                : Image.asset(selectedIngredientImage,
+                                    height: 100,
+                                    width: 100,
+                                    fit: BoxFit.contain)),
                       ),
                     ),
 
@@ -748,10 +749,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                                     RegExp(r'^\d*\.?\d*$')),
                               ],
                               onTap: () {
-                                
-                                  _quantityController.clear();
-                                  
-                              
+                                _quantityController.clear();
                               },
                               onChanged: (value) {
                                 if (value == ".") {
@@ -889,11 +887,8 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                                     RegExp(r'^\d*\.?\d*$')),
                               ],
                               onTap: () {
-                                
-                                  _minQuantityController.clear();
-                                  
-                                },
-                              
+                                _minQuantityController.clear();
+                              },
                               onChanged: (value) {
                                 if (value == ".") {
                                   _minQuantityController.text = "0.";
@@ -913,60 +908,60 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                               }),
                         ),
                         const SizedBox(width: 10),
-                        Expanded(
-                          flex: 3,
-                          child: Container(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 10),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Color(0xFFf8f8f7)),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  isExpanded: true,
-                                  value: selectedUnit,
-                                  onChanged: (String? newValue) {
-                                    setState(() {
-                                      selectedUnit = newValue!;
-                                    });
-                                  },
-                                  items: <String>[
-                                    'Kilograms (kg)',
-                                    'Grams (g)',
-                                    'Pounds (lbs)',
-                                    'Ounces (oz)',
-                                    'Liters (L)',
-                                    'Milliliters (mL)',
-                                    'Gallons',
-                                    'Bottles',
-                                    'Pieces',
-                                    'Boxes',
-                                    'Cups',
-                                    'Cans',
-                                    'Packs',
-                                    'Bulb',
-                                    'Leaves',
-                                    'Loaf',
-                                    'Bunch',
-                                    'Head',
-                                    'Jar',
-                                    'Sheet',
-                                    'Bar',
-                                    'Container',
-                                    'Cob',
-                                  ].map<DropdownMenuItem<String>>(
-                                      (String value) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value,
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.bold)),
-                                    );
-                                  }).toList(),
-                                ),
-                              )),
-                        ),
+                        // Expanded(
+                        //   flex: 3,
+                        //   child: Container(
+                        //       padding:
+                        //           const EdgeInsets.symmetric(horizontal: 10),
+                        //       decoration: BoxDecoration(
+                        //         border: Border.all(color: Color(0xFFf8f8f7)),
+                        //         borderRadius: BorderRadius.circular(10),
+                        //       ),
+                        //       child: DropdownButtonHideUnderline(
+                        //         child: DropdownButton<String>(
+                        //           isExpanded: true,
+                        //           value: selectedUnit,
+                        //           onChanged: (String? newValue) {
+                        //             setState(() {
+                        //               selectedUnit = newValue!;
+                        //             });
+                        //           },
+                        //           items: <String>[
+                        //             'Kilograms (kg)',
+                        //             'Grams (g)',
+                        //             'Pounds (lbs)',
+                        //             'Ounces (oz)',
+                        //             'Liters (L)',
+                        //             'Milliliters (mL)',
+                        //             'Gallons',
+                        //             'Bottles',
+                        //             'Pieces',
+                        //             'Boxes',
+                        //             'Cups',
+                        //             'Cans',
+                        //             'Packs',
+                        //             'Bulb',
+                        //             'Leaves',
+                        //             'Loaf',
+                        //             'Bunch',
+                        //             'Head',
+                        //             'Jar',
+                        //             'Sheet',
+                        //             'Bar',
+                        //             'Container',
+                        //             'Cob',
+                        //           ].map<DropdownMenuItem<String>>(
+                        //               (String value) {
+                        //             return DropdownMenuItem<String>(
+                        //               value: value,
+                        //               child: Text(value,
+                        //                   style: TextStyle(
+                        //                       fontWeight: FontWeight.bold)),
+                        //             );
+                        //           }).toList(),
+                        //         ),
+                        //       )),
+                        // ),
                       ],
                     ),
                   ],
@@ -1019,6 +1014,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                       ),
                     ]),
               ),
+
               //Allergen
               const SizedBox(height: 20),
               Padding(
