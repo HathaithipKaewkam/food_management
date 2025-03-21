@@ -22,6 +22,7 @@ class _CartScreenState extends State<CartScreen> {
   List<Map<String, dynamic>> cartItems = [];
   List<Ingredient> ingredientList = [];
   bool isLoading = true;
+  bool markAllSelected = false;
   StreamSubscription<QuerySnapshot>? _cartSubscription;
 
   @override
@@ -93,8 +94,11 @@ class _CartScreenState extends State<CartScreen> {
     return total;
   }
 
-  void onMarkAllPurchased(bool isPurchased) {
+  
+Future<void> onMarkAllPurchased(bool isPurchased) async {
+  try {
     setState(() {
+      markAllSelected = isPurchased; 
       for (var item in cartItems) {
         final docId = item['docId'];
         if (docId != null) {
@@ -103,13 +107,29 @@ class _CartScreenState extends State<CartScreen> {
         }
       }
     });
+    print("✅ All items marked as ${isPurchased ? 'purchased' : 'unpurchased'}");
+  } catch (e) {
+    print("❌ Error marking all items: $e");
   }
+}
 
   Future<void> _togglePurchased(String docId, bool isPurchased) async {
   String uid = FirebaseAuth.instance.currentUser!.uid;
 
   try {
-    // อัปเดตใน collection userCart
+    // Update local state first
+    setState(() {
+      // Find and update the item in cartItems
+      var item = cartItems.firstWhere((item) => item['docId'] == docId);
+      item['purchased'] = isPurchased;
+      
+      // If unmarking item, also unset markAllSelected
+      if (!isPurchased) {
+        markAllSelected = false;
+      }
+    });
+
+    // Then update Firestore
     await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
@@ -120,9 +140,9 @@ class _CartScreenState extends State<CartScreen> {
       'purchaseDate': isPurchased ? FieldValue.serverTimestamp() : null,
     });
 
-    // ถ้า user ติ๊กออก (ไม่ซื้อ)
+    // Handle purchase history
     if (!isPurchased) {
-      // ลบข้อมูลจาก purchaseHistory
+      // Remove from purchase history
       QuerySnapshot purchaseHistory = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
@@ -131,14 +151,11 @@ class _CartScreenState extends State<CartScreen> {
           .get();
 
       for (var doc in purchaseHistory.docs) {
-        // ลบเอกสารที่ตรงกับ itemId
         await doc.reference.delete();
       }
-
       print("✅ Removed item from purchaseHistory: $docId");
     } else {
-      // ถ้า user ซื้อสินค้าใหม่ (isPurchased = true)
-      // ดึงข้อมูลสินค้าจาก userCart (เช่น ราคา จำนวน แหล่ง หน่วย)
+      // Add to purchase history
       DocumentSnapshot cartItem = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
@@ -146,11 +163,8 @@ class _CartScreenState extends State<CartScreen> {
           .doc(docId)
           .get();
 
-      // ตรวจสอบว่าได้ข้อมูลสินค้าที่ต้องการหรือไม่
       if (cartItem.exists) {
         Map<String, dynamic> cartData = cartItem.data() as Map<String, dynamic>;
-
-        // เพิ่มข้อมูลลงใน purchaseHistory
         await FirebaseFirestore.instance
             .collection('users')
             .doc(uid)
@@ -158,23 +172,25 @@ class _CartScreenState extends State<CartScreen> {
             .add({
           'itemId': docId,
           'purchaseDate': FieldValue.serverTimestamp(),
-          'price': cartData['price'], 
-          'quantity': cartData['quantity'], 
-          'source': cartData['source'], 
+          'price': cartData['price'],
+          'quantity': cartData['quantity'],
+          'source': cartData['source'],
           'unit': cartData['unit'],
-          'ingredientsName' : cartData['ingredientsName'],
-          'imageUrl' : cartData['imageUrl'],
-          'category' : cartData['category']
+          'ingredientsName': cartData['ingredientsName'],
+          'imageUrl': cartData['imageUrl'],
+          'category': cartData['category']
         });
-
         print("✅ Added item to purchaseHistory: $docId");
-      } else {
-        print("❌ Item not found in userCart.");
       }
     }
 
     print("✅ Updated item: $docId, Purchased: $isPurchased");
   } catch (e) {
+    // Revert local state on error
+    setState(() {
+      var item = cartItems.firstWhere((item) => item['docId'] == docId);
+      item['purchased'] = !isPurchased;
+    });
     print("❌ Error updating item: $e");
   }
 }
@@ -613,17 +629,8 @@ void dispose() {
                                     ingredient['purchased'] = isPurchased;
                                   });
                                 },
-                                onMarkAllPurchased: (bool isPurchased) {
-                                  setState(() {
-                                    for (var item in cartItems) {
-                                      final docId = item['docId'];
-                                      if (docId != null) {
-                                        _togglePurchased(docId, isPurchased);
-                                        item['purchased'] = isPurchased;
-                                      }
-                                    }
-                                  });
-                                },
+                                onMarkAllPurchased: onMarkAllPurchased,  
+                                isMarkAllSelected: markAllSelected,
                               ),
                             );
                           },

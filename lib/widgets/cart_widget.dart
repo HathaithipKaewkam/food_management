@@ -6,15 +6,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class CartWidget extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
 
-  final Future<void> Function(String docId, bool isPurchased)
-      onPurchasedChanged;
-  final Function(bool isPurchased) onMarkAllPurchased;
+  final Function(String, bool) onPurchasedChanged;
+  final Function(bool) onMarkAllPurchased;
+   final bool isMarkAllSelected;
 
   const CartWidget({
     Key? key,
     required this.cartItems,
     required this.onPurchasedChanged,
     required this.onMarkAllPurchased,
+    this.isMarkAllSelected = false,
   }) : super(key: key);
 
   @override
@@ -43,6 +44,7 @@ String formatDate(dynamic dateValue) {
 
 class _CartWidgetState extends State<CartWidget> {
   Map<String, bool> selectedItems = {};
+  bool markAllSelected = false;
 
   @override
   void initState() {
@@ -50,23 +52,39 @@ class _CartWidgetState extends State<CartWidget> {
     for (var item in widget.cartItems) {
       if (item['docId'] != null) {
         selectedItems[item['docId']] = item['purchased'] ?? false;
-      } else {
-        print("DocId is null for item: ${item['ingredientsName']}");
-      }
+      } 
     }
   }
 
-  void _markAllPurchased(bool isPurchased) {
-    setState(() {
-      for (var item in widget.cartItems) {
-        final docId = item['docId'];
-        if (docId != null) {
-          selectedItems[docId] = isPurchased;
-          item['purchased'] = isPurchased;
-          widget.onPurchasedChanged(docId, isPurchased);
+  void _markAllPurchased(bool isPurchased) async {
+    try {
+      setState(() {
+        markAllSelected = isPurchased;
+        // Update all items in the local state
+        for (var item in widget.cartItems) {
+          if (item['docId'] != null) {
+            selectedItems[item['docId']] = isPurchased;
+            item['purchased'] = isPurchased;
+          }
         }
-      }
-    });
+      });
+
+      // Update Firestore through parent widget
+      await widget.onMarkAllPurchased(isPurchased);
+      print("✅ All items marked as ${isPurchased ? 'purchased' : 'unpurchased'}");
+    } catch (e) {
+      print("❌ Error marking all items: $e");
+      // Revert state on error
+      setState(() {
+        markAllSelected = !isPurchased;
+        for (var item in widget.cartItems) {
+          if (item['docId'] != null) {
+            selectedItems[item['docId']] = !isPurchased;
+            item['purchased'] = !isPurchased;
+          }
+        }
+      });
+    }
   }
 
   IconData _getStorageIcon(String? storage) {
@@ -116,44 +134,28 @@ class _CartWidgetState extends State<CartWidget> {
             Transform.translate(
                 offset: const Offset(-5, 0),
                 child: Checkbox(
-                  value:
-                      selectedItems.containsKey(item['docId'] ?? 'defaultDocId')
-                          ? selectedItems[item['docId']]
-                          : false, // เช็คว่า docId ที่ถูกต้องมีค่า
-
-                  activeColor: const Color(0xFF78d454),
-                  onChanged: (bool? value) async {
-                    final docId =
-                        item['docId']; // ตอนนี้ docId ควรจะมีค่าถูกต้อง
-
-                    print("DocId: $docId"); // แสดงค่า docId ใน console
-                    print(
-                        "SelectedItems: $selectedItems"); // แสดงค่า selectedItems ใน console
-
-                    // ตรวจสอบว่า docId ที่ใช้สามารถอัปเดตได้ใน Firestore หรือไม่
-                    if (docId == null || docId == 'defaultDocId') {
-                      // ถ้า docId เป็น null หรือ defaultDocId ก็จะไม่ทำการอัปเดต
-                      print("DocId is invalid, cannot update Firestore.");
-                      return;
-                    }
-
-                    // อัปเดต Firestore โดยตรงโดยไม่ต้องเรียก setState
-                    try {
-                      await widget.onPurchasedChanged(
-                          docId, value ?? false); // อัปเดต Firestore
-
-                      // อัปเดต selectedItems หลังจากการอัปเดต Firestore สำเร็จ
-                      setState(() {
-                        selectedItems[docId] =
-                            value ?? false; // อัปเดต selectedItems
-                        item['purchased'] =
-                            value; // อัปเดตค่า purchased ใน item ด้วย
-                      });
-                    } catch (e) {
-                      print("❌ Error updating item: $e");
-                    }
-                  },
-                )),
+                    value: widget.isMarkAllSelected || selectedItems[item['docId']] == true,
+                    activeColor: const Color(0xFF78d454),
+                    onChanged: (bool? value) async {
+                      final docId = item['docId'];
+                      if (docId != null) {
+                        try {
+                          setState(() {
+                            selectedItems[docId] = value ?? false;
+                            item['purchased'] = value;
+                          });
+                          await widget.onPurchasedChanged(docId, value ?? false);
+                        } catch (e) {
+                          print("❌ Error updating item: $e");
+                          setState(() {
+                            selectedItems[docId] = !(value ?? false);
+                            item['purchased'] = !(value ?? false);
+                          });
+                        }
+                      }
+                    },
+                  ),
+                ),
             const SizedBox(width: 5),
             Expanded(
               child: Column(
@@ -171,13 +173,16 @@ class _CartWidgetState extends State<CartWidget> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        '${item['price']} ฿',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Color(0xFF16a34a),
-                          fontWeight: FontWeight.w600,
+                      Container(
+                        padding: const EdgeInsets.only(right: 5),
+                        child: Text(
+                          '${item['price']} ฿',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Color(0xFF16a34a),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -234,12 +239,15 @@ class _CartWidgetState extends State<CartWidget> {
                         ]),
                       ),
                       Spacer(),
-                      Text(
+                       Container(
+                        padding: const EdgeInsets.only(right: 5),
+                        child:  Text(
                         '${item['quantity']} ${_formatUnit(item['unit'])}',
                         style: const TextStyle(
                             fontSize: 16,
                             color: Colors.black,
                             fontWeight: FontWeight.bold),
+                      ),
                       ),
                     ],
                   ),
