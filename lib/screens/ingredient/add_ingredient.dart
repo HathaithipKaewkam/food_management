@@ -105,8 +105,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
   List<String> recipeTypes = ['Fridge', 'Freezer', 'Pantry'];
 
   Future<void> _saveIngredient(Map<String, dynamic> newIngredient) async {
-  int shelflife =
-      int.tryParse(newIngredient['shelflife']?.toString() ?? '0') ?? 0;
+  int shelflife = int.tryParse(newIngredient['shelflife']?.toString() ?? '0') ?? 0;
   if (!_formKey.currentState!.validate()) return;
 
   try {
@@ -119,58 +118,45 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
     CollectionReference historyCollection = FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
-        .collection('ingredientsHistory'); // 🟢 เพิ่ม Collection ประวัติ
+        .collection('ingredientsHistory');
 
+    // Query for existing ingredient with same name AND storage
     QuerySnapshot existingIngredients = await userIngredients
         .where('ingredientsName', isEqualTo: newIngredient['ingredientsName'])
+        .where('storage', isEqualTo: newIngredient['storage'])
         .get();
 
     if (existingIngredients.docs.isNotEmpty) {
+      // Update existing ingredient if name AND storage match
       DocumentSnapshot doc = existingIngredients.docs.first;
-
+      
       await userIngredients.doc(doc.id).update({
         'quantity': FieldValue.increment(newIngredient['quantity']),
         'expirationDate': newIngredient['expirationDate'] ??
             (shelflife > 0
-                ? DateTime.now()
-                    .add(Duration(days: shelflife))
-                    .toIso8601String()
+                ? DateTime.now().add(Duration(days: shelflife)).toIso8601String()
                 : doc['expirationDate'] ??
                     DateTime.now().add(Duration(days: 7)).toIso8601String()),
         'updateDate': Timestamp.now(),
       });
-
-      // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
-      await historyCollection.add({
-        'ingredientsName': newIngredient['ingredientsName'],
-        'category': newIngredient['category'],
-        'unit' : newIngredient['unit'],
-        'quantityAdded': newIngredient['quantity'],
-        'addedDate': Timestamp.now(), 
-        'source' : 'home',
-        'imageUrl': newIngredient['imageUrl'] ?? '',
-        'storage' : newIngredient['storage'],
-        
-      });
-
     } else {
-      newIngredient['createDate'] = Timestamp.now(); 
-
-      DocumentReference newDoc = await userIngredients.add(newIngredient);
-
-      // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
-      await historyCollection.add({
-        'ingredientsName': newIngredient['ingredientsName'],
-        'category': newIngredient['category'],
-        'unit' : newIngredient['unit'],
-        'quantityAdded': newIngredient['quantity'],
-        'addedDate': Timestamp.now(),
-        'source' : 'home',
-        'imageUrl': newIngredient['imageUrl'] ?? '',
-        'storage' : newIngredient['storage'],
-        
-      });
+      // Create new ingredient if either name OR storage is different
+      newIngredient['createDate'] = Timestamp.now();
+      await userIngredients.add(newIngredient);
     }
+
+    // Add to history collection
+    await historyCollection.add({
+      'ingredientsName': newIngredient['ingredientsName'],
+      'category': newIngredient['category'],
+      'unit': newIngredient['unit'],
+      'quantityAdded': newIngredient['quantity'],
+      'addedDate': Timestamp.now(),
+      'source': 'home',
+      'imageUrl': newIngredient['imageUrl'] ?? '',
+      'storage': newIngredient['storage'],
+    });
+
   } catch (e) {
     print("❌ Error saving ingredient: $e");
     throw e;

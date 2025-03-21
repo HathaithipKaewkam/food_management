@@ -205,8 +205,6 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _moveToStorage(String docId, Map<String, dynamic> item) async {
   String uid = FirebaseAuth.instance.currentUser!.uid;
   DateTime now = DateTime.now();
-
- 
   DateTime expirationDate = now.add(Duration(days: 7));
 
   var userIngredientsRef = FirebaseFirestore.instance
@@ -214,54 +212,60 @@ class _CartScreenState extends State<CartScreen> {
       .doc(uid)
       .collection('userIngredients');
 
- 
+  // Query for existing ingredient with same name AND storage
   var existingIngredientSnapshot = await userIngredientsRef
-      .where('docId', isEqualTo: docId) 
+      .where('ingredientsName', isEqualTo: item['ingredientsName'])
+      .where('storage', isEqualTo: item['storage'])
       .get();
 
- 
-  if (existingIngredientSnapshot.docs.isEmpty) {
-    await userIngredientsRef.add({
-      'docId': docId,
-      'ingredientsName': item['ingredientsName'],
-      'quantity': item['quantity'], 
-      'createDate': now,             
-      'expirationDate': expirationDate, 
-      'minQuantity': 1,             
-      'allergenInfo': item['allergenInfo'] ?? [], 
-      'price': item['price'],        
-      'imageUrl': item['imageUrl'],  
-      'category': item['category'],  
-      'unit': item['unit'],          
-      'storage': item['storage'],    
-      'source': item['source'],     
-    });
-    print("✅ New item added to storage.");
-  } else {
-   
-    var existingIngredientDoc = existingIngredientSnapshot.docs.first;
-    var currentQuantity = existingIngredientDoc['quantity'];
-
-    await existingIngredientDoc.reference.update({
-      'quantity': currentQuantity + item['quantity'], 
-      'createDate': now,  
-      'expirationDate': expirationDate, 
-      'price': item['price'], 
-      'imageUrl': item['imageUrl'], 
-      'category': item['category'], 
-      'unit': item['unit'],
-      'storage': item['storage'], 
-      'source': item['source'], 
-    });
-    print("✅ Item quantity updated in storage.");
-  }
+  try {
+    if (existingIngredientSnapshot.docs.isNotEmpty) {
+      // Update existing ingredient if name AND storage match
+      var existingDoc = existingIngredientSnapshot.docs.first;
+      var currentQuantity = existingDoc.data()['quantity'] ?? 0;
+      
+      await existingDoc.reference.update({
+        'quantity': currentQuantity + item['quantity'],
+        'updateDate': now,
+        'expirationDate': expirationDate,
+        'price': item['price'],
+      });
+      
+      print("✅ Updated existing ingredient in ${item['storage']}");
+    } else {
+      // Create new ingredient if either name OR storage is different
+      await userIngredientsRef.add({
+        'ingredientsName': item['ingredientsName'],
+        'quantity': item['quantity'],
+        'createDate': now,
+        'expirationDate': expirationDate,
+        'minQuantity': 1,
+        'allergenInfo': item['allergenInfo'] ?? [],
+        'price': item['price'],
+        'imageUrl': item['imageUrl'],
+        'category': item['category'],
+        'unit': item['unit'],
+        'storage': item['storage'],
+        'source': item['source'],
+        'updateDate': now,
+      });
+      
+      print("✅ Added new ingredient in ${item['storage']}");
+    }
 
   
-  await _addToPurchaseHistory(docId, item);
-  await _removeFromUserCart(docId);
+    await _addToPurchaseHistory(docId, item);
+    
+   
+    await _removeFromUserCart(docId);
+    
+   
+    await _addToIngredientsHistory(item);
 
- 
-  await _addToIngredientsHistory(item);
+  } catch (e) {
+    print("❌ Error moving item to storage: $e");
+    throw e;
+  }
 }
 
 Future<void> _addToPurchaseHistory(String docId, Map<String, dynamic> item) async {

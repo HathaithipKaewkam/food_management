@@ -160,35 +160,41 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
 
 
   Future<void> _fetchUserIngredients() async {
-    try {
-      String uid = FirebaseAuth.instance.currentUser!.uid;
-      QuerySnapshot snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('userIngredients')
-          .get();
+  try {
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+    QuerySnapshot snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('userIngredients')
+        .get();
 
-      Map<String, int> tempUserIngredients = {};
-      for (var doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        String name = data['ingredientsName'];
-        int quantity = data['quantity'] ?? 0;
-        tempUserIngredients[name] = quantity;
+    Map<String, int> tempUserIngredients = {};
+    
+    for (var doc in snapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      String name = data['ingredientsName'];
+      int quantity = data['quantity'] ?? 0;
+      
+      // Sum quantities for same ingredient name regardless of storage
+      tempUserIngredients.update(
+        name, 
+        (existingQuantity) => existingQuantity + quantity,
+        ifAbsent: () => quantity,
+      );
 
-         print("Loaded ingredient: $name with quantity: $quantity");
-
-      }
-
-      setState(() {
-        userIngredientsMap = tempUserIngredients;
-      });
-
-      print("✅ Loaded user ingredients: ${userIngredientsMap.length}");
-    } catch (e) {
-      print("❌ Error fetching user ingredients: $e");
     }
-  }
 
+    setState(() {
+      userIngredientsMap = tempUserIngredients;
+    });
+    userIngredientsMap.forEach((name, total) {
+     
+    });
+
+  } catch (e) {
+    print("❌ Error fetching user ingredients: $e");
+  }
+}
   Future<List<Ingredient>> fetchIngredients() async {
     String uid = FirebaseAuth.instance.currentUser!.uid;
     QuerySnapshot snapshot = await FirebaseFirestore.instance
@@ -378,14 +384,16 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
     TextEditingController priceController = TextEditingController();
 
     List<Map<String, dynamic>> userIngredients = userIngredientsMap.entries.map((entry) {
-      print("📦 userIngredientsMap: $userIngredientsMap");
     return {
       'ingredientsName': entry.key,
-      'quantity': entry.value, 
-      
+      'quantity': entry.value,
     };
-
   }).toList();
+
+   print("📦 Converting userIngredientsMap to List:");
+  userIngredients.forEach((ing) {
+    print("🔸 ${ing['ingredientsName']}: ${ing['quantity']}");
+  });
 
     List<String> categoryOptions = [
                             'Fruits',
@@ -619,9 +627,10 @@ Widget _buildQuantitySelector(
   int quantity,
   Function(int) onQuantityChanged,
 ) {
-  // ใช้ quantity ที่มาอัปเดตจาก userIngredientsMap
- int userQuantity = userIngredients
-      .where((item) => item['ingredientsName'] == ingredient['ingredientsName'])
+
+ int totalQuantity = userIngredients
+      .where((item) => item['ingredientsName'].toLowerCase() == 
+                       ingredient['ingredientsName'].toLowerCase())
       .fold(0, (sum, item) => sum + (item['quantity'] as int));
 
   return Padding(
@@ -659,7 +668,7 @@ Widget _buildQuantitySelector(
           ],
         ),
         // ตรวจสอบว่า ingredient มี `quantity` หรือไม่จาก userIngredientsMap
-        if (userQuantity > 0)
+        if (totalQuantity > 0)
           Row(
             children: [
               Image.asset(
@@ -669,7 +678,7 @@ Widget _buildQuantitySelector(
               ),
               const SizedBox(width: 8),
               Text(
-                '$userQuantity ${ingredient['unit']} in stock',  // แสดงจำนวนที่มีใน stock
+                '$totalQuantity ${ingredient['unit']} in stock',  
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.black,

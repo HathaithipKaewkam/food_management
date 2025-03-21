@@ -31,8 +31,10 @@ if (daysToExpiry < 0) {
     }
 
   if (daysToExpiry < 0) {
-      return SizedBox.shrink(); // หากหมดอายุแล้วไม่แสดง
+      return SizedBox.shrink(); 
     }
+
+
 
     return Padding(
       padding: const EdgeInsets.only(top: 5),
@@ -80,14 +82,18 @@ if (daysToExpiry < 0) {
                           fontSize: 18,
                         ),
                       ),
-                      Text(
-                        '${ingredient.quantity} ${ingredient.unit}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                          fontSize: 14,
-                        ),
+                     Text(
+                      '${ingredient.quantity} ${ingredient.unit}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: ingredient.quantity == 0 
+                            ? Colors.red 
+                            : ingredient.quantity <= ingredient.minQuantity 
+                                ? Colors.orange 
+                                : Colors.black,
+                        fontSize: 14,
                       ),
+                    ),
                     ],
                   ),
                   const SizedBox(height: 5),

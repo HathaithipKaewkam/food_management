@@ -618,8 +618,6 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                       (BuildContext context, int index) {
                                     final ingredient =
                                         filteredIngredientTypes[index];
-                                     
-
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
                                           vertical: 3.0),
@@ -637,12 +635,13 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                           );
                                         },
                                         onLongPress: () {
-                                          print(
-                                              "🔍 Debug - Long Pressed on Ingredient: ${ingredient.ingredientsName}");
-                                          print(
-                                              "🔍 Debug - Ingredient ID: ${ingredient.ingredientId}");
-                                          if (ingredient
-                                              .ingredientId.isNotEmpty) {
+                                          print("🔍 Debug - Long Pressed on Ingredient: ${ingredient.ingredientsName}");
+                                          print("🔍 Debug - Ingredient ID: ${ingredient.ingredientId}");
+
+                                          if (ingredient.quantity == 0) {
+                                            return;  
+                                          }
+                                          if (ingredient.ingredientId.isNotEmpty) {
                                             final ingredientMap = {
                                               'id': ingredient.ingredientId,
                                               'ingredientsName':
