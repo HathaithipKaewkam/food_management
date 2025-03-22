@@ -459,7 +459,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
     String selectedCategory = ingredient['category'] ?? categoryOptions[0]; 
     String selectedUnit = ingredient['unit'] ?? unitOptions[0]; 
     String selectedStorage = ingredient['storage'] ?? storageOptions[0]; 
-    String selectedSource = sourceOptions[0];
+    String selectedSource = ingredient['storage'] ?? sourceOptions[0];
 
     showDialog(
       context: context,
@@ -508,20 +508,18 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                     }),
 
                     const SizedBox(height: 10),
-                    _buildDropdown('Category', categoryOptions, selectedCategory,
-                        (newValue) {
+                    buildCustomDropdown('Category', categoryOptions, selectedCategory, (newValue) {
                       setDialogState(() => selectedCategory = newValue);
                     }),
-                    _buildDropdown('Unit', unitOptions, selectedUnit,
-                        (newValue) {
+
+                    buildCustomDropdown('Unit', unitOptions, selectedUnit, (newValue) {
                       setDialogState(() => selectedUnit = newValue);
                     }),
-                    _buildDropdown('Storage', storageOptions, selectedStorage,
-                        (newValue) {
+
+                    buildCustomDropdown('Storage', storageOptions, selectedStorage, (newValue) {
                       setDialogState(() => selectedStorage = newValue);
                     }),
-                    _buildDropdown('Source', sourceOptions, selectedSource,
-                        (newValue) {
+                    buildCustomDropdown('Source', sourceOptions, selectedSource, (newValue) {
                       setDialogState(() => selectedSource = newValue);
                     }),
                     _buildPriceField(priceController),
@@ -597,28 +595,37 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
 }
 
 // Dropdown Widget
-Widget _buildDropdown(String label, List<String> options, String selectedValue,
-    Function(String) onChanged) {
+Widget buildCustomDropdown(String title, List<String> itemList,
+    String? currentValue, Function(String) onItemSelected) {
+  // ตรวจสอบค่าซ้ำและลบออก
+  final uniqueItems = itemList.toSet().toList();
+
+  // ถ้าค่า value ไม่อยู่ในรายการ ให้ตั้งค่าเป็น null
+  if (currentValue != null && !uniqueItems.contains(currentValue)) {
+    currentValue = null;
+  }
+
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
     child: DropdownButtonFormField<String>(
-      value: selectedValue,
+      value: currentValue,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: title,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
-      items: options.map((String value) {
+      items: uniqueItems.map((String item) {
         return DropdownMenuItem<String>(
-          value: value,
-          child: Text(value),
+          value: item,
+          child: Text(item),
         );
       }).toList(),
-      onChanged: (newValue) => onChanged(newValue!),
+      onChanged: (newItem) => onItemSelected(newItem!),
     ),
   );
 }
+
 
 // Quantity Selector Widget (+ -)
 Widget _buildQuantitySelector(
