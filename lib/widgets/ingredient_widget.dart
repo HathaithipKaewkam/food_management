@@ -161,13 +161,42 @@ class IngredientWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 70.0,
-                height: 70.0,
-                child: Image.network(
-                  ingredient.imageUrl ?? "assets/images/default.png",
-                  fit: BoxFit.contain,
+                  width: 70.0,
+                  height: 70.0,
+                  decoration: BoxDecoration(
+                    color: Color(0xFFFFFfff),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: ingredient.imageUrl != null && ingredient.imageUrl!.isNotEmpty
+                        ? Image.network(
+                            ingredient.imageUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                'assets/images/default_ing.png',
+                                fit: BoxFit.contain,
+                              );
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
+                          )
+                        : Image.asset(
+                            'assets/images/default_ing.png',
+                            fit: BoxFit.contain,
+                          ),
+                  ),
                 ),
-              ),
               const SizedBox(width: 15),
               Expanded(
                 child: Column(
@@ -220,12 +249,17 @@ class IngredientWidget extends StatelessWidget {
                 ),
               ),
               Text(
-                '${ingredient.quantity} ${_formatUnit(ingredient.unit)}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+                      '${ingredient.quantity} ${_formatUnit(ingredient.unit)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: ingredient.quantity == 0 
+                            ? Colors.red 
+                            : ingredient.quantity <= ingredient.minQuantity 
+                                ? Colors.orange 
+                                : Colors.black,
+                        fontSize: 16,
+                      ),
+                    ),
             ],
           ),
         ),

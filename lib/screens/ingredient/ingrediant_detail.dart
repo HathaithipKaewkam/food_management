@@ -304,54 +304,55 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
               ),
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 10),
-                  child: Image.network(
-                    widget.ingredient.imageUrl,
-                    fit: BoxFit.contain,
-                    width: 25,
-                    height: 25,
+           Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      Image.network(
+                        widget.ingredient.imageUrl,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Image.asset(
+                            'assets/images/default_ing.png',
+                            width: 25,
+                            height: 25,
+                          );
+                        },
+                        width: 25,
+                        height: 25,
+                        fit: BoxFit.contain,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.ingredient.category,
+                        style: const TextStyle(
+                          color: Color(0xFF595959),
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "in",
+                        style: const TextStyle(
+                          color: Color(0xFF595959),
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.ingredient.storage,
+                        style: const TextStyle(
+                          color: Color(0xFF595959),
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 3),
-                Padding(
-                  padding: const EdgeInsets.only(left: 10),
-                  child: Text(
-                    widget.ingredient.category,
-                    style: const TextStyle(
-                      color: Color(0xFF595959),
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 3),
-                Padding(
-                  padding: const EdgeInsets.only(left: 10),
-                  child: Text(
-                    "in",
-                    style: const TextStyle(
-                      color: Color(0xFF595959),
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 3),
-                Padding(
-                  padding: const EdgeInsets.only(left: 10),
-                  child: Text(
-                    widget.ingredient.storage,
-                    style: const TextStyle(
-                      color: Color(0xFF595959),
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
             const SizedBox(height: 15),
             Padding(padding: const EdgeInsets.only(left: 5, right: 5 ),
             child:  Row(
