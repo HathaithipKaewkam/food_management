@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/screens/ingredient/add_ingredient.dart';
+import 'package:food_project/screens/ingredient/edit_ingredient.dart';
 import 'package:food_project/screens/root_screen.dart';
 import 'package:food_project/services/pairing_service.dart';
 import 'package:food_project/services/recipe_service.dart';
@@ -262,18 +263,10 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => AddIngredientScreen(
+                        builder: (context) => EditIngredientScreen(
                           ingredient: {
-                            'ingredientsName': widget.ingredient.ingredientsName,
-                            'category': widget.ingredient.category,
-                            'storage': widget.ingredient.storage,
-                            'unit': widget.ingredient.unit,
-                            'quantity': widget.ingredient.quantity.toString(), 
-                            'minQuantity': widget.ingredient.minQuantity.toString(), 
-                            'price': widget.ingredient.price.toString(),
-                            'expirationDate': widget.ingredient.expirationDate.toIso8601String(),
-                            'imageUrl': widget.ingredient.imageUrl,
-                            'allergenInfo': widget.ingredient.allergenInfo,
+                              ...widget.ingredient.toJson(), 
+                            'id': widget.ingredient.ingredientId, 
                           },
                         ),
                       ),

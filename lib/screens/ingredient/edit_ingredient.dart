@@ -6,23 +6,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/models/ingredient.dart';
-import 'package:food_project/screens/ingredient/ingredient_screen.dart';
 import 'package:food_project/screens/root_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:quickalert/models/quickalert_type.dart';
 import 'package:quickalert/widgets/quickalert_dialog.dart';
 
-class AddIngredientScreen extends StatefulWidget {
+class EditIngredientScreen extends StatefulWidget {
   final Map<String, dynamic>? ingredient;
 
-  const AddIngredientScreen({Key? key, this.ingredient}) : super(key: key);
+  const EditIngredientScreen({Key? key, this.ingredient}) : super(key: key);
 
   @override
-  _AddIngredientScreenState createState() => _AddIngredientScreenState();
+  _EditIngredientScreenState createState() => _EditIngredientScreenState();
 }
 
-class _AddIngredientScreenState extends State<AddIngredientScreen> {
+class _EditIngredientScreenState extends State<EditIngredientScreen> {
   final _formKey = GlobalKey<FormState>();
   late String selectedIngredientImage;
   late String selectedIngredientName;
@@ -102,75 +101,81 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
 
   List<String> recipeTypes = ['Fridge', 'Freezer', 'Pantry'];
 
-  Future<void> _saveIngredient(Map<String, dynamic> newIngredient) async {
-    int shelflife =
-        int.tryParse(newIngredient['shelflife']?.toString() ?? '0') ?? 0;
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _updateIngredient() async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-    try {
-      String uid = FirebaseAuth.instance.currentUser!.uid;
-      CollectionReference userIngredients = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('userIngredients');
+    // If new image was selected, upload it
+    if (_imageFile != null) {
+      imageUrl = await _uploadImage(_imageFile!);
+    }
 
-      CollectionReference historyCollection = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('ingredientsHistory');
+    // Get expiration date
+    DateTime expirationDate = _expirationDate ?? 
+      selectedDate ?? 
+      DateTime.now().add(Duration(days: int.parse(_shelflifeController.text)));
 
-      QuerySnapshot existingIngredients = await userIngredients
-          .where('ingredientsName', isEqualTo: newIngredient['ingredientsName'])
-          .get();
+    // Create update data
+    Map<String, dynamic> updateData = {
+      'ingredientsName': _nameController.text,
+      'category': selectedCategory,
+      'storage': recipeTypes[selectedStorageIndex],
+      'unit': selectedUnit,
+      'quantity': int.parse(_quantityController.text),
+      'minQuantity': int.parse(_minQuantityController.text),
+      'expirationDate': expirationDate.toIso8601String(),
+      'imageUrl': imageUrl,
+      'updateDate': Timestamp.now(),
+    };
 
-      if (existingIngredients.docs.isNotEmpty) {
-        DocumentSnapshot doc = existingIngredients.docs.first;
+    // Get the correct document ID from the ingredient passed to widget
+    String docId = widget.ingredient?['id'] ?? // Try to get the 'id' field first
+                  widget.ingredient?['ingredientId'] ?? // Then try 'ingredientId'
+                  widget.ingredient?['docId']; // Finally try 'docId'
 
-        await userIngredients.doc(doc.id).update({
-          'quantity': FieldValue.increment(newIngredient['quantity']),
-          'expirationDate': newIngredient['expirationDate'] ??
-              (shelflife > 0
-                  ? DateTime.now()
-                      .add(Duration(days: shelflife))
-                      .toIso8601String()
-                  : doc['expirationDate'] ??
-                      DateTime.now().add(Duration(days: 7)).toIso8601String()),
-          'updateDate': Timestamp.now(),
-        });
+    if (docId == null || docId.isEmpty) {
+      throw Exception('Invalid document ID');
+    }
 
-        // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
-        await historyCollection.add({
-          'ingredientsName': newIngredient['ingredientsName'],
-          'category': newIngredient['category'],
-          'unit': newIngredient['unit'],
-          'quantityAdded': newIngredient['quantity'],
-          'addedDate': Timestamp.now(),
-          'source': 'home',
-          'imageUrl': newIngredient['imageUrl'] ?? '',
-          'storage': newIngredient['storage'],
-        });
-      } else {
-        newIngredient['createDate'] = Timestamp.now();
+    print("📝 Updating ingredient with ID: $docId");
 
-        DocumentReference newDoc = await userIngredients.add(newIngredient);
+    // Update the document
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userIngredients')
+        .doc(docId)
+        .update(updateData);
 
-        // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
-        await historyCollection.add({
-          'ingredientsName': newIngredient['ingredientsName'],
-          'category': newIngredient['category'],
-          'unit': newIngredient['unit'],
-          'quantityAdded': newIngredient['quantity'],
-          'addedDate': Timestamp.now(),
-          'source': 'home',
-          'imageUrl': newIngredient['imageUrl'] ?? '',
-          'storage': newIngredient['storage'],
-        });
-      }
-    } catch (e) {
-      print("❌ Error saving ingredient: $e");
-      throw e;
+    if (context.mounted) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.success,
+        title: 'Success',
+        text: 'Ingredient updated successfully!',
+        confirmBtnText: 'OK',
+        onConfirmBtnTap: () {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => RootPage(initialIndex: 1)),
+            (route) => false,
+          );
+        },
+      );
+    }
+  } catch (e) {
+    print("❌ Error updating ingredient: $e");
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating ingredient: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
+}
 
   Future<List<Ingredient>> fetchIngredients() async {
     String uid = FirebaseAuth.instance.currentUser!.uid;
@@ -206,36 +211,6 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
     );
   }
 
-  void _onPressedAdd() async {
-  try {
-    if (_imageFile != null) {
-      imageUrl = await _uploadImage(_imageFile!);
-    }
-
-    DateTime expirationDate = _expirationDate ??
-        (int.tryParse(_shelflifeController.text) != null
-            ? DateTime.now().add(Duration(days: int.parse(_shelflifeController.text)))
-            : DateTime.now().add(Duration(days: 7)));
-
-    Map<String, dynamic> newIngredient = {
-      'ingredientsName': _nameController.text,
-      'category': _categoryController.text,
-      'storage': recipeTypes[selectedStorageIndex],
-      'unit': _unitController.text,
-      'quantity': int.parse(_quantityController.text),
-      'minQuantity': int.parse(_minQuantityController.text),
-      'expirationDate': expirationDate.toIso8601String(),
-      'imageUrl': imageUrl,
-      'source': 'home',
-    };
-
-    await _saveIngredient(newIngredient);
-    List<Ingredient> updatedIngredientList = await fetchIngredients();
-    showSuccessAlert(context, updatedIngredientList);
-  } catch (e) {
-    print("❌ Error in _onPressedAdd: $e");
-  }
-}
 
   // 🔹 ฟังก์ชันเลือกวันหมดอายุ
   Future<void> _selectDate(BuildContext context) async {
@@ -312,25 +287,6 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       ),
     );
   }
-
-  Future<List<String>> fetchUserAllergies(String userId) async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('userAllergies')
-          .doc(userId)
-          .get();
-
-      if (doc.exists) {
-        return List<String>.from(doc.data()?['allergies'] ?? []);
-      } else {
-        return [];
-      }
-    } catch (e) {
-      print("❌ Error fetching user allergies: $e");
-      return [];
-    }
-  }
-
   Future<void> _pickImage(ImageSource source) async {
     final pickedFile = await ImagePicker().pickImage(source: source);
     if (pickedFile != null) {
@@ -366,7 +322,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Ingredient'),
+        title: const Text('Edit Ingredient'),
         backgroundColor: Colors.white,
         elevation: 1,
         scrolledUnderElevation: 0,
@@ -970,7 +926,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
               const SizedBox(height: 20),
               Center(
                 child: ElevatedButton(
-                  onPressed: _onPressedAdd,
+                  onPressed: _updateIngredient, 
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF325b51),
                     minimumSize: const Size(50, 50),
@@ -981,7 +937,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                         vertical: 15, horizontal: 80),
                   ),
                   child: const Text(
-                    'Add Ingredient',
+                    'Update Ingredient',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
