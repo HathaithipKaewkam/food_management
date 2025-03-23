@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   TextEditingController searchController = TextEditingController();
 
+
   Future<void> fetchUserIngredients() async {
   final user = FirebaseAuth.instance.currentUser;
   if (user != null) {
@@ -45,7 +46,6 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         ingredientList = snapshot.docs.map((doc) {
           Map<String, dynamic> data = doc.data();
-          // Add the ID to the data map
           data['ingredientId'] = doc.id;
           return Ingredient.fromJson(data);
         }).toList();
@@ -114,12 +114,78 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  @override
+  void setupIngredientListener() {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    setState(() {
+      isLoading = true; 
+    });
+
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userIngredients')
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          ingredientList = snapshot.docs.map((doc) {
+            Map<String, dynamic> data = doc.data();
+            data['ingredientId'] = doc.id;
+            return Ingredient.fromJson(data);
+          }).toList();
+          
+          filterIngredient();
+          isLoading = false; 
+        });
+      }
+    }, onError: (error) {
+      print("❌ Error listening to ingredients: $error");
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          ingredientList = [];
+          filterIngredient(); 
+        });
+      }
+    });
+  } else {
+    setState(() {
+      isLoading = false; 
+      ingredientList = [];
+      filterIngredient();
+    });
+  }
+}
+
+
+  Future<void> refreshIngredients() async {
+  try {
+    setState(() {
+      isLoading = true;
+    });
+    
+    
+    filterIngredient();
+    
+    setState(() {
+      isLoading = false;
+    });
+  } catch (e) {
+    print("❌ Error refreshing ingredients: $e");
+    setState(() {
+      isLoading = false;
+    });
+  }
+}
+
+@override
   void initState() {
     super.initState();
     _fetchUserName();
-    fetchUserIngredients();
+    setupIngredientListener();
   }
+
 
   void searchIngredients(String query) {
   setState(() {
@@ -401,7 +467,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       context,
                       PageTransition(
                         child: IngredientDetailPage(
-                          ingredient: ingredientList[index], recipes: [],
+                          ingredient: ingredient,
+                          recipes: [],
                         ),
                         type: PageTransitionType.bottomToTop,
                       ),
@@ -410,7 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: IngredientWidget(
                     index: index,
                     ingredientList: filteredIngredients,
-                    IngredientList: const [],
+                    ingredient: ingredient,
                   ),
                 );
               },

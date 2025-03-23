@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/screens/ingredient/expired_ingredient.dart';
 import 'package:food_project/screens/ingredient/history_ingredient.dart';
@@ -682,35 +683,40 @@ Future<void> showUsedDialog(
   TextEditingController noteController = TextEditingController();
 
   void validateAndUpdateQuantity(String value) {
-    if (value.isEmpty || value == '.') {
-      // อนุญาตให้พิมพ์จุดทศนิยมได้
-      return;
-    }
+  if (value.isEmpty || value == '.') {
+    currentQuantity = 0;
+    return;
+  }
 
-    // ถ้าผู้ใช้กำลังพิมพ์ค่าทศนิยม (เช่น "0.")
-    if (value.endsWith('.')) {
-      currentQuantity = double.tryParse(value + '0') ?? currentQuantity;
-      return;
-    }
-
-    double? newQuantity = double.tryParse(value);
-    if (newQuantity != null) {
-      if (newQuantity > maxQuantity) {
-        quantityController.text = maxQuantity.toStringAsFixed(1);
-        currentQuantity = maxQuantity;
-      } else if (newQuantity < 0.0) {
-        quantityController.text = '0.0';
-        currentQuantity = 0.0;
-      } else {
-        currentQuantity = newQuantity;
-        if (!value.contains('.')) {
-          quantityController.text = newQuantity.toStringAsFixed(1);
-        }
-      }
-    } else {
-      quantityController.text = currentQuantity.toStringAsFixed(1);
+  if (value.contains('.')) {
+    var parts = value.split('.');
+    if (parts[1].length > 2) {
+      value = '${parts[0]}.${parts[1].substring(0, 2)}';
+      quantityController.text = value;
+      quantityController.selection = TextSelection.fromPosition(
+        TextPosition(offset: value.length),
+      );
     }
   }
+
+  double? newQuantity = double.tryParse(value);
+  if (newQuantity != null) {
+    if (newQuantity > maxQuantity) {
+      value = maxQuantity.toStringAsFixed(2);
+      quantityController.text = value;
+      currentQuantity = maxQuantity;
+    } else if (newQuantity < 0.0) {
+      value = '0.00';
+      quantityController.text = value;
+      currentQuantity = 0.0;
+    } else {
+      currentQuantity = newQuantity;
+    }
+    quantityController.selection = TextSelection.fromPosition(
+      TextPosition(offset: value.length),
+    );
+  }
+}
 
   showDialog(
     context: context,
@@ -803,9 +809,8 @@ Future<void> showUsedDialog(
                       ),
                       const SizedBox(height: 12),
 
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                     Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey.shade300),
                           borderRadius: BorderRadius.circular(12),
@@ -814,34 +819,42 @@ Future<void> showUsedDialog(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
+                            // Minus button
                             IconButton(
                               onPressed: currentQuantity >= 1
                                   ? () {
                                       setState(() {
                                         currentQuantity -= 1.0;
-                                        quantityController.text =
-                                            currentQuantity.toStringAsFixed(1);
+                                        quantityController.text = currentQuantity.toStringAsFixed(1);
                                       });
                                     }
                                   : null,
                               icon: const Icon(Icons.remove_circle_outline),
-                              color: currentQuantity >= 1
-                                  ? Colors.red
-                                  : Colors.grey,
+                              color: currentQuantity >= 1 ? Colors.red : Colors.grey,
+                              padding: EdgeInsets.zero, // Reduce padding
                             ),
-                            SizedBox(
-                              width: 120,
+                            
+                            // Quantity input and unit
+                            Expanded(
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Expanded(
+                                  SizedBox(
+                                    width: 40, 
                                     child: TextField(
                                       controller: quantityController,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                              decimal: true),
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                       textAlign: TextAlign.center,
-                                      onTap: () => quantityController.clear(),
+                                     onTap: () {
+                                       quantityController.clear();
+                                        quantityController.selection = TextSelection(
+                                          baseOffset: 0,
+                                          extentOffset: quantityController.text.length,
+                                        );
+                                      },
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                                      ],
                                       onChanged: (value) {
                                         setState(() {
                                           validateAndUpdateQuantity(value);
@@ -852,12 +865,12 @@ Future<void> showUsedDialog(
                                         contentPadding: EdgeInsets.zero,
                                       ),
                                       style: const TextStyle(
-                                        fontSize: 18,
+                                        fontSize: 16, // Slightly smaller font
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(width: 4), // Small gap
                                   Text(
                                     ingredient['unit'],
                                     style: TextStyle(
@@ -869,16 +882,18 @@ Future<void> showUsedDialog(
                                 ],
                               ),
                             ),
+
+                            // Plus button
                             IconButton(
                               onPressed: () {
                                 setState(() {
                                   currentQuantity += 1.0;
-                                  quantityController.text =
-                                      currentQuantity.toStringAsFixed(1);
+                                  quantityController.text = currentQuantity.toStringAsFixed(1);
                                 });
                               },
                               icon: const Icon(Icons.add_circle_outline),
                               color: Colors.green,
+                              padding: EdgeInsets.zero, // Reduce padding
                             ),
                           ],
                         ),
@@ -945,6 +960,8 @@ Future<void> showUsedDialog(
 
                             String note = noteController.text.trim();
 
+                            Navigator.of(context).pop();
+
                             try {
                               DocumentReference ingredientRef =
                                   FirebaseFirestore.instance
@@ -981,7 +998,7 @@ Future<void> showUsedDialog(
                                   "quantity": currentStock - usedQuantity,
                                   "usageHistory": history,
                                   "updateDate":
-                                      Timestamp.now(), // Add update date
+                                      Timestamp.now(), 
                                 });
                               });
 
@@ -994,28 +1011,26 @@ Future<void> showUsedDialog(
                                 ),
                               );
 
-                              // Close dialog
-                              Navigator.pop(context);
+                              
                               if (context.mounted) {
-                                final state = context.findAncestorStateOfType<
-                                    _IngredientScreenState>();
-                                if (state != null) {
-                                  state.setState(() {
-                                    state.setupIngredientListener();
-                                  });
+                                  final state = context.findAncestorStateOfType<_IngredientScreenState>();
+                                  if (state != null) {
+                                    state.setState(() {
+                                      state.setupIngredientListener();
+                                    });
+                                  }
                                 }
+                              } catch (e) {
+                                // แสดง error message
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: ${e.toString()}'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                print('Error using ingredient: $e');
                               }
-                            } catch (e) {
-                              // Show error message
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error: ${e.toString()}'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              print('Error using ingredient: $e');
-                            }
-                          },
+                            },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green.shade100,
                             padding: const EdgeInsets.symmetric(vertical: 16),

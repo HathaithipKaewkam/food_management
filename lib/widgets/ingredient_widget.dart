@@ -7,14 +7,16 @@ import 'package:page_transition/page_transition.dart';
 import 'package:intl/intl.dart';
 
 class IngredientWidget extends StatelessWidget {
-  const IngredientWidget({
-    super.key,
-    required this.index,
-    required this.ingredientList, required List IngredientList,
-  });
-
-  final int index;
+   final int index;
   final List<Ingredient> ingredientList;
+  final Ingredient ingredient;
+  
+  const IngredientWidget({
+    Key? key,
+    required this.index,
+    required this.ingredientList,
+    required this.ingredient,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +53,6 @@ class IngredientWidget extends StatelessWidget {
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd ||
             direction == DismissDirection.endToStart) {
-          // Show dialog when swiped
           return await showDialog(
             context: context,
             builder: (context) {
@@ -60,12 +61,13 @@ class IngredientWidget extends StatelessWidget {
                 content: Text('What would you like to do with ${ingredient.ingredientsName}?'),
                 actions: [
                   TextButton(
-                    onPressed: () {
+                    onPressed: () async {
                       print('Consumed ${ingredient.ingredientsName}');
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Consumed ${ingredient.ingredientsName}')),
                       );
-                      Navigator.pop(context, true); // Confirm action
+                      Navigator.pop(context, true); 
+                   
                     },
                     child: const Text(
                       'Consume',

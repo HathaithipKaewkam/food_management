@@ -206,31 +206,6 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
     );
   }
 
-  void onAddIngredient() async {
-    int shelflife = int.tryParse(_shelflifeController.text) ?? 0;
-
-    DateTime calculatedExpirationDate = selectedDate ??
-        DateTime.now().add(Duration(days: shelflife > 0 ? shelflife : 7));
-
-    Map<String, dynamic> newIngredient = {
-      'ingredientsName': _nameController.text,
-      'caregory': _categoryController.text,
-      'storage': _storageController.text,
-      'unit': _unitController.text,
-      'quantity': int.parse(_quantityController.text),
-      'minQuantity': int.parse(_minQuantityController.text),
-      'shelflife': shelflife,
-      'expirationDate': calculatedExpirationDate.toIso8601String(),
-      'imageUrl': imageUrl,
-    };
-
-    {
-      await _saveIngredient(newIngredient);
-      List<Ingredient> updatedIngredientList = await fetchIngredients();
-      showSuccessAlert(context, updatedIngredientList);
-    }
-  }
-
   void _onPressedAdd() async {
   try {
     if (_imageFile != null) {
@@ -251,6 +226,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       'minQuantity': int.parse(_minQuantityController.text),
       'expirationDate': expirationDate.toIso8601String(),
       'imageUrl': imageUrl,
+      'source': 'home',
     };
 
     await _saveIngredient(newIngredient);

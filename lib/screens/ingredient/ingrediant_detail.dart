@@ -373,15 +373,6 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
                     const SizedBox(height: 10),
                     Row(
                         children: [
-                          Text(
-                            widget.ingredient.source,
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
                           Image.asset(
                             widget.ingredient.source.toLowerCase() == 'home'
                                 ? 'assets/images/house_detail.png'
@@ -389,6 +380,17 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
                             width: 20,
                             height: 20,
                           ),
+                           const SizedBox(width: 5),
+                           Text(
+                          widget.ingredient.source?.isEmpty ?? true 
+                              ? 'Unknown' 
+                              : widget.ingredient.source,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         ],
                       ),
                     
