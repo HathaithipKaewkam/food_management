@@ -583,10 +583,13 @@ void dispose() {
                         )
                       else
                         Padding(
-                          padding: const EdgeInsets.only(top: 5, left: 15, right: 10),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          padding: const EdgeInsets.only(top: 5, left: 15, right: 10,),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
                             children: [
+                              Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
                               const Text(
                                 'Total',
                                 textAlign: TextAlign.right,
@@ -607,16 +610,43 @@ void dispose() {
                               ),
                             ],
                           ),
-                        ),
+                          SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Total items',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(width: 250),
+                              Text(
+                                '${cartItems.length}',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),   
                       Expanded(
+                        child: Padding(
+                        padding: const EdgeInsets.only(top: 0),
                         child: ListView.builder(
                           physics: const BouncingScrollPhysics(),
+                          padding: EdgeInsets.zero,
                           itemCount: cartItems.length,
                           itemBuilder: (BuildContext context, int index) {
                             final ingredient = cartItems[index];
-
                             return GestureDetector(
-                              onLongPress: () {
+                              onTap: () {
                                 _showEditDialog(
                                     context, ingredient, index, cartItems);
                               },
@@ -636,8 +666,11 @@ void dispose() {
                           },
                         ),
                       ),
-                    ],
-                  ));
+                      ),
+                    
+                 ]
+                 ) 
+                 );
                 }
   }
 
@@ -890,6 +923,8 @@ void _showEditDialog(BuildContext context, Map<String, dynamic> ingredient,
                   const SizedBox(height: 20),
 
                   ElevatedButton(
+                    style:
+                        ElevatedButton.styleFrom(backgroundColor: Colors.green.shade100),
                     onPressed: () async {
                       double price = double.tryParse(priceController.text) ??
                           ingredient['price'];
@@ -958,7 +993,7 @@ void _showEditDialog(BuildContext context, Map<String, dynamic> ingredient,
                                 .collection('users')
                                 .doc(user.uid)
                                 .collection('userCart')
-                                .doc(docId) // สร้างเอกสารใหม่
+                                .doc(docId) 
                                 .set({
                               'ingredientsName': ingredientsName,
                               'quantity': cartItems[index]['quantity'],
@@ -980,26 +1015,67 @@ void _showEditDialog(BuildContext context, Map<String, dynamic> ingredient,
                       }
                       Navigator.pop(context);
                     },
-                    child: const Text('Update Item'),
+                    child: Text('Update Item',
+                    style: TextStyle(
+                              color: Colors.green.shade900,
+                              fontWeight: FontWeight.bold,
+                            ),
+                  ),
                   ),
 
                   const SizedBox(height: 10),
 
                   // Delete button
                   ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        cartItems.removeAt(index);
-                      });
-                      print(
-                          '❌ Removed ingredient: ${ingredient['ingredientsName']}');
-                      Navigator.pop(context);
-                    },
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    child: const Text('Delete Item',
-                        style: TextStyle(color: Colors.white)),
-                  ),
+                      onPressed: () async {
+                        try {
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user != null) {
+                            // Find the document ID
+                            String docId = ingredient['docId'];
+                            
+                            // Delete from Firestore
+                            await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(user.uid)
+                              .collection('userCart')
+                              .doc(docId)
+                              .delete();
+
+                            // Update local state
+                            setState(() {
+                              cartItems.removeAt(index);
+                            });
+
+                            print('❌ Removed ingredient: ${ingredient['ingredientsName']}');
+                            
+                            // Close the dialog and update parent widget
+                            Navigator.pop(context);
+                            
+                            // Force rebuild of parent widget
+                            if (context.mounted) {
+                              final state = context.findAncestorStateOfType<_CartScreenState>();
+                              if (state != null) {
+                                state.setState(() {});
+                              }
+                            }
+                          }
+                        } catch (e) {
+                          print('Error deleting item: $e');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error deleting item: $e')),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      child: const Text(
+                        'Delete Item',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        )
+                      ),
+                    ),
                 ],
               ),
             );

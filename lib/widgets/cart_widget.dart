@@ -193,7 +193,7 @@ class _CartWidgetState extends State<CartWidget> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 4),
+                            horizontal: 1, vertical: 4),
                         decoration: BoxDecoration(
                           color: Color(0xFFf3f4f6),
                           borderRadius: BorderRadius.circular(7),
@@ -217,7 +217,7 @@ class _CartWidgetState extends State<CartWidget> {
                       SizedBox(width: 5),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 3),
+                            horizontal: 5, vertical: 3),
                         decoration: BoxDecoration(
                           color: Color(0xFFf3f4f6),
                           borderRadius: BorderRadius.circular(7),
@@ -254,7 +254,7 @@ class _CartWidgetState extends State<CartWidget> {
                   const SizedBox(height: 7),
                   Row(
                     children: [
-                      Padding(padding: const EdgeInsets.only(left: 9)),
+                      Padding(padding: const EdgeInsets.only(left: 2)),
                       Icon(Icons.calendar_today,
                           size: 18, color: Colors.green.shade900),
                       const SizedBox(width: 8),

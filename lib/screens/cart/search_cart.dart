@@ -6,7 +6,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/models/ingredient.dart';
-import 'package:food_project/screens/cart/add_cart.dart';
 import 'package:food_project/screens/cart/cart_screen.dart';
 import 'package:food_project/screens/ingredient/add_ingredient.dart';
 import 'package:food_project/screens/root_screen.dart';
@@ -105,7 +104,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
     try {
       String uid = FirebaseAuth.instance.currentUser!.uid;
 
-      // อ้างอิงไปยัง collection "userCart" และ "historyCart"
+     
       CollectionReference userCart = FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
@@ -116,13 +115,11 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
           .doc(uid)
           .collection('historyCart');
 
-      // ตรวจสอบว่ามี ingredient นี้อยู่ใน cart แล้วหรือยัง
       QuerySnapshot query = await userCart
           .where('ingredientsName', isEqualTo: ingredient['ingredientsName'])
           .get();
 
       if (query.docs.isNotEmpty) {
-        // ถ้ามีอยู่แล้ว → อัปเดตจำนวน (quantity)
         DocumentSnapshot existingDoc = query.docs.first;
         int existingQuantity = existingDoc['quantity'] ?? 0;
         num newQuantity = existingQuantity + (ingredient['quantity'] ?? 1);
@@ -130,15 +127,14 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
         await existingDoc.reference.update({'quantity': newQuantity});
         print("✅ Updated quantity for ${ingredient['ingredientsName']}");
       } else {
-        // ถ้ายังไม่มี → เพิ่มเข้า cart
         await userCart.add(ingredient);
         print("✅ Added ${ingredient['ingredientsName']} to cart");
       }
 
-      // 🔥 เก็บประวัติการเพิ่มของลง historyCart พร้อม timestamp
+
       await historyCart.add({
         ...ingredient,
-        'addedAt': FieldValue.serverTimestamp(), // เพิ่ม timestamp
+        'addedAt': FieldValue.serverTimestamp(), 
       });
 
       print("📜 History saved for ${ingredient['ingredientsName']}");
@@ -343,8 +339,10 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                               {
                                 'ingredientsName': _searchController.text,
                                 'imageUrl': 'assets/images/default_ing.png',
-                                'unit': 'N/A',
-                                'storage': 'N/A',
+                                'category': 'Fruits',
+                                'unit': 'Kilograms (kg)',
+                                'storage': 'Fridge',
+                                'source': 'Supermarket',
                               },
                             );
                           },
@@ -382,6 +380,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
       
     int quantity = 1;
     TextEditingController priceController = TextEditingController();
+    
 
     List<Map<String, dynamic>> userIngredients = userIngredientsMap.entries.map((entry) {
     return {
@@ -390,9 +389,9 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
     };
   }).toList();
 
-   print("📦 Converting userIngredientsMap to List:");
+   
   userIngredients.forEach((ing) {
-    print("🔸 ${ing['ingredientsName']}: ${ing['quantity']}");
+    
   });
 
     List<String> categoryOptions = [
@@ -456,10 +455,10 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
       'Homegrown'
     ];
 
-    String selectedCategory = ingredient['category'] ?? categoryOptions[0]; 
-    String selectedUnit = ingredient['unit'] ?? unitOptions[0]; 
-    String selectedStorage = ingredient['storage'] ?? storageOptions[0]; 
-    String selectedSource = ingredient['storage'] ?? sourceOptions[0];
+    String selectedCategory = ingredient['category'] ?? 'Fruits';
+    String selectedUnit = ingredient['unit'] ?? 'Kilograms (kg)';
+    String selectedStorage = ingredient['storage'] ?? 'Fridge';
+    String selectedSource = ingredient['source'] ?? 'Supermarket'; 
 
     showDialog(
       context: context,
