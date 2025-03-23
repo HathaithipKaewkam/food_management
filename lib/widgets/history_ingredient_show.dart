@@ -45,14 +45,26 @@ if (daysToExpiry < 0) {
             decoration: BoxDecoration(
               color: Color(0xFFe6ebf1),
               borderRadius: BorderRadius.circular(16),
-              image: DecorationImage(
-                image: NetworkImage(ingredient.imageUrl),
-                fit: BoxFit.none,
-                scale: 7.0,
-                alignment: Alignment.center,
+              ),
+             child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: ingredient.imageUrl.isNotEmpty
+                    ? Image.network(
+                        ingredient.imageUrl,
+                        
+                        errorBuilder: (context, error, stackTrace) {
+                          return Image.asset(
+                            'assets/images/default_ing.png',
+                            
+                          );
+                        },
+                      )
+                    : Image.asset(
+                        'assets/images/default_ing.png',
+                        
+                      ),
               ),
             ),
-          ),
           const SizedBox(width: 7),
           Flexible(
             child: Container(

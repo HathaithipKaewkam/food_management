@@ -47,8 +47,6 @@ class _HomeScreenState extends State<HomeScreen> {
           Map<String, dynamic> data = doc.data();
           // Add the ID to the data map
           data['ingredientId'] = doc.id;
-          
-          print("📌 Debug - Processing ingredient: ${doc.id}");
           return Ingredient.fromJson(data);
         }).toList();
 

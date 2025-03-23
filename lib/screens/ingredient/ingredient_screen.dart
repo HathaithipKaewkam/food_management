@@ -54,10 +54,8 @@ class _IngredientScreenState extends State<IngredientScreen> {
         ingredientList = snapshot.docs.map((doc) {
           Map<String, dynamic> data = doc.data();
           
-          // ✅ เปลี่ยนจาก 'id' เป็น 'ingredientId'
+         
           data['ingredientId'] = doc.id;
-
-          print("📌 Debug - Fetched Ingredient: ID = ${doc.id}, Data = $data");
 
           return Ingredient.fromJson(data);
         }).toList();

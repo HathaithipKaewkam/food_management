@@ -47,10 +47,36 @@ if (daysToExpiry < 0) {
             decoration: BoxDecoration(
               color: Color(0xFFe6ebf1),
               borderRadius: BorderRadius.circular(16),
-              image: DecorationImage(
-                image: NetworkImage(ingredient.imageUrl),
-              ),
             ),
+             child: ingredient.imageUrl.isNotEmpty
+      ? ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.network(
+            ingredient.imageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Image.asset(
+                'assets/images/default_ing.png',
+                fit: BoxFit.cover,
+              );
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                      : null,
+                ),
+              );
+            },
+          ),
+        )
+      : Image.asset(
+          'assets/images/default_ing.png',
+          fit: BoxFit.cover,
+        ),
           ),
           const SizedBox(width: 5),
           Flexible(

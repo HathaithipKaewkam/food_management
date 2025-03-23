@@ -36,47 +36,34 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
   late TextEditingController _minQuantityController;
   late TextEditingController _shelflifeController;
   late TextEditingController _storageController;
-  late TextEditingController _priceController;
   late String imageUrl;
   late String originalImageUrl;
   DateTime? selectedDate;
   DateTime? _expirationDate;
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
-  double? selectedPrice;
-  List<String> allergens = ["Milk", "Eggs", "Nuts", "Soy", "Gluten"];
-  List<String> selectedAllergens = [];
+
 
   @override
   void initState() {
     super.initState();
-
-    // ตั้งค่า controllers
-    _nameController = TextEditingController(
-        text: widget.ingredient?['ingredientsName'] ?? '');
-    _categoryController =
-        TextEditingController(text: widget.ingredient?['category'] ?? '');
-    _unitController =
-        TextEditingController(text: widget.ingredient?['unit'] ?? '');
-    _priceController = TextEditingController(
-        text: widget.ingredient?['price'] ?? '0.0'.toString());
+    _nameController = TextEditingController(text: widget.ingredient?['ingredientsName'] ?? '');
+    _categoryController =TextEditingController(text: widget.ingredient?['category'] ?? 'Fruits');
+    _unitController =TextEditingController(text: widget.ingredient?['unit'] ?? 'Kilograms (kg)');
     String initialQuantity = widget.ingredient?['quantity']?.toString() ?? "1";
     _quantityController = TextEditingController(text: initialQuantity);
     String initialMinQuantity =
         widget.ingredient?['minQuantity']?.toString() ?? "1";
     _minQuantityController = TextEditingController(text: initialMinQuantity);
-    _shelflifeController = TextEditingController(
-        text: widget.ingredient?['shelflife']?.toString() ?? '');
-    _storageController =
-        TextEditingController(text: widget.ingredient?['storage'] ?? '');
+    _shelflifeController = TextEditingController(text: widget.ingredient?['shelflife']?.toString() ?? '7');
+    _storageController =TextEditingController(text: widget.ingredient?['storage'] ?? 'Fridge');
 
-    // ตรวจสอบว่า imageUrl เป็น URL หรือเป็น asset
-    String? ingredientImageUrl = widget.ingredient?['imageUrl'];
-    imageUrl = ingredientImageUrl ?? 'assets/images/default_ing.png';
-    selectedIngredientImage = imageUrl;
+  
+   
+    imageUrl = widget.ingredient?['imageUrl'] ?? '';
+    selectedIngredientImage = imageUrl.isNotEmpty ? imageUrl : 'assets/images/default_ing.png';
     originalImageUrl = selectedIngredientImage;
-
-    // ถ้าเป็น URL ใช้ NetworkImage ถ้าเป็น asset ใช้ AssetImage
+  
     if (imageUrl != null && imageUrl!.startsWith('http')) {
       selectedIngredientImage = imageUrl; // ใช้ URL ถ้า imageUrl เป็น URL
     } else {
@@ -92,7 +79,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
     selectedStorageIndex =
         recipeTypes.contains(storage) ? recipeTypes.indexOf(storage) : 0;
 
-    // เช็ค expirationDate
+   
     if (widget.ingredient?['expirationDate'] != null) {
       selectedDate = DateTime.tryParse(widget.ingredient!['expirationDate']);
     } else {
@@ -106,7 +93,6 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
     _nameController.dispose();
     _categoryController.dispose();
     _unitController.dispose();
-    _priceController.dispose();
     _quantityController.dispose();
     _minQuantityController.dispose();
     _shelflifeController.dispose();
@@ -131,7 +117,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       CollectionReference historyCollection = FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
-          .collection('ingredientsHistory'); // 🟢 เพิ่ม Collection ประวัติ
+          .collection('ingredientsHistory');
 
       QuerySnapshot existingIngredients = await userIngredients
           .where('ingredientsName', isEqualTo: newIngredient['ingredientsName'])
@@ -233,21 +219,10 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       'unit': _unitController.text,
       'quantity': int.parse(_quantityController.text),
       'minQuantity': int.parse(_minQuantityController.text),
-      'price': double.parse(_priceController.text),
       'shelflife': shelflife,
       'expirationDate': calculatedExpirationDate.toIso8601String(),
       'imageUrl': imageUrl,
-      'allergenInfo': selectedAllergens,
     };
-
-    // List<String> userAllergies = await fetchUserAllergies("user123");
-
-    // List<String> matchedAllergens = [];
-    // if (newIngredient['allergenInfo'] != null) {
-    //   matchedAllergens = List<String>.from(newIngredient['allergenInfo'])
-    //       .where((allergen) => userAllergies.contains(allergen))
-    //       .toList();
-    // }
 
     {
       await _saveIngredient(newIngredient);
@@ -257,10 +232,14 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
   }
 
   void _onPressedAdd() async {
+  try {
+    if (_imageFile != null) {
+      imageUrl = await _uploadImage(_imageFile!);
+    }
+
     DateTime expirationDate = _expirationDate ??
         (int.tryParse(_shelflifeController.text) != null
-            ? DateTime.now()
-                .add(Duration(days: int.parse(_shelflifeController.text)))
+            ? DateTime.now().add(Duration(days: int.parse(_shelflifeController.text)))
             : DateTime.now().add(Duration(days: 7)));
 
     Map<String, dynamic> newIngredient = {
@@ -270,16 +249,17 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       'unit': _unitController.text,
       'quantity': int.parse(_quantityController.text),
       'minQuantity': int.parse(_minQuantityController.text),
-      'price': double.parse(_priceController.text),
       'expirationDate': expirationDate.toIso8601String(),
       'imageUrl': imageUrl,
-      'allergenInfo': selectedAllergens,
     };
 
     await _saveIngredient(newIngredient);
     List<Ingredient> updatedIngredientList = await fetchIngredients();
     showSuccessAlert(context, updatedIngredientList);
+  } catch (e) {
+    print("❌ Error in _onPressedAdd: $e");
   }
+}
 
   // 🔹 ฟังก์ชันเลือกวันหมดอายุ
   Future<void> _selectDate(BuildContext context) async {
@@ -309,13 +289,12 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
         );
       },
     );
-    ;
+    
     if (pickedDate != null && pickedDate != selectedDate) {
       setState(() {
         selectedDate = pickedDate;
         _expirationDate = pickedDate;
       });
-      print("📅 User เลือกวันหมดอายุ: $_expirationDate");
     }
   }
 
@@ -393,11 +372,19 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
   }
 
   Future<String> _uploadImage(File imageFile) async {
-    final storageRef = FirebaseStorage.instance.ref().child(
-        'ingredient_images/${DateTime.now().millisecondsSinceEpoch}.jpg');
-    await storageRef.putFile(imageFile);
-    return await storageRef.getDownloadURL();
+  try {
+    final String fileName = 'ingredient_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final storageRef = FirebaseStorage.instance.ref().child('ingredient_images/$fileName');
+    final uploadTask = await storageRef.putFile(imageFile);
+    final downloadUrl = await storageRef.getDownloadURL();
+    print("✅ Image uploaded successfully: $downloadUrl");
+    return downloadUrl;
+  } catch (e) {
+    print("❌ Error uploading image: $e");
+    throw e;
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -436,19 +423,28 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(10.0),
                         child: _imageFile != null
-                            ? Image.file(_imageFile!,
-                                height: 100, width: 100, fit: BoxFit.contain)
-                            : (Uri.tryParse(selectedIngredientImage)
-                                        ?.hasAbsolutePath ==
-                                    true
-                                ? Image.network(selectedIngredientImage,
-                                    height: 100,
-                                    width: 100,
-                                    fit: BoxFit.contain)
-                                : Image.asset(selectedIngredientImage,
-                                    height: 100,
-                                    width: 100,
-                                    fit: BoxFit.contain)),
+                            ? Image.file(_imageFile!, height: 100, width: 100, fit: BoxFit.contain)
+                             : imageUrl.isNotEmpty
+                             ? Image.network(
+                          imageUrl,
+                          height: 100,
+                          width: 100,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Image.asset(
+                              'assets/images/default_ing.png',
+                              height: 100,
+                              width: 100,
+                              fit: BoxFit.contain,
+                            );
+                          },
+                        )
+                      : Image.asset(
+                          'assets/images/default_ing.png',
+                          height: 100,
+                          width: 100,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
 
@@ -908,163 +904,65 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                               }),
                         ),
                         const SizedBox(width: 10),
-                        // Expanded(
-                        //   flex: 3,
-                        //   child: Container(
-                        //       padding:
-                        //           const EdgeInsets.symmetric(horizontal: 10),
-                        //       decoration: BoxDecoration(
-                        //         border: Border.all(color: Color(0xFFf8f8f7)),
-                        //         borderRadius: BorderRadius.circular(10),
-                        //       ),
-                        //       child: DropdownButtonHideUnderline(
-                        //         child: DropdownButton<String>(
-                        //           isExpanded: true,
-                        //           value: selectedUnit,
-                        //           onChanged: (String? newValue) {
-                        //             setState(() {
-                        //               selectedUnit = newValue!;
-                        //             });
-                        //           },
-                        //           items: <String>[
-                        //             'Kilograms (kg)',
-                        //             'Grams (g)',
-                        //             'Pounds (lbs)',
-                        //             'Ounces (oz)',
-                        //             'Liters (L)',
-                        //             'Milliliters (mL)',
-                        //             'Gallons',
-                        //             'Bottles',
-                        //             'Pieces',
-                        //             'Boxes',
-                        //             'Cups',
-                        //             'Cans',
-                        //             'Packs',
-                        //             'Bulb',
-                        //             'Leaves',
-                        //             'Loaf',
-                        //             'Bunch',
-                        //             'Head',
-                        //             'Jar',
-                        //             'Sheet',
-                        //             'Bar',
-                        //             'Container',
-                        //             'Cob',
-                        //           ].map<DropdownMenuItem<String>>(
-                        //               (String value) {
-                        //             return DropdownMenuItem<String>(
-                        //               value: value,
-                        //               child: Text(value,
-                        //                   style: TextStyle(
-                        //                       fontWeight: FontWeight.bold)),
-                        //             );
-                        //           }).toList(),
-                        //         ),
-                        //       )),
-                        // ),
+                        Expanded(
+                           flex: 3,
+                           child: Container(
+                               padding:
+                                   const EdgeInsets.symmetric(horizontal: 10),
+                               decoration: BoxDecoration(
+                                 border: Border.all(color: Color(0xFFf8f8f7)),
+                                borderRadius: BorderRadius.circular(10),
+                               ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                   isExpanded: true,
+                                  value: selectedUnit,
+                                   onChanged: (String? newValue) {
+                                    setState(() {
+                                       selectedUnit = newValue!;
+                                    });
+                                  },
+                                   items: <String>[
+                                     'Kilograms (kg)',
+                                    'Grams (g)',
+                                    'Pounds (lbs)',
+                                     'Ounces (oz)',
+                                     'Liters (L)',
+                                     'Milliliters (mL)',
+                                     'Gallons',
+                                     'Bottles',
+                                    'Pieces',
+                                    'Boxes',
+                                     'Cups',
+                                     'Cans',
+                                     'Packs',
+                                    'Bulb',
+                                     'Leaves',
+                                     'Loaf',
+                                     'Bunch',
+                                     'Head',
+                                     'Jar',
+                                    'Sheet',
+                                    'Bar',
+                                    'Container',
+                                    'Cob',
+                                  ].map<DropdownMenuItem<String>>(
+                                      (String value) {
+                                     return DropdownMenuItem<String>(
+                                       value: value,
+                                      child: Text(value,
+                                           style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                     );
+                                   }).toList(),
+                               ),
+                              )),
+                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-              //Price
-              const SizedBox(height: 15),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Price (THB)',
-                            style: TextStyle(
-                              color: Color(0xFF094507),
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: _priceController,
-                        keyboardType:
-                            TextInputType.numberWithOptions(decimal: true),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d*\.?\d{0,2}'))
-                        ],
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Color(0xFFf8f8f7),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, color: Colors.black),
-                        onChanged: (value) {
-                          setState(() {
-                            selectedPrice = double.tryParse(value) ?? 0.0;
-                          });
-                        },
-                      ),
-                    ]),
-              ),
-
-              //Allergen
-              const SizedBox(height: 20),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Allergen Info',
-                          style: TextStyle(
-                            color: Color(0xFF094507),
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8.0,
-                          children: allergens.map((allergen) {
-                            return ChoiceChip(
-                              label: Text(allergen),
-                              selected: selectedAllergens.contains(allergen),
-                              selectedColor: Color(0xFFb2e6b2),
-                              backgroundColor: Colors.grey[200],
-                              labelStyle: TextStyle(
-                                color: selectedAllergens.contains(allergen)
-                                    ? Colors.black
-                                    : Colors.black,
-                              ),
-                              onSelected: (bool selected) {
-                                setState(() {
-                                  if (selected) {
-                                    selectedAllergens.add(allergen);
-                                  } else {
-                                    selectedAllergens.remove(allergen);
-                                  }
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
               //Expiry Date
               const SizedBox(height: 20),
               Padding(

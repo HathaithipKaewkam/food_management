@@ -167,19 +167,20 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
                         height: 50,
                       ),
                       onTap: () {
+                         if (!mounted) return; 
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => AddIngredientScreen(
                               ingredient: {
                                 'ingredientsName': _searchController.text,
-                                'imageUrl': 'assets/images/default_ing.png',
-                                'category': '',
-                                'unit': '',
-                                'shelflife': '',
-                                'storage': '',
-                                'quantity': '',
-                                'minQuantity': '',
+                                'imageUrl': '',
+                                'category': 'Fruits',
+                                'unit': 'Kilograms (kg)',
+                                'shelflife': '7',
+                                'storage': 'Fridge',
+                                'quantity': '1',
+                                'minQuantity': '1',
                               },
                             ),
                           ),
@@ -200,6 +201,7 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
                       ),
                       title: Text(ingredient['ingredientsName']!),
                       onTap: () {
+                        if (!mounted) return;
                         Navigator.push(
                           context,
                           MaterialPageRoute(
