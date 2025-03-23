@@ -31,6 +31,14 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
         String? imageUrl =
             imageName.isNotEmpty ? await getStorageImageUrl(imageName) : null;
 
+        double quantity = (data['quantity'] is int)
+          ? (data['quantity'] as int).toDouble()
+          : (data['quantity'] as num?)?.toDouble() ?? 1.0;
+
+      double minQuantity = (data['minQuantity'] is int)
+          ? (data['minQuantity'] as int).toDouble()
+          : (data['minQuantity'] as num?)?.toDouble() ?? 1.0;
+
         tempList.add({
           'ingredientsName': data['ingredientsName'] ?? '',
           'imageUrl': imageUrl ?? 'assets/images/default_ing.png',
@@ -38,8 +46,8 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
           'unit': data['unit'] ?? '',
           'shelflife': data['shelflife'] ?? 0,
           'storage': data['storage'] ?? '',
-          'quantity': data['quantity'] ?? 1,
-          'minQuantity': data['minQuantity'] ?? 1,
+          'quantity': quantity,
+          'minQuantity': minQuantity,
         });
       }
 
@@ -179,8 +187,8 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
                                 'unit': 'Kilograms (kg)',
                                 'shelflife': '7',
                                 'storage': 'Fridge',
-                                'quantity': '1',
-                                'minQuantity': '1',
+                                'quantity': '1.0',
+                                'minQuantity': '1.0',
                               },
                             ),
                           ),

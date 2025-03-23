@@ -6,8 +6,8 @@ class Ingredient {
   final String ingredientsName; 
   final String category; 
   final String storage; 
-  final int quantity; 
-  final int minQuantity; 
+  final double quantity;
+  final double minQuantity;
   final String unit;
   final DateTime expirationDate; 
   final String source; 
@@ -17,7 +17,7 @@ class Ingredient {
   final double price; 
   final DateTime? purchaseDate; 
   final DateTime? updateDate; 
-  final int quantityAdded;
+  final double quantityAdded;
   final DateTime? addedDate; 
   final Map<String, bool> allergenInfo;
   final String userId;
@@ -42,7 +42,7 @@ class Ingredient {
     this.purchaseDate,
     this.updateDate,
     this.allergenInfo = const {},
-    this.quantityAdded = 1, 
+    this.quantityAdded = 1.0, 
     this.addedDate,
     required this.source,
     required this.imageUrl,
@@ -62,7 +62,7 @@ class Ingredient {
       ingredientsName: name,
       category: '',
       storage: '',
-      quantity: amount.round(),
+      quantity: amount,
       minQuantity: 0,
       unit: unit,
       expirationDate: DateTime.now().add(const Duration(days: 7)),
@@ -79,8 +79,12 @@ class Ingredient {
       ingredientsName: doc['ingredientsName'] ?? 'Unknown',
       category: doc['category'] ?? 'Unknown',
       storage: doc['storage'] ?? 'Unknown',
-      quantity: doc['quantity'] ?? 0,
-      minQuantity: doc['minQuantity'] ?? 0,
+      quantity: (doc['quantity'] is int)
+          ? (doc['quantity'] as int).toDouble()
+          : (doc['quantity'] as num?)?.toDouble() ?? 0.0,
+      minQuantity: (doc['minQuantity'] is int)
+          ? (doc['minQuantity'] as int).toDouble()
+          : (doc['minQuantity'] as num?)?.toDouble() ?? 0.0,
       unit: doc['unit'] ?? 'Kilograms (kg)',
       status: doc['status'] ?? 'Unknown',
        price: (doc['price'] is int) ? (doc['price'] as int).toDouble() : doc['price'] ?? 0.0,
@@ -129,8 +133,12 @@ class Ingredient {
     ingredientsName: json['ingredientsName'] ?? '',
     category: json['category'] ?? '',
     storage: json['storage'] ?? '',
-    quantity: (json['quantity'] ?? 0).toInt(),
-    minQuantity: json['minQuantity'] ?? 0,
+   quantity: (json['quantity'] is int)
+          ? (json['quantity'] as int).toDouble()
+          : (json['quantity'] as num?)?.toDouble() ?? 0.0,
+      minQuantity: (json['minQuantity'] is int)
+          ? (json['minQuantity'] as int).toDouble()
+          : (json['minQuantity'] as num?)?.toDouble() ?? 0.0,
     unit: json['unit'] ?? '',
     expirationDate: _parseDate(json['expirationDate']),
     price: (json['price'] ?? 0.0).toDouble(),
@@ -139,7 +147,9 @@ class Ingredient {
     source: json['source'] ?? '',
     imageUrl: json['imageUrl'] ?? '',
     status: json['status'] ?? '',
-    quantityAdded: json['quantityAdded'] ?? 0,
+     quantityAdded: (json['quantityAdded'] is int)
+          ? (json['quantityAdded'] as int).toDouble()
+          : (json['quantityAdded'] as num?)?.toDouble() ?? 0.0,
     addedDate: _parseDate(json['addedDate']),
     allergenInfo: json['allergenInfo'] is Map
         ? Map<String, bool>.from(json['allergenInfo'])

@@ -97,7 +97,7 @@ if (daysToExpiry < 0) {
                         ),
                       ),
                       Text(
-                        '${ingredient.quantityAdded} ${ingredient.unit}',
+                        '${ingredient.quantityAdded.toDouble()} ${ingredient.unit}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.black,

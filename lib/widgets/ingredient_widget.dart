@@ -250,18 +250,19 @@ class IngredientWidget extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                      '${ingredient.quantity} ${_formatUnit(ingredient.unit)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: ingredient.quantity == 0 
-                            ? Colors.red 
-                            : ingredient.quantity <= ingredient.minQuantity 
-                                ? Colors.orange 
-                                : Colors.black,
-                        fontSize: 16,
-                      ),
+             
+                  Text(
+                    '${ingredient.quantity.toStringAsFixed(1)} ${_formatUnit(ingredient.unit)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: ingredient.quantity == 0 
+                          ? Colors.red 
+                          : ingredient.quantity <= ingredient.minQuantity 
+                              ? Colors.orange 
+                              : Colors.black,
+                      fontSize: 16,
                     ),
+                  ),
             ],
           ),
         ),

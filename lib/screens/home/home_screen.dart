@@ -83,8 +83,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ingredient.expirationDate!.isBefore(DateTime.now());
       }).toList();
     } else {
-      filteredIngredients = ingredientList.where((ingredient) {
-        return (ingredient.quantity ?? 0) <= (ingredient.minQuantity);
+     filteredIngredients = ingredientList.where((ingredient) {
+        double quantity = ingredient.quantity; 
+        double minQuantity = ingredient.minQuantity; 
+        return quantity <= minQuantity;
       }).toList();
     }
 

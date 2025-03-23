@@ -539,7 +539,7 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                                           ),
                                                         ),
                                                         Text(
-                                                          '${ingredientList.where((ingredient) => ingredient.expirationDate.isBefore(DateTime.now())).first.quantity} ${ingredientList.where((ingredient) => ingredient.expirationDate.isBefore(DateTime.now())).first.unit}',
+                                                          '${ingredientList.where((ingredient) => ingredient.expirationDate.isBefore(DateTime.now())).first.quantity.toDouble()} ${ingredientList.where((ingredient) => ingredient.expirationDate.isBefore(DateTime.now())).first.unit}',
                                                           style:
                                                               const TextStyle(
                                                             fontWeight:
@@ -676,9 +676,11 @@ Future<void> showUsedDialog(
   Map<String, dynamic> ingredient,
   int index,
 ) async {
-  double currentQuantity = (ingredient['quantity'] as int).toDouble();
-  double maxQuantity = (ingredient['quantity'] as int).toDouble();
-  TextEditingController quantityController =
+  double currentQuantity = (ingredient['quantity'] is int)
+      ? (ingredient['quantity'] as int).toDouble()
+      : (ingredient['quantity'] as num).toDouble();
+  double maxQuantity = currentQuantity;
+   TextEditingController quantityController =
       TextEditingController(text: currentQuantity.toStringAsFixed(1));
   TextEditingController noteController = TextEditingController();
 
@@ -885,15 +887,17 @@ Future<void> showUsedDialog(
 
                             // Plus button
                             IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  currentQuantity += 1.0;
-                                  quantityController.text = currentQuantity.toStringAsFixed(1);
-                                });
-                              },
+                              onPressed: currentQuantity < maxQuantity 
+                                  ? () {
+                                      setState(() {
+                                        currentQuantity += 1.0;
+                                        quantityController.text = currentQuantity.toStringAsFixed(1);
+                                      });
+                                    }
+                                  : null, 
                               icon: const Icon(Icons.add_circle_outline),
-                              color: Colors.green,
-                              padding: EdgeInsets.zero, // Reduce padding
+                              color: currentQuantity < maxQuantity ? Colors.green : Colors.grey, 
+                              padding: EdgeInsets.zero, 
                             ),
                           ],
                         ),
@@ -946,7 +950,7 @@ Future<void> showUsedDialog(
                               return;
                             }
                             // Convert double to int for Firebase storage
-                            int usedQuantity = currentQuantity.round();
+                            double usedQuantity = double.parse(quantityController.text);
                             if (usedQuantity <= 0 ||
                                 usedQuantity > maxQuantity) {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -978,13 +982,16 @@ Future<void> showUsedDialog(
                                   throw Exception("Ingredient not found");
                                 }
 
-                                Map<String, dynamic> data =
-                                    snapshot.data() as Map<String, dynamic>;
-                                int currentStock = data['quantity'] ?? 0;
+                                Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+                                  double currentStock = (data['quantity'] is int)
+                                      ? (data['quantity'] as int).toDouble()
+                                      : (data['quantity'] as num).toDouble();
 
-                                if (usedQuantity > currentStock) {
-                                  throw Exception("Not enough stock");
-                                }
+                                  if (usedQuantity > currentStock) {
+                                    throw Exception("Not enough stock");
+                                  }
+
+                                  double newQuantity = currentStock - usedQuantity;
 
                                 List<dynamic> history =
                                     List.from(data["usageHistory"] ?? []);
@@ -995,7 +1002,7 @@ Future<void> showUsedDialog(
                                 });
 
                                 transaction.update(ingredientRef, {
-                                  "quantity": currentStock - usedQuantity,
+                                  "quantity": newQuantity,
                                   "usageHistory": history,
                                   "updateDate":
                                       Timestamp.now(), 

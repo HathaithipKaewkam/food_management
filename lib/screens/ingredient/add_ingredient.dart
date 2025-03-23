@@ -217,13 +217,16 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
             ? DateTime.now().add(Duration(days: int.parse(_shelflifeController.text)))
             : DateTime.now().add(Duration(days: 7)));
 
+    double quantity = double.tryParse(_quantityController.text) ?? 1.0;
+    double minQuantity = double.tryParse(_minQuantityController.text) ?? 1.0;
+
     Map<String, dynamic> newIngredient = {
       'ingredientsName': _nameController.text,
       'category': _categoryController.text,
       'storage': recipeTypes[selectedStorageIndex],
       'unit': _unitController.text,
-      'quantity': int.parse(_quantityController.text),
-      'minQuantity': int.parse(_minQuantityController.text),
+      'quantity': quantity,
+      'minQuantity': minQuantity,
       'expirationDate': expirationDate.toIso8601String(),
       'imageUrl': imageUrl,
       'source': 'home',
@@ -700,8 +703,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                           flex: 1,
                           child: TextField(
                               controller: _quantityController,
-                              keyboardType: TextInputType.numberWithOptions(
-                                  decimal: true),
+                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               decoration: InputDecoration(
                                 filled: true,
                                 fillColor: Color(0xFFf8f8f7),
@@ -717,8 +719,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                                   fontWeight: FontWeight.bold,
                                   color: Colors.black),
                               inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d*$')),
+                                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$')), 
                               ],
                               onTap: () {
                                 _quantityController.clear();
@@ -855,8 +856,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
                                   fontWeight: FontWeight.bold,
                                   color: Colors.black),
                               inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d*$')),
+                                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$')), 
                               ],
                               onTap: () {
                                 _minQuantityController.clear();
