@@ -677,9 +677,11 @@ void dispose() {
 
 void _showEditDialog(BuildContext context, Map<String, dynamic> ingredient,
     int index, List<Map<String, dynamic>> cartItems) {
-  int quantity = ingredient['quantity'];
+  double quantity = (ingredient['quantity'] is int)
+      ? (ingredient['quantity'] as int).toDouble()
+      : (ingredient['quantity'] as num).toDouble();
   TextEditingController quantityController =
-      TextEditingController(text: quantity.toString());
+      TextEditingController(text: quantity.toStringAsFixed(1));
   TextEditingController priceController =
       TextEditingController(text: ingredient['price'].toString());
 
@@ -814,16 +816,18 @@ void _showEditDialog(BuildContext context, Map<String, dynamic> ingredient,
                                 });
                               },
                               onChanged: (value) {
-                                if (value.isNotEmpty &&
-                                    int.tryParse(value) != null) {
-                                  setState(() {
-                                    quantity = int.parse(value);
-                                    ingredient['quantity'] = quantity;
-                                    cartItems[index]['quantity'] = quantity;
-                                  });
+                                if (value.isNotEmpty) {
+                              double? parsedValue = double.tryParse(value);
+                              if (parsedValue != null) {
+                                setState(() {
+                                  quantity = parsedValue;
+                                  ingredient['quantity'] = quantity;
+                                  cartItems[index]['quantity'] = quantity;
+                                });
                                 }
-                              },
-                            ),
+                              }
+                                }
+                                ),
                           ),
                           IconButton(
                             onPressed: () {

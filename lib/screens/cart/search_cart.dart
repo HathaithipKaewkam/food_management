@@ -25,7 +25,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
   String selectedIngredientName = '';
   List<Map<String, dynamic>> ingredientList = [];
   Timer? _debounce;
-  Map<String, int> userIngredientsMap = {};
+  Map<String, double> userIngredientsMap = {};
   List<Map<String, dynamic>> addedToCartIngredients = [];
   List<Ingredient> selectedItems = [];
 
@@ -164,14 +164,15 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
         .collection('userIngredients')
         .get();
 
-    Map<String, int> tempUserIngredients = {};
+     Map<String, double> tempUserIngredients = {};
     
     for (var doc in snapshot.docs) {
       final data = doc.data() as Map<String, dynamic>;
       String name = data['ingredientsName'];
-      int quantity = data['quantity'] ?? 0;
+      double quantity = (data['quantity'] is int) 
+          ? (data['quantity'] as int).toDouble()
+          : (data['quantity'] as num).toDouble(); 
       
-      // Sum quantities for same ingredient name regardless of storage
       tempUserIngredients.update(
         name, 
         (existingQuantity) => existingQuantity + quantity,
@@ -204,6 +205,11 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
       return Ingredient.fromJson(data);
     }).toList();
   }
+
+
+  
+
+  
 
   
 
@@ -378,7 +384,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
   void _showIngredientPopup(
       BuildContext context, Map<String, dynamic> ingredient) {
       
-    int quantity = 1;
+    double quantity = 1.0;
     TextEditingController priceController = TextEditingController();
     
 
@@ -422,43 +428,43 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                             'Spices',
     ];
 
-    List<String> unitOptions = [
-      'Kilograms (kg)',
-      'Grams (g)',
-      'Pounds (lbs)',
-      'Ounces (oz)',
-      'Liters (L)',
-      'Milliliters (mL)',
-      'Gallons',
-      'Bottles',
-      'Pieces',
-      'Boxes',
-      'Cups',
-      'Cans',
-      'Packs',
-      'Bulb',
-      'Leaves',
-      'Loaf',
-      'Bunch',
-      'Head',
-      'Jar',
-      'Sheet',
-      'Bar',
-      'Container',
-      'Cob',
-    ];
-    List<String> storageOptions = ['Fridge', 'Freezer', 'Pantry'];
-    List<String> sourceOptions = [
-      'Supermarket',
-      'Market',
-      'Online',
-      'Homegrown'
-    ];
+                List<String> unitOptions = [
+                  'Kilograms (kg)',
+                  'Grams (g)',
+                  'Pounds (lbs)',
+                  'Ounces (oz)',
+                  'Liters (L)',
+                  'Milliliters (mL)',
+                  'Gallons',
+                  'Bottles',
+                  'Pieces',
+                  'Boxes',
+                  'Cups',
+                  'Cans',
+                  'Packs',
+                  'Bulb',
+                  'Leaves',
+                  'Loaf',
+                  'Bunch',
+                  'Head',
+                  'Jar',
+                  'Sheet',
+                  'Bar',
+                  'Container',
+                  'Cob',
+                ];
+                List<String> storageOptions = ['Fridge', 'Freezer', 'Pantry'];
+                List<String> sourceOptions = [
+                  'Supermarket',
+                  'Market',
+                  'Online',
+                  'Homegrown'
+                ];
 
-    String selectedCategory = ingredient['category'] ?? 'Fruits';
-    String selectedUnit = ingredient['unit'] ?? 'Kilograms (kg)';
-    String selectedStorage = ingredient['storage'] ?? 'Fridge';
-    String selectedSource = ingredient['source'] ?? 'Supermarket'; 
+                String selectedCategory = ingredient['category'] ?? 'Fruits';
+                String selectedUnit = ingredient['unit'] ?? 'Kilograms (kg)';
+                String selectedStorage = ingredient['storage'] ?? 'Fridge';
+                String selectedSource = ingredient['source'] ?? 'Supermarket'; 
 
     showDialog(
       context: context,
@@ -593,13 +599,12 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
   }
 }
 
-// Dropdown Widget
+
 Widget buildCustomDropdown(String title, List<String> itemList,
     String? currentValue, Function(String) onItemSelected) {
-  // ตรวจสอบค่าซ้ำและลบออก
+ 
   final uniqueItems = itemList.toSet().toList();
 
-  // ถ้าค่า value ไม่อยู่ในรายการ ให้ตั้งค่าเป็น null
   if (currentValue != null && !uniqueItems.contains(currentValue)) {
     currentValue = null;
   }
@@ -625,80 +630,239 @@ Widget buildCustomDropdown(String title, List<String> itemList,
   );
 }
 
+Future<Map<String, double>> _getIngredientStats(String ingredientName) async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return {};
+
+    // 1. Get usage history
+    final usageQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userIngredients')
+        .where('ingredientsName', isEqualTo: ingredientName)
+        .get();
+
+    double totalUsed = 0;
+    int usageCount = 0;
+    double wastedAmount = 0;
+
+    for (var doc in usageQuery.docs) {
+      Map<String, dynamic> data = doc.data();
+      
+      // Fix expiration date handling
+      if (data['expirationDate'] != null) {
+        DateTime? expirationDate;
+        if (data['expirationDate'] is Timestamp) {
+          expirationDate = (data['expirationDate'] as Timestamp).toDate();
+        } else if (data['expirationDate'] is String) {
+          expirationDate = DateTime.tryParse(data['expirationDate'] as String);
+        }
+
+        if (expirationDate != null && 
+            expirationDate.isBefore(DateTime.now()) && 
+            data['quantity'] != null) {
+          double remainingQuantity = (data['quantity'] as num).toDouble();
+          wastedAmount += remainingQuantity;
+        }
+      }
+
+      // Calculate usage history
+      List<dynamic> history = data['usageHistory'] ?? [];
+      for (var usage in history) {
+        totalUsed += (usage['quantity_used'] as num).toDouble();
+        usageCount++;
+      }
+    }
+
+    final purchaseQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('historyCart')
+        .where('ingredientsName', isEqualTo: ingredientName)
+        .get();
+
+    double avgPurchaseQty = 0;
+    if (purchaseQuery.docs.isNotEmpty) {
+      double totalPurchased = purchaseQuery.docs
+          .fold(0.0, (sum, doc) => sum + (doc.data()['quantity'] as num).toDouble());
+      avgPurchaseQty = totalPurchased / purchaseQuery.docs.length;
+    }
+
+    return {
+      'avgUsagePerTime': usageCount > 0 ? totalUsed / usageCount : 0,
+      'avgPurchaseQty': avgPurchaseQty,
+      'wastedAmount': wastedAmount,
+    };
+  } catch (e) {
+    print('❌ Error calculating stats: $e');
+    return {};
+  }
+}
 
 // Quantity Selector Widget (+ -)
 Widget _buildQuantitySelector(
   Map<String, dynamic> ingredient,
- List<Map<String, dynamic>> userIngredients,
-  int quantity,
-  Function(int) onQuantityChanged,
+  List<Map<String, dynamic>> userIngredients,
+  double quantity,
+  Function(double) onQuantityChanged,
 ) {
+  return FutureBuilder<Map<String, double>>(
+    future: _getIngredientStats(ingredient['ingredientsName']),
+    builder: (context, snapshot) {
+      double totalQuantity = userIngredients
+          .where((item) => item['ingredientsName'].toLowerCase() == 
+                         ingredient['ingredientsName'].toLowerCase())
+          .fold(0.0, (sum, item) {
+            final itemQuantity = (item['quantity'] is int)
+                ? (item['quantity'] as int).toDouble()
+                : (item['quantity'] as num).toDouble();
+            return sum + itemQuantity;
+          });
 
- int totalQuantity = userIngredients
-      .where((item) => item['ingredientsName'].toLowerCase() == 
-                       ingredient['ingredientsName'].toLowerCase())
-      .fold(0, (sum, item) => sum + (item['quantity'] as int));
+      double minQuantity = (ingredient['minQuantity'] as num?)?.toDouble() ?? 1.0;
+      double recommendedQuantity = 1.0;
 
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      if (snapshot.hasData) {
+        double avgUsage = snapshot.data!['avgUsagePerTime'] ?? 0;
+        double avgPurchase = snapshot.data!['avgPurchaseQty'] ?? 0;
+        double wastedAmount = snapshot.data!['wastedAmount'] ?? 0;
+
+       // คำนวณ recommendedQuantity ใหม่
+  if (totalQuantity <= minQuantity) {
+    // กรณีของเหลือน้อยกว่าหรือเท่ากับค่าขั้นต่ำ
+    if (avgUsage > 0) {
+      // ถ้ามีประวัติการใช้ ให้ซื้อเผื่อไว้ใช้ 2 ครั้ง
+      recommendedQuantity = (avgUsage * 2);
+    } else {
+      // ถ้าไม่มีประวัติการใช้ ใช้ค่าเฉลี่ยการซื้อ
+      recommendedQuantity = avgPurchase > 0 ? avgPurchase : minQuantity;
+    }
+  } else {
+    // กรณีของยังเหลือมากกว่าค่าขั้นต่ำ
+    if (avgUsage > 0) {
+      // คำนวณจากอัตราการใช้
+      double neededAmount = (avgUsage * 2) - totalQuantity;
+      recommendedQuantity = neededAmount > 0 ? neededAmount : avgUsage;
+    } else {
+      // ไม่มีประวัติการใช้ ใช้ค่าเฉลี่ยการซื้อ
+      recommendedQuantity = avgPurchase;
+    }
+  }
+
+  // ปรับตามประวัติของเสีย
+  if (wastedAmount > 0) {
+    recommendedQuantity *= 0.8; // ลด 20% ถ้ามีประวัติของเสีย
+  }
+
+  // ต้องไม่ต่ำกว่าค่าขั้นต่ำที่กำหนด
+  if (recommendedQuantity < minQuantity) {
+    recommendedQuantity = minQuantity;
+  }
+
+  // ปัดเศษขึ้น
+  recommendedQuantity = recommendedQuantity.ceilToDouble();
+} else {
+  // กรณีไม่มีข้อมูลประวัติ
+  recommendedQuantity = minQuantity > totalQuantity 
+      ? (minQuantity - totalQuantity).ceilToDouble()
+      : minQuantity;
+}
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Quantity',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  onPressed: quantity > 1
-                      ? () => onQuantityChanged(quantity - 1)
-                      : null,
-                  icon: const Icon(Icons.remove, color: Colors.red),
+                const Text(
+                  'Quantity',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                Text(quantity.toString(),
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                IconButton(
-                  onPressed: () => onQuantityChanged(quantity + 1),
-                  icon: const Icon(Icons.add, color: Colors.green),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: quantity > 1
+                          ? () => onQuantityChanged(quantity - 1)
+                          : null,
+                      icon: const Icon(Icons.remove, color: Colors.red),
+                    ),
+                    Text(
+                      quantity.toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 18, 
+                        fontWeight: FontWeight.bold
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => onQuantityChanged(quantity + 1),
+                      icon: const Icon(Icons.add, color: Colors.green),
+                    ),
+                  ],
                 ),
               ],
             ),
+            if (totalQuantity > 0)
+              Row(
+                children: [
+                  Image.asset(
+                    'assets/images/about.png',
+                    width: 20,
+                    height: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$totalQuantity ${ingredient['unit']} in stock',  
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 4),
+            Text(
+              'Recommended purchase: ${recommendedQuantity.toStringAsFixed(1)} ${_formatUnit(ingredient['unit'])}',
+              style: TextStyle(
+                fontSize: 16,
+                 color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
-        // ตรวจสอบว่า ingredient มี `quantity` หรือไม่จาก userIngredientsMap
-        if (totalQuantity > 0)
-          Row(
-            children: [
-              Image.asset(
-                'assets/images/about.png',
-                width: 20,
-                height: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '$totalQuantity ${ingredient['unit']} in stock',  
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          )
-        else
-          const SizedBox(),
-      ],
-    ),
+      );
+    },
   );
 }
+
+String _formatUnit(String unit) {
+  final Map<String, String> unitAbbreviations = {
+    'Kilograms (kg)': 'kg',
+    'Grams (g)': 'g',
+    'Pounds (lbs)': 'lbs',
+    'Ounces (oz)': 'oz',
+    'Liters (L)': 'L',
+    'Milliliters (mL)': 'mL',
+  };
+
+  // ถ้าหน่วยมีวงเล็บให้เอาแค่ตัวย่อในวงเล็บ
+  if (unit.contains('(') && unit.contains(')')) {
+    final start = unit.indexOf('(') + 1;
+    final end = unit.indexOf(')');
+    return unit.substring(start, end);
+  }
+
+  // ถ้าไม่มีวงเล็บ ให้ใช้ map หาตัวย่อ
+  return unitAbbreviations[unit] ?? unit;
+}
+
 
 
 // ช่องกรอกราคา (Price)
