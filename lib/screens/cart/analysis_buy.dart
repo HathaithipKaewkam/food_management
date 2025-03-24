@@ -42,12 +42,7 @@ class _AnalysisBuyState extends State<AnalysisBuy> {
     'Source',
   ];
 
-  List<String> source = [
-      'Supermarket',
-      'Market',
-      'Online',
-      'Homegrown'
-    ];
+  List<String> source = ['Supermarket', 'Market', 'Online', 'Homegrown'];
 
   @override
   void initState() {
@@ -393,135 +388,243 @@ class _AnalysisBuyState extends State<AnalysisBuy> {
               ),
               Expanded(
                 child: selectedType == 'Expenses'
-                ? buildBarChart(filteredHistoryMonth)
-                : selectedType == 'Category'
-                ? Column(
-                    children: [
-                      buildPieChart(filteredHistoryMonth),
-                      buildCategoryLegend(
-                        
-                        filteredHistoryMonth
-                            .map((ingredient) => ingredient.category ?? 'Unknown')
-                            .toList(),
-                        Map<String, double>.fromIterable(
-                          filteredHistoryMonth,
-                          key: (ingredient) => ingredient.category ?? 'Unknown',
-                          value: (ingredient) => ingredient.price,
-                        ),
-                      ),
-                    ],
-                  )
-                : selectedType == 'Source'
-                    ? Column(
-                        children: [
-                          buildDonutChart(filteredHistoryMonth),  // แสดง Donut Chart
-                          buildCategorySource(
-                            filteredHistoryMonth
-                                .map((ingredient) => ingredient.source ?? 'Unknown')
-                                .toSet()  
-                                .toList(),
-                            Map<String, double>.fromIterable(
-                              filteredHistoryMonth,
-                              key: (ingredient) => ingredient.source ?? 'Unknown',
-                              value: (ingredient) => ingredient.price,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Container(),  
-          
-
-          
-
-            )]
-            )
-            )
-            );
+                    ? buildBarChart(filteredHistoryMonth)
+                    : selectedType == 'Category'
+                        ? Column(
+                            children: [
+                              buildPieChart(filteredHistoryMonth),
+                              buildCategoryLegend(
+                                filteredHistoryMonth
+                                    .map((ingredient) =>
+                                        ingredient.category ?? 'Unknown')
+                                    .toList(),
+                                Map<String, double>.fromIterable(
+                                  filteredHistoryMonth,
+                                  key: (ingredient) =>
+                                      ingredient.category ?? 'Unknown',
+                                  value: (ingredient) => ingredient.price,
+                                ),
+                              ),
+                            ],
+                          )
+                        : selectedType == 'Source'
+                            ? Column(
+                                children: [
+                                  buildDonutChart(
+                                      filteredHistoryMonth), // แสดง Donut Chart
+                                  buildCategorySource(
+                                    filteredHistoryMonth
+                                        .map((ingredient) =>
+                                            ingredient.source ?? 'Unknown')
+                                        .toSet()
+                                        .toList(),
+                                    Map<String, double>.fromIterable(
+                                      filteredHistoryMonth,
+                                      key: (ingredient) =>
+                                          ingredient.source ?? 'Unknown',
+                                      value: (ingredient) => ingredient.price,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Container(),
+              )
+            ])));
   }
 }
 
 Widget buildBarChart(List<Ingredient> ingredients) {
+  // คำนวณจำนวนครั้งการซื้อต่อสัปดาห์
+  Map<int, int> weeklyPurchaseCount = {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+  };
+
+  // คำนวณค่าใช้จ่ายต่อสัปดาห์
   Map<int, double> weeklyExpenses = {
-    1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
   };
 
   for (var ingredient in ingredients) {
     DateTime purchaseDate = ingredient.purchaseDate ?? DateTime.now();
     int weekOfMonth = (purchaseDate.day - 1) ~/ 7 + 1;
-    weeklyExpenses[weekOfMonth] = (weeklyExpenses[weekOfMonth] ?? 0) + ingredient.price;
+    weeklyPurchaseCount[weekOfMonth] =
+        (weeklyPurchaseCount[weekOfMonth] ?? 0) + 1;
+    weeklyExpenses[weekOfMonth] =
+        (weeklyExpenses[weekOfMonth] ?? 0) + ingredient.price;
   }
 
-  List<BarChartGroupData> barGroups = weeklyExpenses.entries.map((entry) {
+  List<BarChartGroupData> barGroups = weeklyPurchaseCount.entries.map((entry) {
+    double expenses = weeklyExpenses[entry.key] ?? 0;
     return BarChartGroupData(
       x: entry.key,
       barRods: [
         BarChartRodData(
-          toY: entry.value,
-          color:Colors.green,
+          toY: entry.value.toDouble(),
+          color: Color(0xFF86C7B5),
           width: 16,
+          borderRadius: BorderRadius.circular(4),
+          backDrawRodData: BackgroundBarChartRodData(
+            show: true,
+            toY: entry.value.toDouble() + 1,
+            color: Colors.grey.withOpacity(0.1),
+          ),
         ),
       ],
+      showingTooltipIndicators: [0],
     );
   }).toList();
 
-    return Container(
+  return Container(
     width: double.infinity,
-    height: 250,
-    padding: EdgeInsets.all(8),
-    child: BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        barGroups: barGroups,
-        borderData: FlBorderData(
-          show: true,
-          border: Border.all(color: Colors.grey, width: 0.5),
+    height: 300,
+    padding: EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.1),
+          spreadRadius: 2,
+          blurRadius: 5,
+          offset: Offset(0, 3),
         ),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 40,
-              getTitlesWidget: (value, meta) => Text('${value.toInt()} ฿', style: TextStyle(fontSize: 12)),
-            ),
-          ),
-          topTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: false,
-            ),
-          ),
-         rightTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: false,
-            ),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                switch (value.toInt()) {
-                  case 1:
-                    return Text('Week 1', style: TextStyle(fontSize: 12));
-                  case 2:
-                    return Text('Week 2', style: TextStyle(fontSize: 12));
-                  case 3:
-                    return Text('Week 3', style: TextStyle(fontSize: 12));
-                  case 4:
-                    return Text('Week 4', style: TextStyle(fontSize: 12));
-                  default:
-                    return Text('');
-                }
-              },
-            ),
+      ],
+    ),
+    child: Column(
+      children: [
+        Text(
+          'Purchase Frequency by Week',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
           ),
         ),
-        gridData: FlGridData(show: false, drawVerticalLine: false),
-      ),
+        SizedBox(height: 20),
+        Expanded(
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              barGroups: barGroups,
+              borderData: FlBorderData(
+                show: true,
+                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+              ),
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 40,
+                    getTitlesWidget: (value, meta) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Text(
+                        '${value.toInt()}×',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                rightTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                topTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      String weekText = 'Week ${value.toInt()}';
+                      double expenses = weeklyExpenses[value.toInt()] ?? 0;
+                      return Column(
+                        children: [
+                          Text(
+                            weekText,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            '${expenses.toStringAsFixed(0)}฿',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                    reservedSize: 40,
+                  ),
+                ),
+              ),
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: 1,
+                getDrawingHorizontalLine: (value) => FlLine(
+                  color: Colors.grey.withOpacity(0.1),
+                  strokeWidth: 1,
+                ),
+              ),
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  fitInsideHorizontally: true,
+                  fitInsideVertically: true,
+                  tooltipPadding: const EdgeInsets.all(8),
+                  tooltipMargin: 8,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    int weekNumber = group.x.toInt();
+                    int purchaseCount = weeklyPurchaseCount[weekNumber] ?? 0;
+                    double expenses = weeklyExpenses[weekNumber] ?? 0;
+                    return BarTooltipItem(
+                      'Week $weekNumber\n',
+                      const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: '$purchaseCount times\n',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                        TextSpan(
+                          text: '${expenses.toStringAsFixed(0)}฿',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }
-
-
-
 
 Widget buildPieChart(List<Ingredient> ingredients) {
   Map<String, double> categoryData = {};
@@ -564,8 +667,9 @@ Widget buildPieChart(List<Ingredient> ingredients) {
   );
 }
 
-Widget buildCategoryLegend(List<String> categories, Map<String, double> categoryData) {
-   categoryData.values.reduce((a, b) => a + b);
+Widget buildCategoryLegend(
+    List<String> categories, Map<String, double> categoryData) {
+  categoryData.values.reduce((a, b) => a + b);
   return SingleChildScrollView(
     child: Wrap(
       spacing: 10.0,
@@ -598,7 +702,8 @@ Widget buildCategoryLegend(List<String> categories, Map<String, double> category
   );
 }
 
-Widget buildCategorySource(List<String> sources, Map<String, double> sourceData) {
+Widget buildCategorySource(
+    List<String> sources, Map<String, double> sourceData) {
   return SingleChildScrollView(
     child: Wrap(
       spacing: 10.0,
@@ -610,13 +715,13 @@ Widget buildCategorySource(List<String> sources, Map<String, double> sourceData)
           child: Row(
             children: [
               Container(
-                width: 20, 
+                width: 20,
                 height: 20,
-                color: getColorForSource(source),  
+                color: getColorForSource(source),
               ),
               SizedBox(width: 8),
               Text(
-                '$source ${sourceAmount.toStringAsFixed(1)}', 
+                '$source ${sourceAmount.toStringAsFixed(1)}',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -633,7 +738,6 @@ Widget buildCategorySource(List<String> sources, Map<String, double> sourceData)
 Widget buildDonutChart(List<Ingredient> ingredients) {
   Map<String, double> sourceData = {};
 
-  
   for (var ingredient in ingredients) {
     String source = ingredient.source ?? 'Unknown';
     sourceData[source] = (sourceData[source] ?? 0) + ingredient.quantity;
@@ -644,7 +748,7 @@ Widget buildDonutChart(List<Ingredient> ingredients) {
   List<PieChartSectionData> sections = sourceData.entries.map((entry) {
     double percentage = (entry.value / total) * 100;
     return PieChartSectionData(
-      color: getColorForSource(entry.key), 
+      color: getColorForSource(entry.key),
       value: entry.value,
       title: '${entry.key}\n${percentage.toStringAsFixed(1)}%',
       radius: 60,
@@ -653,8 +757,8 @@ Widget buildDonutChart(List<Ingredient> ingredients) {
         fontWeight: FontWeight.bold,
         color: Colors.black,
       ),
-      titlePositionPercentageOffset: 0.55, 
-      showTitle: true, 
+      titlePositionPercentageOffset: 0.55,
+      showTitle: true,
     );
   }).toList();
 
@@ -664,14 +768,13 @@ Widget buildDonutChart(List<Ingredient> ingredients) {
     child: PieChart(
       PieChartData(
         sections: sections,
-        centerSpaceRadius: 50, 
+        centerSpaceRadius: 50,
         sectionsSpace: 4,
-        borderData: FlBorderData(show: false), 
+        borderData: FlBorderData(show: false),
       ),
     ),
   );
 }
-
 
 Color getColorForCategory(String category) {
   switch (category) {
