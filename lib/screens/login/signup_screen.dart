@@ -116,15 +116,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
           text: 'Sign Up Successful',
           confirmBtnColor: const Color(0xFF325b51),
           confirmBtnText: 'OK',
-          onConfirmBtnTap: () {
+          autoCloseDuration: const Duration(seconds: 2),
+        );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (context) => const CompleteProfile(),
               ),
             );
-          },
-        );
+          }
+        });
       }
     } catch (e) {
       showQuickAlert(
@@ -185,15 +188,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
           text: 'Sign Up Successful',
           confirmBtnColor: const Color(0xFF325b51),
           confirmBtnText: 'OK',
-          onConfirmBtnTap: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const CompleteProfile(),
-              ),
-            );
-          },
+          autoCloseDuration: const Duration(seconds: 2),
         );
+        Future.delayed(const Duration(seconds: 2), () {
+        if (context.mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CompleteProfile(),
+            ),
+          );
+        }
+      });
       }
     } on FirebaseAuthException catch (e) {
       Navigator.pop(context);
@@ -206,6 +212,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       }
     }
   }
+
+  
 
   @override
   Widget build(BuildContext context) {
