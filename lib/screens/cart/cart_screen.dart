@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
+import 'package:food_project/screens/cart/auto_shoppinglist.dart';
 import 'package:food_project/screens/cart/history_buy.dart';
 import 'package:food_project/screens/cart/search_cart.dart';
 import 'package:food_project/widgets/cart_widget.dart';
@@ -117,13 +118,10 @@ Future<void> onMarkAllPurchased(bool isPurchased) async {
   String uid = FirebaseAuth.instance.currentUser!.uid;
 
   try {
-    // Update local state first
     setState(() {
-      // Find and update the item in cartItems
       var item = cartItems.firstWhere((item) => item['docId'] == docId);
       item['purchased'] = isPurchased;
       
-      // If unmarking item, also unset markAllSelected
       if (!isPurchased) {
         markAllSelected = false;
       }
@@ -393,7 +391,20 @@ void dispose() {
                                   ),
                                 );
                               },
-                              icon: Icon(Icons.add),
+                              icon: Icon(Icons.add_shopping_cart),
+                              color: Colors.black,
+                              iconSize: 25,
+                            ),
+                             IconButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AutoShoppingList(),
+                                  ),
+                                );
+                              },
+                              icon: Icon(Icons.tips_and_updates),
                               color: Colors.black,
                               iconSize: 25,
                             ),

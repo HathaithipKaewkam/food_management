@@ -461,10 +461,6 @@ int currentMonth = DateTime.now().month;
                       }
                     }
                   }
-
-                  // Add debug print
-                  print('📅 Selected Month/Year: $selectedMonth/$selectedYear');
-                  print('📊 Number of dates: ${filteredGroupedHistory.length}');
                   if (filteredGroupedHistory.isEmpty) {
                     return const Text('No ingredient for this month',
                         style: TextStyle(fontSize: 14, color: Colors.black54));
