@@ -208,6 +208,18 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
 
   void _onPressedAdd() async {
   try {
+
+    if (_nameController.text.trim().isEmpty) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        title: 'Error',
+        text: 'Please enter ingredient name',
+        confirmBtnColor: const Color(0xFF325b51),
+      );
+      return;
+    }
+
     if (_imageFile != null) {
       imageUrl = await _uploadImage(_imageFile!);
     }
@@ -221,7 +233,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
     double minQuantity = double.tryParse(_minQuantityController.text) ?? 1.0;
 
     Map<String, dynamic> newIngredient = {
-      'ingredientsName': _nameController.text,
+      'ingredientsName': _nameController.text.trim(),
       'category': _categoryController.text,
       'storage': recipeTypes[selectedStorageIndex],
       'unit': _unitController.text,

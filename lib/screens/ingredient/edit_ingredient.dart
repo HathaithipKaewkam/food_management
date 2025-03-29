@@ -106,19 +106,30 @@ class _EditIngredientScreenState extends State<EditIngredientScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // If new image was selected, upload it
+     if (_nameController.text.trim().isEmpty) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        title: 'Error',
+        text: 'Please enter ingredient name',
+        confirmBtnColor: const Color(0xFF325b51),
+      );
+      return;
+    }
+
+
     if (_imageFile != null) {
       imageUrl = await _uploadImage(_imageFile!);
     }
 
-    // Get expiration date
+
     DateTime expirationDate = _expirationDate ?? 
       selectedDate ?? 
       DateTime.now().add(Duration(days: int.parse(_shelflifeController.text)));
 
     // Create update data
     Map<String, dynamic> updateData = {
-      'ingredientsName': _nameController.text,
+      'ingredientsName': _nameController.text.trim(),
       'category': selectedCategory,
       'storage': recipeTypes[selectedStorageIndex],
       'unit': selectedUnit,
