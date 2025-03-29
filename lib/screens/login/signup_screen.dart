@@ -139,11 +139,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
+  bool isValidEmail(String email) {
+  final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+  return emailRegExp.hasMatch(email);
+}
+
   void signUpUser(String email, String password, String username, BuildContext context) async {
     if (email.isEmpty || username.isEmpty || password.isEmpty) {
       showQuickAlert(context, QuickAlertType.error, 'Error', 'Email, Username, and Password cannot be empty');
       return;
     }
+
+     if (!isValidEmail(email)) {
+    showQuickAlert(
+      context, 
+      QuickAlertType.error, 
+      'Invalid Email Format', 
+      'Please enter a valid email address\n(e.g., example@email.com)'
+    );
+    return;
+  }
 
     if (password.length < 6) {
       showQuickAlert(context, QuickAlertType.warning, 'Warning', 'Password must be at least 6 characters');
