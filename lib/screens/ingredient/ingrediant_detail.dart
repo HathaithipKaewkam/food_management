@@ -27,7 +27,7 @@ class IngredientDetailPage extends StatefulWidget {
 class _IngredientDetailPageState extends State<IngredientDetailPage> {
   List<Map<String, String>> pairingIngredients = [];
   List<Map<String, dynamic>> recipes = [];
-  Map<String, int> userIngredientsMap = {};
+  Map<String, dynamic> userIngredientsMap = {}; 
   bool isLoading = true;
   final RecipeService _recipeService = RecipeService();
 
@@ -113,15 +113,17 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
           .collection('userIngredients')
           .get();
 
-      Map<String, int> tempUserIngredients = {};
-      for (var doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        String name = data['ingredientsName'];
-        int quantity = data['quantity'] ?? 0;
-        tempUserIngredients[name] = quantity;
-
-        print("Loaded ingredient: $name with quantity: $quantity");
-      }
+      Map<String, dynamic> tempUserIngredients = {};
+       for (var doc in snapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      String name = data['ingredientsName'];
+      
+      double quantity = data['quantity'] is int 
+          ? (data['quantity'] as int).toDouble() 
+          : (data['quantity'] as num).toDouble();
+      
+      tempUserIngredients[name] = quantity;
+    }
 
       setState(() {
         userIngredientsMap = tempUserIngredients;
@@ -172,7 +174,7 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
 
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.only(top: 20, left: 5, right: 3),
+        padding: const EdgeInsets.only(top: 15, left: 5, right: 3),
         child: ListView(
           children: [
             Row(
@@ -350,6 +352,7 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
             Padding(padding: const EdgeInsets.only(left: 5, right: 5 ),
             child:  Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -432,13 +435,15 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      "${widget.ingredient.quantity} ${widget.ingredient.unit[0].toLowerCase()}${widget.ingredient.unit.substring(1)}",
+                      "${widget.ingredient.quantity.toStringAsFixed(1)} ${_formatUnit(widget.ingredient.unit)}",
                       style: const TextStyle(
                         color: Colors.black,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.left,
                     ),
+                    
                   ],
                 ),
               ),
@@ -760,7 +765,7 @@ Future<void> _saveCart(Map<String, dynamic> ingredient) async {
 
 void _showIngredientPopup(BuildContext context, Map<String, dynamic> ingredient,
     dynamic userIngredientsMap) {
-  int quantity = 1;
+  double quantity = 1.0;
   TextEditingController priceController = TextEditingController();
 
   List<Map<String, dynamic>> userIngredients = userIngredientsMap.entries
@@ -988,13 +993,17 @@ Widget _buildDropdown(String label, List<String> options, String selectedValue,
 Widget _buildQuantitySelector(
   Map<String, dynamic> ingredient,
   List<Map<String, dynamic>> userIngredients,
-  int quantity,
-  Function(int) onQuantityChanged,
+  double quantity,
+  Function(double) onQuantityChanged,
 ) {
-  // ใช้ quantity ที่มาอัปเดตจาก userIngredientsMap
-  int userQuantity = userIngredients
+ double userQuantity = userIngredients
       .where((item) => item['ingredientsName'] == ingredient['ingredientsName'])
-      .fold(0, (sum, item) => sum + (item['quantity'] as int));
+      .fold(0.0, (sum, item) {
+        final itemQuantity = item['quantity'] is int 
+            ? (item['quantity'] as int).toDouble() 
+            : (item['quantity'] as num).toDouble();
+        return sum + itemQuantity;
+      });
 
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
@@ -1079,3 +1088,25 @@ Widget _buildPriceField(TextEditingController controller) {
     ),
   );
 }
+
+String _formatUnit(String unit) {
+  final Map<String, String> unitAbbreviations = {
+    'Kilograms (kg)': 'kg',
+    'Grams (g)': 'g',
+    'Pounds (lbs)': 'lbs',
+    'Ounces (oz)': 'oz',
+    'Liters (L)': 'L',
+    'Milliliters (mL)': 'mL',
+  };
+
+  // ถ้าหน่วยมีวงเล็บให้เอาแค่ตัวย่อในวงเล็บ
+  if (unit.contains('(') && unit.contains(')')) {
+    final start = unit.indexOf('(') + 1;
+    final end = unit.indexOf(')');
+    return unit.substring(start, end);
+  }
+
+  // ถ้าไม่มีวงเล็บ ให้ใช้ map หาตัวย่อ
+  return unitAbbreviations[unit] ?? unit;
+}
+
