@@ -18,20 +18,46 @@ class EditQuantitiesBottomSheet extends StatefulWidget {
 
 class _EditQuantitiesBottomSheetState extends State<EditQuantitiesBottomSheet> {
   late Map<String, double> editedQuantities;
+  Map<String, TextEditingController> textControllers = {};
 
   @override
   void initState() {
     super.initState();
     editedQuantities = Map.from(widget.selectedQuantities);
+
+    for (var item in widget.items) {
+    textControllers[item['id']] = TextEditingController(
+      text: editedQuantities[item['id']]?.toString() ?? 
+          item['recommendedQuantity'].toString(),
+    );
   }
+  }
+
+  @override
+void dispose() {
+  for (var controller in textControllers.values) {
+    controller.dispose();
+  }
+  super.dispose();
+}
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+      height: MediaQuery.of(context).size.height * 0.7, 
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+    child: Column(
+      mainAxisSize: MainAxisSize.min, 
+      children: [
+        Container(
+          width: 40,
+          height: 5,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(2.5),
+          ),
+          margin: const EdgeInsets.only(bottom: 16),
+        ),
           const Text(
             'Edit Quantities',
             style: TextStyle(
@@ -52,16 +78,10 @@ class _EditQuantitiesBottomSheetState extends State<EditQuantitiesBottomSheet> {
                     width: 100,
                     child: TextField(
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      controller: TextEditingController(
-                        text: editedQuantities[item['id']]?.toString() ?? 
-                            item['recommendedQuantity'].toString(),
-                      ),
+                      controller: textControllers[item['id']],
                       onTap: () {
-                      final controller = TextEditingController();
-                      setState(() {
-                        controller.clear();
-                      });
-                    },
+                        textControllers[item['id']]?.clear();
+                      },
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$')), 
                     ],
@@ -75,8 +95,12 @@ class _EditQuantitiesBottomSheetState extends State<EditQuantitiesBottomSheet> {
                         }
                       }
                     },
-                    decoration: InputDecoration(
+                   decoration: InputDecoration(
                       suffix: Text(_formatUnit(item['unit'])),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 )
