@@ -414,14 +414,13 @@ class _IngredientScreenState extends State<IngredientScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // ข้อความแสดงจำนวนวัตถุดิบที่หมดอายุ พร้อมปุ่ม "See All"
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
                                       vertical: 10.0),
                                   child: Row(
                                     children: [
                                       Text(
-                                        'You have ${ingredientList.where((ingredient) => ingredient.expirationDate.isBefore(DateTime.now())).toList().length} expired items',
+                                        'You have ${ingredientList.where((ingredient) => ingredient.expirationDate.isBefore(DateTime.now()) && ingredient.quantity > 0).toList().length} expired items',
                                         style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
@@ -442,7 +441,7 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                         child: const Text(
                                           'See All',
                                           style: TextStyle(
-                                              fontSize: 16, color: Colors.blue),
+                                              fontSize: 16, color: Colors.black),
                                         ),
                                       ),
                                     ],
@@ -453,9 +452,9 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                 Padding(
                                   padding: const EdgeInsets.only(top: 0),
                                   child: ingredientList
-                                          .where((ingredient) => ingredient
-                                              .expirationDate
-                                              .isBefore(DateTime.now()))
+                                          .where((ingredient) => 
+              ingredient.expirationDate.isBefore(DateTime.now()) && 
+              ingredient.quantity > 0)
                                           .toList()
                                           .isNotEmpty
                                       ? GestureDetector(
@@ -468,29 +467,47 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                               ),
                                             );
                                           },
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 100,
-                                                height: 100,
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      const Color(0xFFfbcdd0),
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                  image: DecorationImage(
-                                                    image: NetworkImage(ingredientList
-                                                        .where((ingredient) =>
-                                                            ingredient
-                                                                .expirationDate
-                                                                .isBefore(
-                                                                    DateTime
-                                                                        .now()))
-                                                        .first
-                                                        .imageUrl),
+                                            child: Row(
+                                              children: [
+                                                ClipRRect(
+                                                  borderRadius: BorderRadius.circular(16),
+                                                  child: Container(
+                                                    width: 100,
+                                                    height: 100,
+                                                    color: const Color(0xFFfbcdd0),
+                                                    child: ingredientList
+                                                            .where((ingredient) => ingredient.expirationDate.isBefore(DateTime.now()) && 
+  ingredient.quantity > 0)
+                                                            .first
+                                                            .imageUrl.isNotEmpty
+                                                        ? Image.network(
+                                                            ingredientList
+                                                                .where((ingredient) => ingredient.expirationDate.isBefore(DateTime.now())  && 
+  ingredient.quantity > 0)
+                                                                .first
+                                                                .imageUrl,
+                                                            fit: BoxFit.cover,
+                                                            errorBuilder: (context, error, stackTrace) {
+                                                              print("Image error: $error");
+                                                              return Container(
+                                                                width: 100,
+                                                                height: 100,
+                                                                color: const Color(0xFFfbcdd0),
+                                                                child: const Icon(
+                                                                  Icons.image_not_supported,
+                                                                  color: Colors.white,
+                                                                  size: 40,
+                                                                ),
+                                                              );
+                                                            },
+                                                          )
+                                                        : const Icon(
+                                                            Icons.restaurant,
+                                                            color: Colors.white,
+                                                            size: 40,
+                                                          ),
                                                   ),
                                                 ),
-                                              ),
                                               const SizedBox(width: 5),
                                               Container(
                                                 padding:
