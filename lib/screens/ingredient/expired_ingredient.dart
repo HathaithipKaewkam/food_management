@@ -219,6 +219,53 @@ Future<void> deleteItem(String? itemId) async {
 }
 
 
+Future<void> throwItem(String? itemId) async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print("Error: User is not logged in");
+      return;
+    }
+
+    if (itemId == null || itemId.isEmpty) {
+      print("Error: Item ID is empty or null");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Cannot throw item with empty ID'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    print("Attempting to mark item as throw with ID: $itemId");
+    
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userIngredients')
+        .doc(itemId)
+        .update({
+          'isThrowed': true,
+          'quantity': 0, 
+        });
+
+    print("Item marked as thrown successfully");
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Item thrown from inventory'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  } catch (e) {
+    print("Error throwing item: $e");
+  }
+}
+
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
@@ -484,43 +531,51 @@ Future<void> deleteItem(String? itemId) async {
                             String safeKey = ingredient.ingredientId?.isNotEmpty == true
                               ? ingredient.ingredientId!
                               : 'item_$index';
-                            return Dismissible(
-                              key: Key(safeKey),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 20),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.delete, color: Colors.white),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      'Delete',
-                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              confirmDismiss: (direction) async {
-                                return await showDialog(
+                           return GestureDetector(
+                              onLongPress: () {
+                                // แสดงกล่องโต้ตอบเมื่อกดค้าง (สำหรับการลบออกจากระบบ)
+                                showDialog(
                                   context: context,
                                   builder: (BuildContext context) {
                                     return AlertDialog(
-                                      title: const Text('Confirm deletion'),
+                                      title: const Text('Permanently delete'),
                                       content: const Text(
-                                          'Are you sure you want to remove this item from your inventory?'),
+                                          'Are you sure you want to delete this item from your inventory? This action cannot be undone.'),
                                       actions: [
                                         TextButton(
-                                          onPressed: () => Navigator.of(context).pop(false),
+                                          onPressed: () => Navigator.of(context).pop(),
                                           child: const Text('Cancel'),
                                         ),
                                         TextButton(
-                                          onPressed: () => Navigator.of(context).pop(true),
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            
+                                            int originalIndex = -1;
+                                            for (int i = 0; i < ingredientList.length; i++) {
+                                              if (ingredientList[i].ingredientsName == ingredient.ingredientsName &&
+                                                  ingredientList[i].expirationDate == ingredient.expirationDate) {
+                                                originalIndex = i;
+                                                break;
+                                              }
+                                            }
+                                            
+                                            setState(() {
+                                              filteredExpiredItems.remove(ingredient);
+                                            });
+                                            
+                                            if (originalIndex >= 0 && ingredientDocIds.containsKey(originalIndex)) {
+                                              String docId = ingredientDocIds[originalIndex]!;
+                                              deleteItem(docId);
+                                              
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Item permanently deleted from inventory'),
+                                                  backgroundColor: Colors.red,
+                                                  duration: Duration(seconds: 2),
+                                                ),
+                                              );
+                                            }
+                                          },
                                           child: const Text('Delete', style: TextStyle(color: Colors.red)),
                                         ),
                                       ],
@@ -528,7 +583,52 @@ Future<void> deleteItem(String? itemId) async {
                                   },
                                 );
                               },
-                              onDismissed: (direction) {
+                              // ใน child ใส่ Dismissible เดิม แต่แก้ไขข้อความให้สื่อถึงการทิ้งวัตถุดิบ
+                              child: Dismissible(
+                                key: Key(safeKey),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 20),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.delete_outline, color: Colors.white),  // เปลี่ยนไอคอนเป็น delete_outline
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Throw',  
+                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                confirmDismiss: (direction) async {
+                                  return await showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: const Text('Confirm discarding'),
+                                        content: const Text(
+                                            'Are you sure you want to throw this expired item?'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(true),
+                                            child: const Text('Throw', style: TextStyle(color: Colors.red)),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                },
+                                onDismissed: (direction) {
                                   int originalIndex = -1;
                                   for (int i = 0; i < ingredientList.length; i++) {
                                     if (ingredientList[i].ingredientsName == ingredient.ingredientsName &&
@@ -538,24 +638,14 @@ Future<void> deleteItem(String? itemId) async {
                                     }
                                   }
                                   
-                                  // ลบรายการออกจาก filteredExpiredItems ทันที
                                   setState(() {
                                     filteredExpiredItems.remove(ingredient);
                                   });
                                   
                                   if (originalIndex >= 0 && ingredientDocIds.containsKey(originalIndex)) {
                                     String docId = ingredientDocIds[originalIndex]!;
-                                    print("Found docId for deletion: $docId");
-                                    deleteItem(docId);
+                                    throwItem(docId);  
                                   } else {
-                                    print("Could not find document ID for ingredient: ${ingredient.ingredientsName}");
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Error: Could not delete item (ID not found)'),
-                                        backgroundColor: Colors.red,
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
                                   }
                                 },
                               child: Card(
@@ -662,7 +752,7 @@ Future<void> deleteItem(String? itemId) async {
                                   ),
                                 ),
                               ),
-                            );
+                            ));
                           },
                         ),
             )] ) ) );

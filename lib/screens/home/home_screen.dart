@@ -32,67 +32,154 @@ class _HomeScreenState extends State<HomeScreen> {
 
   TextEditingController searchController = TextEditingController();
 
+  void removeIngredient(int index) {
+    setState(() {
+      // ถ้า index เกินขอบเขต กลับออกทันที
+      if (index < 0 || index >= filteredIngredients.length) {
+        print(
+            "Warning: Attempted to remove ingredient at invalid index: $index");
+        return;
+      }
 
-  Future<void> fetchUserIngredients() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user != null) {
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('userIngredients')
-          .get();
+      // หา ingredient ที่ต้องการลบ
+      final ingredientToRemove = filteredIngredients[index];
+      print("Removing ingredient: ${ingredientToRemove.ingredientsName}");
 
-      setState(() {
-        ingredientList = snapshot.docs.map((doc) {
-          Map<String, dynamic> data = doc.data();
-          data['ingredientId'] = doc.id;
-          return Ingredient.fromJson(data);
+      // ลบออกจาก filteredIngredients
+      filteredIngredients.removeAt(index);
+
+      // ลบออกจาก ingredientList ด้วย (สำคัญมาก)
+      for (int i = 0; i < ingredientList.length; i++) {
+        if (ingredientList[i].ingredientsName ==
+                ingredientToRemove.ingredientsName &&
+            ingredientList[i].expirationDate ==
+                ingredientToRemove.expirationDate) {
+          ingredientList.removeAt(i);
+          print("Removed from original list at index $i");
+          break;
+        }
+      }
+
+      updateFilteredIngredients();
+    });
+  }
+
+  void updateFilteredIngredients() {
+    switch (selectedType) {
+      case 'Expire In 3 Days':
+        DateTime now = DateTime.now();
+        DateTime threeDaysLater = now.add(const Duration(days: 3));
+
+        filteredIngredients = ingredientList.where((ingredient) {
+          return ingredient.expirationDate.isAfter(now) &&
+              ingredient.expirationDate.isBefore(threeDaysLater) &&
+              ingredient.quantity > 0 &&
+              !(ingredient.isThrowed ?? false);
         }).toList();
-
-        filterIngredient();
-        isLoading = false;
-      });
-    } catch (e) {
-      print("Error fetching ingredients: $e");
-      setState(() {
-        isLoading = false;
-      });
+        break;
+      case 'Expired Items':
+        filteredIngredients = ingredientList
+            .where((ingredient) =>
+                ingredient.expirationDate.isBefore(DateTime.now()) &&
+                ingredient.quantity > 0 &&
+                !(ingredient.isThrowed ?? false))
+            .toList();
+        break;
+      case 'Running Out Of': // แก้ชื่อให้ตรงกับ ingredientTypes
+        filteredIngredients = ingredientList
+            .where((ingredient) =>
+                ingredient.quantity <= ingredient.minQuantity &&
+                !(ingredient.isThrowed ?? false))
+            .toList();
+        break;
+      default:
+        filteredIngredients = ingredientList
+            .where((ingredient) =>
+                ingredient.quantity > 0 && !(ingredient.isThrowed ?? false))
+            .toList();
     }
   }
-}
 
- void filterIngredient() {
-  setState(() {
-    print("📌 Selected Filter: $selectedType");
-    
-    for (var ingredient in ingredientList) {
-     
+  Future<void> fetchUserIngredients() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('userIngredients')
+            .get();
+
+        setState(() {
+          ingredientList = snapshot.docs.map((doc) {
+            Map<String, dynamic> data = doc.data();
+            data['ingredientId'] = doc.id;
+            return Ingredient.fromJson(data);
+          }).toList();
+
+          filterIngredient();
+          isLoading = false;
+        });
+      } catch (e) {
+        print("Error fetching ingredients: $e");
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
+  }
 
-    if (selectedType == 'Expire In 3 Days') {
-      filteredIngredients = ingredientList.where((ingredient) {
-        return ingredient.expirationDate != null &&
-            ingredient.expirationDate!.isAfter(DateTime.now()) &&
-            ingredient.expirationDate!.isBefore(DateTime.now().add(const Duration(days: 3)));
-      }).toList();
-    } else if (selectedType == 'Expired Items') {
-      filteredIngredients = ingredientList.where((ingredient) {
-        
-        return ingredient.expirationDate != null &&
-            ingredient.expirationDate!.isBefore(DateTime.now());
-      }).toList();
-    } else {
-     filteredIngredients = ingredientList.where((ingredient) {
-        double quantity = ingredient.quantity; 
-        double minQuantity = ingredient.minQuantity; 
-        return quantity <= minQuantity;
-      }).toList();
-    }
+  void filterIngredient() {
+    setState(() {
+      print("📌 Selected Filter: $selectedType");
+      print("Total ingredients: ${ingredientList.length}");
 
-  });
-}
+      for (var i = 0; i < ingredientList.length; i++) {
+        var ingredient = ingredientList[i];
+        print(
+            "Ingredient $i: ${ingredient.ingredientsName}, quantity: ${ingredient.quantity}, minQuantity: ${ingredient.minQuantity}, isThrowed: ${ingredient.isThrowed}, expirationDate: ${ingredient.expirationDate}");
+      }
 
+      if (selectedType == 'Expire In 3 Days') {
+        filteredIngredients = ingredientList.where((ingredient) {
+          // วัตถุดิบที่ใกล้หมดภายใน 3 วัน (ยังไม่หมดอายุ แต่ใกล้หมด)
+          DateTime now = DateTime.now();
+          DateTime threeDaysLater = now.add(const Duration(days: 3));
+
+          return ingredient.expirationDate.isAfter(now) &&
+              ingredient.expirationDate.isBefore(threeDaysLater) &&
+              ingredient.quantity > 0 && // เพิ่มเงื่อนไขจำนวนต้องมากกว่า 0
+              !(ingredient.isThrowed ?? false);
+        }).toList();
+
+        print("Found ${filteredIngredients.length} items expiring in 3 days");
+      } else if (selectedType == 'Expired Items') {
+        filteredIngredients = ingredientList.where((ingredient) {
+          // วัตถุดิบที่หมดอายุแล้ว
+          return ingredient.expirationDate.isBefore(DateTime.now()) &&
+              ingredient.quantity > 0 && // จำนวนต้องมากกว่า 0
+              !(ingredient.isThrowed ?? false);
+        }).toList();
+
+        print("Found ${filteredIngredients.length} expired items");
+      } else if (selectedType == 'Running Out Of') {
+        // แก้ชื่อให้ตรงกับ ingredientTypes
+        filteredIngredients = ingredientList.where((ingredient) {
+          // วัตถุดิบที่ใกล้หมด (จำนวนน้อยกว่า minQuantity)
+          return ingredient.quantity <= ingredient.minQuantity &&
+              !(ingredient.isThrowed ?? false);
+        }).toList();
+
+        print("Found ${filteredIngredients.length} items running out");
+      } else {
+        // กรณีไม่มีการเลือกประเภท แสดงทั้งหมด
+        filteredIngredients = ingredientList
+            .where((ingredient) =>
+                ingredient.quantity > 0 && !(ingredient.isThrowed ?? false))
+            .toList();
+      }
+    });
+  }
 
   Future<void> _fetchUserName() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -117,134 +204,159 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void setupIngredientListener() {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user != null) {
-    setState(() {
-      isLoading = true; 
-    });
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        isLoading = true;
+      });
 
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('userIngredients')
-        .snapshots()
-        .listen((snapshot) {
-      if (mounted) {
-        setState(() {
-          ingredientList = snapshot.docs.map((doc) {
-            Map<String, dynamic> data = doc.data();
-            data['ingredientId'] = doc.id;
-            return Ingredient.fromJson(data);
-          }).toList();
-          
-          filterIngredient();
-          isLoading = false; 
-        });
-      }
-    }, onError: (error) {
-      print("❌ Error listening to ingredients: $error");
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-          ingredientList = [];
-          filterIngredient(); 
-        });
-      }
-    });
-  } else {
-    setState(() {
-      isLoading = false; 
-      ingredientList = [];
-      filterIngredient();
-    });
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('userIngredients')
+          .snapshots()
+          .listen((snapshot) {
+        if (mounted) {
+          print(
+              "📌 Received ${snapshot.docs.length} ingredients from Firestore");
+
+          setState(() {
+            ingredientList = snapshot.docs.map((doc) {
+              Map<String, dynamic> data = doc.data();
+              data['ingredientId'] = doc.id;
+
+              // เพิ่ม log
+              print(
+                  "Processing ingredient: ${data['ingredientsName']}, isThrowed: ${data['isThrowed']}, quantity: ${data['quantity']}");
+
+              return Ingredient.fromJson(data);
+            }).toList();
+
+            // แยก log นี้ออกมาเพื่อเห็นชัดๆ
+            print("Before filtering: ${ingredientList.length} items");
+
+            ingredientList = ingredientList
+                .where((ingredient) => !(ingredient.isThrowed ?? false))
+                .toList();
+
+            print("After filtering isThrowed: ${ingredientList.length} items");
+
+            filterIngredient();
+
+            print(
+                "After applying filter '${selectedType}': ${filteredIngredients.length} items");
+
+            isLoading = false;
+          });
+        }
+      }, onError: (error) {
+        print("❌ Error listening to ingredients: $error");
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+            ingredientList = [];
+            filterIngredient();
+          });
+        }
+      });
+    } else {
+      print("❌ User is not logged in");
+      setState(() {
+        isLoading = false;
+        ingredientList = [];
+        filterIngredient();
+      });
+    }
   }
-}
-
 
   Future<void> refreshIngredients() async {
-  try {
-    setState(() {
-      isLoading = true;
-    });
-    
-    
-    filterIngredient();
-    
-    setState(() {
-      isLoading = false;
-    });
-  } catch (e) {
-    print("❌ Error refreshing ingredients: $e");
-    setState(() {
-      isLoading = false;
-    });
-  }
-}
+    try {
+      setState(() {
+        isLoading = true;
+      });
 
-@override
+      filterIngredient();
+
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      print("❌ Error refreshing ingredients: $e");
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     _fetchUserName();
     setupIngredientListener();
   }
 
-
   void searchIngredients(String query) {
-  setState(() {
-    if (query.isEmpty) {
-     
-      filterIngredient();
-    } else {
-    
-      filteredIngredients = ingredientList.where((ingredient) {
-       
-        bool matchesSearch = ingredient.ingredientsName
-            .toLowerCase()
-            .contains(query.toLowerCase());
+    setState(() {
+      if (query.isEmpty) {
+        filterIngredient();
+      } else {
+        print("Searching for: $query in ${ingredientList.length} items");
 
-       
-        bool matchesFilter = false;
-        if (selectedType == 'Expire In 3 Days') {
-          matchesFilter = ingredient.expirationDate.isAfter(DateTime.now()) &&
-              ingredient.expirationDate
-                  .isBefore(DateTime.now().add(const Duration(days: 3)));
-        } else if (selectedType == 'Expired Items') {
-          matchesFilter = ingredient.expirationDate.isBefore(DateTime.now());
-        } else if (selectedType == 'Running Out Of') {
-          matchesFilter = ingredient.quantity <= ingredient.minQuantity;
-        }
+        filteredIngredients = ingredientList.where((ingredient) {
+          // กรองด้วยชื่อ
+          bool matchesSearch = ingredient.ingredientsName
+              .toLowerCase()
+              .contains(query.toLowerCase());
 
-        
-        return matchesSearch && matchesFilter;
-      }).toList();
+          // กรองตามประเภทที่เลือก
+          bool matchesFilter = false;
+          DateTime now = DateTime.now();
 
-      
-      filteredIngredients.sort((a, b) {
-        return a.expirationDate.compareTo(b.expirationDate);
-      });
-    }
-  });
-}
+          if (selectedType == 'Expire In 3 Days') {
+            DateTime threeDaysLater = now.add(const Duration(days: 3));
+            matchesFilter = ingredient.expirationDate.isAfter(now) &&
+                ingredient.expirationDate.isBefore(threeDaysLater) &&
+                ingredient.quantity > 0;
+          } else if (selectedType == 'Expired Items') {
+            matchesFilter = ingredient.expirationDate.isBefore(now) &&
+                ingredient.quantity > 0;
+          } else if (selectedType == 'Running Out Of') {
+            // แก้ชื่อให้ตรงกับ ingredientTypes
+            matchesFilter = ingredient.quantity <= ingredient.minQuantity;
+          } else {
+            // ถ้าไม่ได้เลือกหมวดหมู่ แสดงทั้งหมด
+            matchesFilter = true;
+          }
 
-@override
+          // เพิ่มเงื่อนไข isThrowed
+          return matchesSearch &&
+              matchesFilter &&
+              !(ingredient.isThrowed ?? false);
+        }).toList();
+
+        print("Found ${filteredIngredients.length} matching items");
+
+        filteredIngredients.sort((a, b) {
+          return a.expirationDate.compareTo(b.expirationDate);
+        });
+      }
+    });
+  }
+
+  @override
   void dispose() {
     searchController.dispose();
     super.dispose();
   }
-
-
-  
 
   @override
   Widget build(BuildContext context) {
     print("isLoading: $isLoading");
     Size size = MediaQuery.of(context).size;
 
-    
-
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.only(top :20 , left: 0),
+        padding: const EdgeInsets.only(top: 20, left: 0),
         child: ListView(
           children: [
             Padding(
@@ -258,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                     color: Colors.black,
+                      color: Colors.black,
                     ),
                   ),
                 ],
@@ -290,9 +402,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         selectedIndex = index;
                         selectedType = ingredientTypes[index];
                       });
-                      filterIngredient();  
+                      filterIngredient();
                     },
-
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       padding: const EdgeInsets.symmetric(
@@ -366,7 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               const EdgeInsets.symmetric(vertical: 10),
                         ),
                         onChanged: (value) {
-                         searchIngredients(value);
+                          searchIngredients(value);
                         },
                       ),
                     ),
@@ -430,60 +541,63 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // show ingredient
             isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : filteredIngredients.isEmpty
-              ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    SizedBox(height: 55),
-                    Image.asset(
-                      'assets/images/case.png',
-                     width: 250,
-                     height: 250,
-                    ),
-                    SizedBox(height: 10),
-                    Text(
-                      selectedType == 'Expire In 3 Days'
-                        ?  "You don't have ingredients expire in 3 days"
-                        : selectedType == 'Expired Items'
-                          ? "You don't have ingredient expired"
-                          : "You don't have ingredients running out of",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold
+                ? const Center(child: CircularProgressIndicator())
+                : filteredIngredients.isEmpty
+                    ? Center(
+                        child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(height: 55),
+                          Image.asset(
+                            'assets/images/case.png',
+                            width: 250,
+                            height: 250,
+                          ),
+                          SizedBox(height: 10),
+                          Text(
+                            selectedType == 'Expire In 3 Days'
+                                ? "You don't have ingredients expire in 3 days"
+                                : selectedType == 'Expired Items'
+                                    ? "You don't have ingredient expired"
+                                    : "You don't have ingredients running out of",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ))
+                    : ListView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        itemCount: filteredIngredients.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          if (index < 0 ||
+                              index >= filteredIngredients.length) {
+                            return SizedBox();
+                          }
+                          final ingredient = filteredIngredients[index];
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                PageTransition(
+                                  child: IngredientDetailPage(
+                                    ingredient: ingredient,
+                                    recipes: [],
+                                  ),
+                                  type: PageTransitionType.bottomToTop,
+                                ),
+                              );
+                            },
+                            child: IngredientWidget(
+                              index: index,
+                              ingredientList: filteredIngredients,
+                              ingredient: ingredient,
+                              onItemDismissed: removeIngredient,
+                            ),
+                          );
+                        },
                       ),
-                    ),
-                  ],
-                ))
-              : ListView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              itemCount: filteredIngredients.length,
-              itemBuilder: (BuildContext context, int index) {
-                final ingredient = filteredIngredients[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      PageTransition(
-                        child: IngredientDetailPage(
-                          ingredient: ingredient,
-                          recipes: [],
-                        ),
-                        type: PageTransitionType.bottomToTop,
-                      ),
-                    );
-                  },
-                  child: IngredientWidget(
-                    index: index,
-                    ingredientList: filteredIngredients,
-                    ingredient: ingredient,
-                  ),
-                );
-              },
-            ),
           ],
         ),
       ),

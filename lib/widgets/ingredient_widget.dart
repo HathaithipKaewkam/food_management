@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/constants.dart';
@@ -10,13 +12,132 @@ class IngredientWidget extends StatelessWidget {
    final int index;
   final List<Ingredient> ingredientList;
   final Ingredient ingredient;
+   final Function(int)? onItemDismissed;
   
   const IngredientWidget({
     Key? key,
     required this.index,
     required this.ingredientList,
     required this.ingredient,
+    this.onItemDismissed,
   }) : super(key: key);
+
+  Future<void> throwItemByNameAndStorage(BuildContext context, Ingredient ingredient) async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print("Error: User is not logged in");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: User not logged in'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    print("Attempting to find and mark item as thrown by name: ${ingredient.ingredientsName} and storage: ${ingredient.storage}");
+    
+    // ค้นหาด้วยทั้งชื่อและที่เก็บ
+    final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userIngredients')
+        .where('ingredientsName', isEqualTo: ingredient.ingredientsName)
+        .where('storage', isEqualTo: ingredient.storage)  // เพิ่มเงื่อนไข storage
+        .get();
+    
+    if (querySnapshot.docs.isEmpty) {
+      print("No ingredient found with name: ${ingredient.ingredientsName} and storage: ${ingredient.storage}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: Ingredient "${ingredient.ingredientsName}" not found'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    // ถ้ามีหลายรายการที่ตรงกับทั้งชื่อและที่เก็บ ให้ตรวจสอบวันหมดอายุด้วย
+    DocumentSnapshot? matchingDoc;
+    if (querySnapshot.docs.length > 1) {
+      for (var doc in querySnapshot.docs) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        
+        // แปลง Timestamp จาก Firestore เป็น DateTime
+        Timestamp expiryTimestamp = data['expirationDate'] as Timestamp;
+        DateTime expiryDate = expiryTimestamp.toDate();
+        
+        // เปรียบเทียบวันหมดอายุ (ต้องแปลงเป็นสตริงเพื่อเปรียบเทียบ format เดียวกัน)
+        String docExpiryStr = DateFormat('yyyy-MM-dd').format(expiryDate);
+        String ingredientExpiryStr = DateFormat('yyyy-MM-dd').format(ingredient.expirationDate);
+        
+        if (docExpiryStr == ingredientExpiryStr) {
+          matchingDoc = doc;
+          break;
+        }
+      }
+    } else {
+      // ถ้ามีเพียงรายการเดียวที่ตรงกับทั้งชื่อและที่เก็บ ใช้รายการนั้นเลย
+      matchingDoc = querySnapshot.docs.first;
+    }
+    
+    if (matchingDoc == null) {
+      print("No exact matching ingredient found");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: Could not find exact match for "${ingredient.ingredientsName}"'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    // ใช้ document ID ที่ได้จากการค้นหา
+    String docId = matchingDoc.id;
+    print("Found document ID: $docId for ingredient: ${ingredient.ingredientsName}");
+    
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userIngredients')
+        .doc(docId)
+        .update({
+          'isThrowed': true,
+          'quantity': 0, 
+        });
+
+    print("Item marked as thrown successfully");
+
+     if (onItemDismissed != null) {
+      // ตรวจสอบว่าเรายังอยู่ในต้นไม้ UI หรือไม่
+      if (context.mounted) {
+        // เรียก callback บน UI thread
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          onItemDismissed!(index);
+        });
+      }
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${ingredient.ingredientsName} thrown successfully'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+    
+    return;
+  } catch (e) {
+    print("Error throwing item: $e");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +146,7 @@ class IngredientWidget extends StatelessWidget {
     final DateTime now = DateTime.now();
     final DateTime expiryDate = ingredient.expirationDate;
     final int daysToExpiry = expiryDate.difference(now).inDays;
+     String safeKey = "ingredient_${ingredient.ingredientsName}_$index";
 
     String expiryText;
     Color expiryColor;
@@ -47,53 +169,72 @@ class IngredientWidget extends StatelessWidget {
             : (3 - daysToExpiry) / 3;
 
     return Dismissible(
-      key: ValueKey(ingredient.ingredientId),  // Unique ID for each ingredient
-      background: swipeActionBackground(Alignment.centerLeft, Colors.green, Icons.check, 'Consume'),
-      secondaryBackground: swipeActionBackground(Alignment.centerRight, Colors.red, Icons.delete, 'Throw'),
-      confirmDismiss: (direction) async {
-        if (direction == DismissDirection.startToEnd ||
-            direction == DismissDirection.endToStart) {
-          return await showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: const Text('Choose an action'),
-                content: Text('What would you like to do with ${ingredient.ingredientsName}?'),
-                actions: [
-                  TextButton(
-                    onPressed: () async {
-                      print('Consumed ${ingredient.ingredientsName}');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Consumed ${ingredient.ingredientsName}')),
-                      );
-                      Navigator.pop(context, true); 
-                   
+  key: ValueKey(safeKey),
+  background: swipeActionBackground(Alignment.centerRight, Colors.red, Icons.delete, 'Throw'),
+  confirmDismiss: (direction) async {
+    if (direction == DismissDirection.startToEnd ||
+        direction == DismissDirection.endToStart) {
+      return await showDialog<bool>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Choose an action'),
+            content: Text('What would you like to do with ${ingredient.ingredientsName}?'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  // ยกเลิกการ dismiss
+                  Navigator.pop(context, false);
+                },
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              TextButton(
+  onPressed: () async {
+    // เปลี่ยนลำดับการทำงาน: ทิ้งในฐานข้อมูลก่อน
+    try {
+      await throwItemByNameAndStorage(context, ingredient);
+      
+      // แล้วค่อยลบออกจาก UI
+      if (onItemDismissed != null) {
+        onItemDismissed!(index);
+      }
+      
+      // ปิดกล่องโต้ตอบ
+      Navigator.pop(context, true);
+    } catch (e) {
+      print("Error during item throw: $e");
+      // ถ้ามีข้อผิดพลาด อย่าลบออกจาก UI
+      Navigator.pop(context, false);
+    }
+  },
+  child: const Text(
+    'Thrown',
+    style: TextStyle(color: Colors.red),
+  ),
+),
+                              ],
+                            );
+                          },
+                        ) ?? false; 
+                      }
+                      return false;
                     },
-                    child: const Text(
-                      'Consume',
-                      style: TextStyle(color: Colors.green),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      print('Thrown ${ingredient.ingredientsName}');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Thrown ${ingredient.ingredientsName}')),
-                      );
-                      Navigator.pop(context, false); // Confirm action
-                    },
-                    child: const Text(
-                      'Thrown',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-              );
-            },
-          );
-        }
-        return false; // Prevent accidental dismissal
-      },
+                    onDismissed: (direction) {
+                 
+                  try {
+                    if (onItemDismissed != null) {
+                     
+                      onItemDismissed!(index);
+                    } else {
+                      print("Warning: onItemDismissed callback is not provided");
+                    }
+                  } catch (e) {
+                    print("Error in onDismissed: $e");
+                  }
+                },
       child: GestureDetector(
         onTap: () {
           Navigator.push(
@@ -104,49 +245,6 @@ class IngredientWidget extends StatelessWidget {
               ),
               type: PageTransitionType.bottomToTop,
             ),
-          );
-        },
-        onLongPress: () {
-          showModalBottomSheet(
-            context: context,
-            builder: (BuildContext context) {
-              return Wrap(
-                children: [
-                  ListTile(
-                    leading: const FaIcon(FontAwesomeIcons.rightLeft),
-                    title: const Text('Move'),
-                    onTap: () {
-                      print('Move action selected');
-                      Navigator.pop(context);
-                    },
-                  ),
-                  ListTile(
-                    leading: const FaIcon(FontAwesomeIcons.pen),
-                    title: const Text('Edit'),
-                    onTap: () {
-                      print('Edit action selected');
-                      Navigator.pop(context);
-                    },
-                  ),
-                  ListTile(
-                    leading: const FaIcon(FontAwesomeIcons.cartShopping),
-                    title: const Text('Buy'),
-                    onTap: () {
-                      print('Buy action selected');
-                      Navigator.pop(context);
-                    },
-                  ),
-                  ListTile(
-                    leading: const FaIcon(FontAwesomeIcons.trash),
-                    title: const Text('Delete'),
-                    onTap: () {
-                      print('Delete action selected');
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
-              );
-            },
           );
         },
         child: Container(

@@ -12,6 +12,7 @@ class Ingredient {
   final DateTime expirationDate; 
   final String source; 
   final String imageUrl;
+ final bool? isThrowed; 
 
   final String status; 
   final double price; 
@@ -48,7 +49,13 @@ class Ingredient {
     required this.imageUrl,
     this.isSelected = false,
     this.usageHistory = const [],
+    this.isThrowed,
   });
+
+  bool isThrownAway() {
+    return isThrowed ?? false; 
+  }
+  
 
   factory Ingredient.fromAPI({
     required String id,
@@ -146,6 +153,7 @@ class Ingredient {
     updateDate: _parseDate(json['updateDate']),
     source: json['source'] ?? '',
     imageUrl: json['imageUrl'] ?? '',
+    isThrowed: json['isThrowed'] as bool?,
     status: json['status'] ?? '',
      quantityAdded: (json['quantityAdded'] is int)
           ? (json['quantityAdded'] as int).toDouble()
@@ -186,6 +194,7 @@ class Ingredient {
       'quantityAdded': quantityAdded,
       'addedDate': addedDate?.toIso8601String(),      
       'isSelected': isSelected,
+       'isThrowed': isThrowed,
     };
   }
 

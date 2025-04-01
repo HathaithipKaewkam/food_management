@@ -5,11 +5,14 @@ import 'package:food_project/constants.dart';
 class ProfileWidget extends StatelessWidget {
   final IconData icon;
   final String title;
+  final VoidCallback? onTap; 
+
   const ProfileWidget({
-    super.key,
+    Key? key,
     required this.icon,
     required this.title,
-  });
+    this.onTap, 
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

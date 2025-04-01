@@ -1,10 +1,53 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/widgets/profile_widget.dart';
 
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String userName = 'John Doe'; // กำหนดค่าเริ่มต้น
+  String userEmail = 'johndoe@gmail.com'; // กำหนดค่าเริ่มต้น
+  
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserName(); // เรียกใช้ตอนเริ่มต้น
+  }
+  
+  Future<void> _fetchUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // อัปเดตอีเมลจาก Firebase Auth
+      setState(() {
+        userEmail = user.email ?? 'No email';
+      });
+      
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          setState(() {
+            userName = userDoc['username'] ?? 'User';
+          });
+        }
+      } catch (e) {
+        print('Error fetching user data: $e');
+      }
+    } else {
+      print("User not logged in");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,15 +77,18 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             SizedBox(
-              width: size.width * .3,
+              width: size.width * .5, // เพิ่มขนาดให้กว้างขึ้นเพื่อรองรับชื่อที่ยาว
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'John Doe',
-                    style: TextStyle(
-                      color: Constants.blackColor,
-                      fontSize: 20,
+                  Flexible(
+                    child: Text(
+                      userName,
+                      style: TextStyle(
+                        color: Constants.blackColor,
+                        fontSize: 20,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 5),
@@ -54,7 +100,7 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             Text(
-              'johndoe@gmail.com',
+              userEmail,
               style: TextStyle(
                 color: Constants.blackColor.withOpacity(.3),
               ),
@@ -62,7 +108,7 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             // เมนูโปรไฟล์
-            const Expanded(
+            Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -89,6 +135,19 @@ class ProfileScreen extends StatelessWidget {
                   ProfileWidget(
                     icon: Icons.logout,
                     title: 'Log Out',
+                    onTap: () async {
+                      // เพิ่มฟังก์ชัน logout
+                      try {
+                        await FirebaseAuth.instance.signOut();
+                        // นำทางไปยังหน้า login หรือ home
+                        Navigator.of(context).pushReplacementNamed('/login');
+                      } catch (e) {
+                        print('Error signing out: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error signing out: $e')),
+                        );
+                      }
+                    },
                   ),
                 ],
               ),

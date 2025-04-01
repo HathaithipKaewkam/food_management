@@ -81,7 +81,8 @@ class _IngredientScreenState extends State<IngredientScreen> {
 
       List<Ingredient> notExpiredIngredients =
           ingredientList.where((ingredient) {
-        return ingredient.expirationDate.isAfter(now);
+        return ingredient.expirationDate.isAfter(now)  && 
+             !(ingredient.isThrowed ?? false);
       }).toList();
 
       if (selectedType == 'All') {
@@ -117,7 +118,9 @@ class _IngredientScreenState extends State<IngredientScreen> {
           bool matchesType =
               selectedType == 'All' || ingredient.storage == selectedType;
           bool notExpired = ingredient.expirationDate.isAfter(DateTime.now());
-          return matchesSearch && matchesType && notExpired;
+           bool notThrowed = !(ingredient.isThrowed ?? false); 
+        return matchesSearch && matchesType && notExpired && notThrowed;
+          
         }).toList();
 
         searchResults.sort((a, b) {
@@ -159,7 +162,9 @@ class _IngredientScreenState extends State<IngredientScreen> {
             data['id'] = doc.id;
             return Ingredient.fromJson(data);
           }).toList();
-
+           ingredientList = ingredientList.where((ingredient) => 
+          !(ingredient.isThrowed ?? false)
+        ).toList();
           filterIngredientsByType();
         });
       });
@@ -453,8 +458,9 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                   padding: const EdgeInsets.only(top: 0),
                                   child: ingredientList
                                           .where((ingredient) => 
-              ingredient.expirationDate.isBefore(DateTime.now()) && 
-              ingredient.quantity > 0)
+                                          ingredient.expirationDate.isBefore(DateTime.now()) && 
+                                          ingredient.quantity > 0 &&
+            !(ingredient.isThrowed ?? false)) 
                                           .toList()
                                           .isNotEmpty
                                       ? GestureDetector(
