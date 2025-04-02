@@ -401,7 +401,7 @@ int currentMonth = DateTime.now().month;
                                   color: Colors.black,
                                 ),
                               ),
-                              SizedBox(width: 250),
+                              SizedBox(width: 230),
                               Text(
                               '${getTotalPriceForMonth(ingredientList.map((ingredient) => ingredient.toJson()).toList(), currentYear, currentMonth).toStringAsFixed(2)} ฿',
                               style: TextStyle(

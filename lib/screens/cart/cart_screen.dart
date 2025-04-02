@@ -634,7 +634,7 @@ void dispose() {
                                   color: Colors.black,
                                 ),
                               ),
-                              SizedBox(width: 250),
+                              SizedBox(width: 230),
                               Text(
                                 '${getTotalPrice(cartItems).toStringAsFixed(2)} ฿',
                                 style: TextStyle(

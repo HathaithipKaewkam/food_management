@@ -386,7 +386,8 @@ class _AnalysisBuyState extends State<AnalysisBuy> {
                   },
                 ),
               ),
-             Expanded(
+             // แก้ไขส่วนที่สร้าง Category Chart
+Expanded(
   child: filteredHistoryMonth.isEmpty 
       ? Center(
           child: Text(
@@ -397,45 +398,11 @@ class _AnalysisBuyState extends State<AnalysisBuy> {
       : selectedType == 'Expenses'
           ? buildBarChart(filteredHistoryMonth)
           : selectedType == 'Category'
-              ? Column(
-                  children: [
-                    buildPieChart(filteredHistoryMonth),
-                    buildCategoryLegend(
-                      filteredHistoryMonth
-                          .map((ingredient) =>
-                              ingredient.category ?? 'Unknown')
-                          .toSet()
-                          .toList(),
-                      Map<String, double>.fromIterable(
-                        filteredHistoryMonth,
-                        key: (ingredient) =>
-                            ingredient.category ?? 'Unknown',
-                        value: (ingredient) => ingredient.price,
-                      ),
-                    ),
-                  ],
-                )
+              ? buildPieChartWithLegend(filteredHistoryMonth) // ใช้ฟังก์ชันใหม่
               : selectedType == 'Source'
-                  ? Column(
-                      children: [
-                        buildDonutChart(filteredHistoryMonth),
-                        buildCategorySource(
-                          filteredHistoryMonth
-                              .map((ingredient) =>
-                                  ingredient.source ?? 'Unknown')
-                              .toSet()
-                              .toList(),
-                          Map<String, double>.fromIterable(
-                            filteredHistoryMonth,
-                            key: (ingredient) =>
-                                ingredient.source ?? 'Unknown',
-                            value: (ingredient) => ingredient.price,
-                          ),
-                        ),
-                      ],
-                    )
+                  ? buildSourceChartWithLegend(filteredHistoryMonth) // ใช้ฟังก์ชันใหม่
                   : Container(),
-),
+)
             ])));
   }
 }
@@ -633,16 +600,81 @@ Widget buildBarChart(List<Ingredient> ingredients) {
   );
 }
 
+// เพิ่มฟังก์ชันใหม่
+Widget buildPieChartWithLegend(List<Ingredient> ingredients) {
+  // สร้าง categoryData จากข้อมูล
+  Map<String, double> categoryData = {};
+  
+  for (var ingredient in ingredients) {
+    String category = ingredient.category ?? 'Unknown';
+    double price = ingredient.price; // ใช้ค่าจริง
+    categoryData[category] = (categoryData[category] ?? 0) + price;
+  }
+  
+  if (categoryData.isEmpty) {
+    return Center(
+      child: Text(
+        'No category data available',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+  
+  return Column(
+    children: [
+      buildPieChart(ingredients),
+      buildCategoryLegend(
+        categoryData.keys.toList(),
+        categoryData,
+      ),
+    ],
+  );
+}
+
+Widget buildSourceChartWithLegend(List<Ingredient> ingredients) {
+  // สร้าง sourceData จากข้อมูล
+  Map<String, double> sourceData = {};
+  
+  for (var ingredient in ingredients) {
+    String source = ingredient.source ?? 'Unknown';
+    double price = ingredient.price; // ใช้ค่าจริง
+    sourceData[source] = (sourceData[source] ?? 0) + price;
+  }
+  
+  if (sourceData.isEmpty) {
+    return Center(
+      child: Text(
+        'No source data available',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+  
+  return Column(
+    children: [
+      buildDonutChart(ingredients),
+      buildCategorySource(
+        sourceData.keys.toList(),
+        sourceData,
+      ),
+    ],
+  );
+}
+
+
 Widget buildPieChart(List<Ingredient> ingredients) {
   Map<String, double> categoryData = {};
 
   for (var ingredient in ingredients) {
     String category = ingredient.category ?? 'Unknown';
-    categoryData[category] = (categoryData[category] ?? 0) + ingredient.price;
+    double price = ingredient.price; 
+    categoryData[category] = (categoryData[category] ?? 0) + price;
+    
+    
   }
 
-  // ตรวจสอบก่อนว่ามีข้อมูลหรือไม่
   if (categoryData.isEmpty) {
+    print("❌ No category data available");
     return Center(
       child: Text(
         'No data available for this month',
@@ -652,22 +684,36 @@ Widget buildPieChart(List<Ingredient> ingredients) {
   }
 
   double total = categoryData.values.reduce((a, b) => a + b);
+  if (total <= 0) {
+    print("❌ Total price is zero");
+    return Center(
+      child: Text(
+        'No price data available for this month',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
 
-  List<PieChartSectionData> sections = categoryData.entries.map((entry) {
-    double percentage = (entry.value / total) * 100;
-    return PieChartSectionData(
-      color: getColorForCategory(entry.key),
-      value: entry.value,
-      title: '${percentage.toStringAsFixed(1)}%',
+  List<PieChartSectionData> sections = [];
+  
+ 
+  categoryData.forEach((key, value) {
+    
+    double percentage = total > 0 ? (value / total) * 100 : 0;
+    
+    sections.add(PieChartSectionData(
+      color: getColorForCategory(key),
+      value: value,
+      title: value > 0 ? '${percentage.toStringAsFixed(1)}%' : '0%',
       radius: 60,
       titleStyle: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.bold,
         color: Colors.white,
       ),
-    );
-  }).toList();
-
+    ));
+  });
+  
   return Container(
     width: 300,
     height: 300,
@@ -682,9 +728,9 @@ Widget buildPieChart(List<Ingredient> ingredients) {
   );
 }
 
-Widget buildCategoryLegend(
-    List<String> categories, Map<String, double> categoryData) {
-  // ตรวจสอบก่อนว่ามีข้อมูลหรือไม่
+
+
+Widget buildCategoryLegend(List<String> categories, Map<String, double> categoryData) {
   if (categoryData.isEmpty) {
     return Center(
       child: Text(
@@ -694,44 +740,71 @@ Widget buildCategoryLegend(
     );
   }
 
+  // สร้าง list ใหม่เพื่อเรียงลำดับตามมูลค่ามากไปน้อย
+  List<MapEntry<String, double>> sortedEntries = categoryData.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  
   double total = categoryData.values.reduce((a, b) => a + b);
   
-  return SingleChildScrollView(
-    child: Wrap(
-      spacing: 10.0,
-      runSpacing: 10.0,
-      children: categories.map((category) {
-        double categoryAmount = categoryData[category] ?? 0;
-        double percentage = (categoryAmount / total) * 100;
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10.0),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                color: getColorForCategory(category),
-              ),
-              SizedBox(width: 8),
-              Text(
-                '$category: ${categoryAmount.toStringAsFixed(2)}฿ (${percentage.toStringAsFixed(1)}%)',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+    child: SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: sortedEntries.map((entry) {
+          String category = entry.key;
+          double categoryAmount = entry.value;
+          // ป้องกันการหารด้วย 0
+          double percentage = total > 0 ? (categoryAmount / total) * 100 : 0;
+          
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: getColorForCategory(category),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    category,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${categoryAmount.toStringAsFixed(1)}฿',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  '(${percentage.toStringAsFixed(1)}%)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     ),
   );
 }
 
-Widget buildCategorySource(
-    List<String> sources, Map<String, double> sourceData) {
-  // ตรวจสอบก่อนว่ามีข้อมูลหรือไม่
+
+Widget buildCategorySource(List<String> sources, Map<String, double> sourceData) {
   if (sourceData.isEmpty) {
     return Center(
       child: Text(
@@ -741,36 +814,63 @@ Widget buildCategorySource(
     );
   }
 
+  List<MapEntry<String, double>> sortedEntries = sourceData.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  
   double total = sourceData.values.reduce((a, b) => a + b);
-
-  return SingleChildScrollView(
-    child: Wrap(
-      spacing: 10.0,
-      runSpacing: 10.0,
-      children: sources.map((source) {
-        double sourceAmount = sourceData[source] ?? 0;
-        double percentage = (sourceAmount / total) * 100;
-        return Padding(
-          padding: const EdgeInsets.only(left: 70),
-          child: Row(
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                color: getColorForSource(source),
-              ),
-              SizedBox(width: 8),
-              Text(
-                '$source: ${sourceAmount.toStringAsFixed(1)} (${percentage.toStringAsFixed(1)}%)',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+  
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+    child: SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: sortedEntries.map((entry) {
+          String source = entry.key;
+          double sourceAmount = entry.value;
+          double percentage = total > 0 ? (sourceAmount / total) * 100 : 0;
+          
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: getColorForSource(source),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    source,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${sourceAmount.toStringAsFixed(1)}฿',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  '(${percentage.toStringAsFixed(1)}%)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     ),
   );
 }
@@ -780,10 +880,9 @@ Widget buildDonutChart(List<Ingredient> ingredients) {
 
   for (var ingredient in ingredients) {
     String source = ingredient.source ?? 'Unknown';
-    sourceData[source] = (sourceData[source] ?? 0) + ingredient.quantity;
+    sourceData[source] = (sourceData[source] ?? 0) + ingredient.price; // ใช้ price แทน quantity
   }
 
-  // ตรวจสอบก่อนว่ามีข้อมูลหรือไม่
   if (sourceData.isEmpty) {
     return Center(
       child: Text(
@@ -794,21 +893,31 @@ Widget buildDonutChart(List<Ingredient> ingredients) {
   }
 
   double total = sourceData.values.reduce((a, b) => a + b);
+  if (total <= 0) {
+    return Center(
+      child: Text(
+        'No price data available for this month',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
 
-  List<PieChartSectionData> sections = sourceData.entries.map((entry) {
-    double percentage = (entry.value / total) * 100;
-    return PieChartSectionData(
-      color: getColorForSource(entry.key),
-      value: entry.value,
-      title: '${percentage.toStringAsFixed(1)}%',
+  List<PieChartSectionData> sections = [];
+  
+  sourceData.forEach((key, value) {
+    double percentage = (value / total) * 100;
+    sections.add(PieChartSectionData(
+      color: getColorForSource(key),
+      value: value,
+      title: value > 0 ? '${percentage.toStringAsFixed(1)}%' : '0%',
       radius: 60,
       titleStyle: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.bold,
         color: Colors.white,
       ),
-    );
-  }).toList();
+    ));
+  });
 
   return Container(
     width: 300,
