@@ -53,6 +53,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
           'storage': data['storage'] ?? '',
           'quantity': data['quantity'] ?? 1,
           'minQuantity': data['minQuantity'] ?? 1,
+          'kcal': data['kcal'] ?? 0,
         });
       }
 
@@ -101,47 +102,79 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
   }
 
   Future<void> _saveCart(Map<String, dynamic> ingredient) async {
-    try {
-      String uid = FirebaseAuth.instance.currentUser!.uid;
+  try {
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+    CollectionReference userCart = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('userCart');
 
-     
-      CollectionReference userCart = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('userCart');
+    CollectionReference historyCart = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('historyCart');
 
-      CollectionReference historyCart = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('historyCart');
+    QuerySnapshot query = await userCart
+        .where('ingredientsName', isEqualTo: ingredient['ingredientsName'])
+        .get();
 
-      QuerySnapshot query = await userCart
-          .where('ingredientsName', isEqualTo: ingredient['ingredientsName'])
-          .get();
-
-      if (query.docs.isNotEmpty) {
-        DocumentSnapshot existingDoc = query.docs.first;
-        int existingQuantity = existingDoc['quantity'] ?? 0;
-        num newQuantity = existingQuantity + (ingredient['quantity'] ?? 1);
-
-        await existingDoc.reference.update({'quantity': newQuantity});
-        print("✅ Updated quantity for ${ingredient['ingredientsName']}");
-      } else {
-        await userCart.add(ingredient);
-        print("✅ Added ${ingredient['ingredientsName']} to cart");
+    if (query.docs.isNotEmpty) {
+      DocumentSnapshot existingDoc = query.docs.first;
+      double existingQuantity = (existingDoc['quantity'] is int)
+          ? (existingDoc['quantity'] as int).toDouble()
+          : (existingDoc['quantity'] as num?)?.toDouble() ?? 0.0;
+      
+      double newQuantity = existingQuantity + (ingredient['quantity'] as num).toDouble();
+      
+      
+      double existingKcal = 0.0;
+      if (existingDoc['kcal'] != null) {
+        existingKcal = (existingDoc['kcal'] is int)
+            ? (existingDoc['kcal'] as int).toDouble()
+            : (existingDoc['kcal'] as num?)?.toDouble() ?? 0.0;
       }
+      
+      double newKcal = existingKcal + (ingredient['kcal'] as num).toDouble();
+      
 
-
-      await historyCart.add({
-        ...ingredient,
-        'addedAt': FieldValue.serverTimestamp(), 
+      await existingDoc.reference.update({
+        'quantity': newQuantity,
+        'kcal': newKcal, // อัปเดตค่า kcal
       });
-
-      print("📜 History saved for ${ingredient['ingredientsName']}");
-    } catch (e) {
-      print("❌ Error saving cart: $e");
+      
+      print("✅ Updated quantity and kcal for ${ingredient['ingredientsName']}");
+    } else {
+      
+      Map<String, dynamic> newIngredient = {...ingredient};
+      
+      
+      if (newIngredient['kcal'] != null && newIngredient['kcal'] is! double) {
+        newIngredient['kcal'] = (newIngredient['kcal'] as num).toDouble();
+      }
+      
+      DocumentReference newDoc = await userCart.add(newIngredient);
+      
+      
     }
+
+    // บันทึกประวัติ
+    Map<String, dynamic> historyItem = {
+      ...ingredient,
+      'addedAt': FieldValue.serverTimestamp(),
+    };
+    
+    // ตรวจสอบว่า kcal เป็น double
+    if (historyItem['kcal'] != null && historyItem['kcal'] is! double) {
+      historyItem['kcal'] = (historyItem['kcal'] as num).toDouble();
+    }
+    
+    await historyCart.add(historyItem);
+
+    print("📜 History saved for ${ingredient['ingredientsName']} with ${ingredient['kcal']} kcal");
+  } catch (e) {
+    print("❌ Error saving cart: $e");
   }
+}
 
   Future<void> checkUserIngredients() async {
   String uid = FirebaseAuth.instance.currentUser!.uid;
@@ -386,6 +419,19 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
       
     double quantity = 1.0;
     TextEditingController priceController = TextEditingController();
+    double ingredientKcal = 0.0;
+  String originalUnit = '';
+  bool isIngredientInDatabase = false;
+
+   if (ingredient.containsKey('kcal') && ingredient['kcal'] != null) {
+    isIngredientInDatabase = true;
+    ingredientKcal = (ingredient['kcal'] is int)
+        ? (ingredient['kcal'] as int).toDouble()
+        : (ingredient['kcal'] as num?)?.toDouble() ?? 0.0;
+    originalUnit = ingredient['unit'] ?? 'Pieces';
+    
+    print("📊 Ingredient ${ingredient['ingredientsName']} has ${ingredientKcal} kcal per ${originalUnit}");
+  }
     
 
     List<Map<String, dynamic>> userIngredients = userIngredientsMap.entries.map((entry) {
@@ -465,6 +511,48 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                 String selectedUnit = ingredient['unit'] ?? 'Kilograms (kg)';
                 String selectedStorage = ingredient['storage'] ?? 'Fridge';
                 String selectedSource = ingredient['source'] ?? 'Supermarket'; 
+double calculateKcal(double qty, String unit) {
+  if (!isIngredientInDatabase) {
+    print("⚠️ Ingredient not in database, kcal = 0");
+    return 0.0;
+  }
+  
+  print("🔢 Getting base kcal for ${unit}");
+  
+  // กรณีหน่วยเดียวกัน ใช้ค่า kcal เดิม
+  if (unit == originalUnit) {
+    print("✅ Same unit: returning base kcal ${ingredientKcal}");
+    return ingredientKcal; // ไม่คูณกับปริมาณ
+  }
+  
+  // กรณีหน่วยต่างกัน ต้องแปลงหน่วย
+  switch (originalUnit) {
+    // กรณี แปลงจาก kg เป็นหน่วยอื่น
+    case 'Kilograms (kg)':
+      if (unit == 'Grams (g)') {
+        // 1 kg = 1000 g
+        double result = ingredientKcal / 1000;
+        print("✅ kg→g: ${ingredientKcal} kcal/kg ÷ 1000 = ${result} kcal/g");
+        return result;
+      }
+      break;
+      
+    // กรณี แปลงจาก g เป็นหน่วยอื่น
+    case 'Grams (g)':
+      if (unit == 'Kilograms (kg)') {
+        // 1000 g = 1 kg
+        double result = ingredientKcal * 1000;
+        print("✅ g→kg: ${ingredientKcal} kcal/g × 1000 = ${result} kcal/kg");
+        return result;
+      }
+      break;
+  }
+  
+  // กรณีไม่สามารถแปลงหน่วยได้
+  print("⚠️ Unit conversion not supported: ${originalUnit} → ${unit}");
+  print("⚠️ Returning original kcal: ${ingredientKcal}");
+  return ingredientKcal; // ไม่คูณกับปริมาณ
+}
 
     showDialog(
       context: context,
@@ -475,6 +563,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: StatefulBuilder(
             builder: (context, setDialogState) {
+               double calculatedKcal = calculateKcal(quantity, selectedUnit);
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
@@ -519,6 +608,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
 
                     buildCustomDropdown('Unit', unitOptions, selectedUnit, (newValue) {
                       setDialogState(() => selectedUnit = newValue);
+                       calculatedKcal = calculateKcal(quantity, selectedUnit);
                     }),
 
                     buildCustomDropdown('Storage', storageOptions, selectedStorage, (newValue) {
@@ -531,6 +621,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                     const SizedBox(height: 10),
                    ElevatedButton(
                   onPressed: () async {
+                    double calculatedKcal = calculateKcal(quantity, selectedUnit);
                     await _saveCart({
                       'ingredientsName': ingredient['ingredientsName'],
                       'imageUrl': ingredient['imageUrl'],
@@ -542,6 +633,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                       'price': priceController.text.isEmpty
                           ? 0
                           : double.tryParse(priceController.text) ?? 0,
+                      'kcal': calculatedKcal,
                     });
                         setState(() {
                           addedToCartIngredients.add({
@@ -555,6 +647,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                             'price': priceController.text.isEmpty
                                 ? 0
                                 : double.tryParse(priceController.text) ?? 0,
+                             'kcal': calculatedKcal,
                           });
                         });
 

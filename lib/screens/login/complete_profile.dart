@@ -83,6 +83,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
     required double weight,
     required double height,
     required String activity,
+    required String profileImage,
   }) async {
     final userProfileRef =
         FirebaseFirestore.instance.collection('userProfiles').doc(userId);
@@ -95,6 +96,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
       'activity': activity,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'profileImage': profileImage,
     });
   }
 
@@ -227,6 +229,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
                               weight: double.parse(_weightController.text),
                               height: double.parse(_heightController.text),
                               activity: selectedActivity,
+                              profileImage: selectedImage,
                             );
                             Navigator.push(
                               context,

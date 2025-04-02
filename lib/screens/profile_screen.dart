@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/widgets/profile_widget.dart';
 
-
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -13,15 +12,17 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String userName = 'John Doe'; // กำหนดค่าเริ่มต้น
-  String userEmail = 'johndoe@gmail.com'; // กำหนดค่าเริ่มต้น
-  
+  String userName = '';
+  String userEmail = '';
+  String profileImage = '';
+
   @override
   void initState() {
     super.initState();
-    _fetchUserName(); // เรียกใช้ตอนเริ่มต้น
+    _fetchUserName();
+    _fetchProfileImage();
   }
-  
+
   Future<void> _fetchUserName() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -29,7 +30,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         userEmail = user.email ?? 'No email';
       });
-      
+
       try {
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
@@ -49,109 +50,113 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _fetchProfileImage() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        userEmail = user.email ?? 'No email';
+      });
+
+      try {
+        DocumentSnapshot profileDoc = await FirebaseFirestore.instance
+            .collection('userProfiles')
+            .doc(user.uid)
+            .get();
+
+        if (profileDoc.exists && profileDoc['profileImage'] != null) {
+          setState(() {
+            profileImage = profileDoc['profileImage'];
+          });
+        }
+      } catch (e) {
+        print('Error fetching user data: $e');
+      }
+    } else {
+      print("User not logged in");
+    }
+  }
+
+  String _getFormattedDate() {
+    final now = DateTime.now();
+    final List<String> months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
+    ];
+    return "${months[now.month - 1]} ${now.day}";
+  }
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     return Scaffold(
-      body: Container(
-        padding: const EdgeInsets.only(top: 100, left: 16, right: 16, bottom: 16),
-        height: size.height, // กำหนดให้ Container ครอบคลุมหน้าจอทั้งหมด
-        width: size.width,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+      body: Padding(
+        padding: const EdgeInsets.only(top: 20, left: 0),
+        child: ListView(
           children: [
-            // รูปโปรไฟล์
-            Container(
-              width: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Constants.primaryColor.withOpacity(.5),
-                  width: 5.0,
-                ),
-              ),
-              child: const CircleAvatar(
-                radius: 60,
-                backgroundImage: ExactAssetImage('assets/images/profile.jpg'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: size.width * .5, // เพิ่มขนาดให้กว้างขึ้นเพื่อรองรับชื่อที่ยาว
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  Flexible(
-                    child: Text(
-                      userName,
-                      style: TextStyle(
-                        color: Constants.blackColor,
-                        fontSize: 20,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                  const SizedBox(height: 10),
+                  Padding(padding: const EdgeInsets.only(left: 0),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                      Text(
+                    'Hi, $userName !',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
                     ),
                   ),
-                  const SizedBox(width: 5),
-                  SizedBox(
-                    height: 24,
-                    child: Image.asset("assets/images/verified.png"),
-                  ),
-                ],
+                  const SizedBox(height: 5),
+                   Text(
+                'Today, ${_getFormattedDate()}',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
               ),
-            ),
-            Text(
-              userEmail,
-              style: TextStyle(
-                color: Constants.blackColor.withOpacity(.3),
-              ),
-            ),
-            const SizedBox(height: 20),
 
-            // เมนูโปรไฟล์
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  ProfileWidget(
-                    icon: Icons.person,
-                    title: 'My Profile',
+                  ],
                   ),
-                  ProfileWidget(
-                    icon: Icons.settings,
-                    title: 'Settings',
                   ),
-                  ProfileWidget(
-                    icon: Icons.notifications,
-                    title: 'Notifications',
-                  ),
-                  ProfileWidget(
-                    icon: Icons.chat,
-                    title: 'FAQs',
-                  ),
-                  ProfileWidget(
-                    icon: Icons.share,
-                    title: 'Share',
-                  ),
-                  ProfileWidget(
-                    icon: Icons.logout,
-                    title: 'Log Out',
-                    onTap: () async {
-                      // เพิ่มฟังก์ชัน logout
-                      try {
-                        await FirebaseAuth.instance.signOut();
-                        // นำทางไปยังหน้า login หรือ home
-                        Navigator.of(context).pushReplacementNamed('/login');
-                      } catch (e) {
-                        print('Error signing out: $e');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error signing out: $e')),
-                        );
-                      }
-                    },
+                   const SizedBox(width: 105),
+                  Container(
+                    width: 70,
+                    height: 70,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(25), 
+                      child: Image.network(
+                        profileImage,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Image.asset(
+                            'assets/images/profile_women.png',
+                            fit: BoxFit.cover,
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ],
               ),
+              
             ),
+           
+           
           ],
         ),
       ),

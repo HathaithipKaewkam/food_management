@@ -189,52 +189,77 @@ class _AutoShoppingListState extends State<AutoShoppingList> {
   }
 
   Future<void> _addToCart(List<Map<String, dynamic>> items) async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-      // Reference to userCart collection
-      final cartRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('userCart');
+    final cartRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userCart');
 
-      for (var item in items) {
-        if (!selectedItems.contains(item['id'])) continue;
+    for (var item in items) {
+      if (!selectedItems.contains(item['id'])) continue;
 
-        double quantity =
-            selectedQuantities[item['id']] ?? item['recommendedQuantity'];
+      double quantity =
+          selectedQuantities[item['id']] ?? item['recommendedQuantity'];
 
-        // Add to userCart only
-        await cartRef.add({
-          'ingredientsName': item['ingredientsName'],
-          'imageUrl': item['imageUrl'],
-          'unit': item['unit'],
-          'category': item['category'],
-          'storage': item['storage'] ?? 'Pantry',
-          'source': item['source'] ?? 'Supermarket',
-          'quantity': quantity,
-          'price': 0,
-          'addedAt': Timestamp.now(),
-          'purchased': false,
-        });
+      double kcalPerUnit = 0.0;
+      try {
+        DocumentSnapshot ingredientDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('userIngredients')
+            .doc(item['id'])
+            .get();
+
+        if (ingredientDoc.exists) {
+          Map<String, dynamic> data = ingredientDoc.data() as Map<String, dynamic>;
+          if (data.containsKey('kcal') && data['kcal'] != null) {
+
+            kcalPerUnit = (data['kcal'] is int)
+                ? (data['kcal'] as int).toDouble()
+                : (data['kcal'] as num?)?.toDouble() ?? 0.0;
+          }
+        }
+
+        print("📊 Got kcal per unit for ${item['ingredientsName']}: $kcalPerUnit");
+      } catch (e) {
+        print("❌ Error getting kcal value: $e");
       }
 
-      if (context.mounted) {
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      print('❌ Error adding items to cart: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to add items to cart: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      await cartRef.add({
+        'ingredientsName': item['ingredientsName'],
+        'imageUrl': item['imageUrl'],
+        'unit': item['unit'],
+        'category': item['category'],
+        'storage': item['storage'] ?? 'Pantry',
+        'source': item['source'] ?? 'Supermarket',
+        'quantity': quantity,
+        'price': 0,
+        'addedAt': Timestamp.now(),
+        'purchased': false,
+        'kcal': kcalPerUnit, 
+      });
+      
+      print("✅ Added ${item['ingredientsName']} to cart with $kcalPerUnit kcal per unit");
+    }
+
+    if (context.mounted) {
+      Navigator.pop(context);
+    }
+  } catch (e) {
+    print('❌ Error adding items to cart: $e');
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to add items to cart: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {

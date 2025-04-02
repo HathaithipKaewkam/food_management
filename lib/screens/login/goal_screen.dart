@@ -124,6 +124,11 @@ class _GoalScreenState extends State<GoalScreen> {
                   viewportFraction: 0.7,
                   aspectRatio: 0.74,
                   initialPage: 0,
+                  onPageChanged: (index, reason) {
+                  setState(() {
+                    selectedGoalIndex = index;
+                  });
+                },
                 ),
               ),
             ),

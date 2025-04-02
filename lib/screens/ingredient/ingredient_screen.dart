@@ -997,13 +997,12 @@ Future<void> showUsedDialog(
                                       .collection('userIngredients')
                                       .doc(ingredientId);
 
-                              await FirebaseFirestore.instance
-                                  .runTransaction((transaction) async {
-                                DocumentSnapshot snapshot =
-                                    await transaction.get(ingredientRef);
-                                if (!snapshot.exists) {
-                                  throw Exception("Ingredient not found");
-                                }
+                             Map<String, dynamic> resultData = await FirebaseFirestore.instance
+                                .runTransaction<Map<String, dynamic>>((transaction) async {
+                              DocumentSnapshot snapshot = await transaction.get(ingredientRef);
+                              if (!snapshot.exists) {
+                                throw Exception("Ingredient not found");
+                              }
 
                                 Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
                                   double currentStock = (data['quantity'] is int)
@@ -1030,7 +1029,47 @@ Future<void> showUsedDialog(
                                   "updateDate":
                                       Timestamp.now(), 
                                 });
+                                return {
+                                'ingredientsName': data['ingredientsName'] ?? 'Unknown',
+                                'unit': data['unit'] ?? 'Pieces',
+                                'kcal': data['kcal'],
+                                'currentStock': currentStock,
+                              };
                               });
+                              double usedKcal = 0.0;
+                              if (resultData['kcal'] != null) {
+                                double kcalPerUnit = (resultData['kcal'] is int)
+                                    ? (resultData['kcal'] as int).toDouble()
+                                    : (resultData['kcal'] as num?)?.toDouble() ?? 0.0;
+                                
+                               
+                                usedKcal = kcalPerUnit * usedQuantity;
+                                
+                                
+                              }
+
+                                
+                                  if (usedKcal > 0) {
+                                    await FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(user.uid)
+                                        .collection('calorieConsumption')
+                                        .add({
+                                          "date": Timestamp.now(),
+                                          "dateStr": DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                                          "ingredientId": ingredientId,
+                                          "ingredientName": resultData['ingredientsName'],
+                                          "quantity": usedQuantity,
+                                          "unit": resultData['unit'],
+                                          "kcal": usedKcal,
+                                          "mealType": "", 
+                                          "note": note.isNotEmpty ? note : "No note",
+                                        });
+                                  }
+
+
+                                                            
+                                                            
 
                               // Show success message
                               ScaffoldMessenger.of(context).showSnackBar(

@@ -386,49 +386,56 @@ class _AnalysisBuyState extends State<AnalysisBuy> {
                   },
                 ),
               ),
-              Expanded(
-                child: selectedType == 'Expenses'
-                    ? buildBarChart(filteredHistoryMonth)
-                    : selectedType == 'Category'
-                        ? Column(
-                            children: [
-                              buildPieChart(filteredHistoryMonth),
-                              buildCategoryLegend(
-                                filteredHistoryMonth
-                                    .map((ingredient) =>
-                                        ingredient.category ?? 'Unknown')
-                                    .toList(),
-                                Map<String, double>.fromIterable(
-                                  filteredHistoryMonth,
-                                  key: (ingredient) =>
-                                      ingredient.category ?? 'Unknown',
-                                  value: (ingredient) => ingredient.price,
-                                ),
-                              ),
-                            ],
-                          )
-                        : selectedType == 'Source'
-                            ? Column(
-                                children: [
-                                  buildDonutChart(
-                                      filteredHistoryMonth), // แสดง Donut Chart
-                                  buildCategorySource(
-                                    filteredHistoryMonth
-                                        .map((ingredient) =>
-                                            ingredient.source ?? 'Unknown')
-                                        .toSet()
-                                        .toList(),
-                                    Map<String, double>.fromIterable(
-                                      filteredHistoryMonth,
-                                      key: (ingredient) =>
-                                          ingredient.source ?? 'Unknown',
-                                      value: (ingredient) => ingredient.price,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Container(),
-              )
+             Expanded(
+  child: filteredHistoryMonth.isEmpty 
+      ? Center(
+          child: Text(
+            'No data available for selected month',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        )
+      : selectedType == 'Expenses'
+          ? buildBarChart(filteredHistoryMonth)
+          : selectedType == 'Category'
+              ? Column(
+                  children: [
+                    buildPieChart(filteredHistoryMonth),
+                    buildCategoryLegend(
+                      filteredHistoryMonth
+                          .map((ingredient) =>
+                              ingredient.category ?? 'Unknown')
+                          .toSet()
+                          .toList(),
+                      Map<String, double>.fromIterable(
+                        filteredHistoryMonth,
+                        key: (ingredient) =>
+                            ingredient.category ?? 'Unknown',
+                        value: (ingredient) => ingredient.price,
+                      ),
+                    ),
+                  ],
+                )
+              : selectedType == 'Source'
+                  ? Column(
+                      children: [
+                        buildDonutChart(filteredHistoryMonth),
+                        buildCategorySource(
+                          filteredHistoryMonth
+                              .map((ingredient) =>
+                                  ingredient.source ?? 'Unknown')
+                              .toSet()
+                              .toList(),
+                          Map<String, double>.fromIterable(
+                            filteredHistoryMonth,
+                            key: (ingredient) =>
+                                ingredient.source ?? 'Unknown',
+                            value: (ingredient) => ingredient.price,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Container(),
+),
             ])));
   }
 }
@@ -634,6 +641,16 @@ Widget buildPieChart(List<Ingredient> ingredients) {
     categoryData[category] = (categoryData[category] ?? 0) + ingredient.price;
   }
 
+  // ตรวจสอบก่อนว่ามีข้อมูลหรือไม่
+  if (categoryData.isEmpty) {
+    return Center(
+      child: Text(
+        'No data available for this month',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
   double total = categoryData.values.reduce((a, b) => a + b);
 
   List<PieChartSectionData> sections = categoryData.entries.map((entry) {
@@ -641,15 +658,13 @@ Widget buildPieChart(List<Ingredient> ingredients) {
     return PieChartSectionData(
       color: getColorForCategory(entry.key),
       value: entry.value,
-      title: '${entry.key}\n${percentage.toStringAsFixed(1)}%',
+      title: '${percentage.toStringAsFixed(1)}%',
       radius: 60,
       titleStyle: TextStyle(
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: FontWeight.bold,
-        color: Colors.black,
+        color: Colors.white,
       ),
-      titlePositionPercentageOffset: 0.55,
-      showTitle: true,
     );
   }).toList();
 
@@ -669,13 +684,25 @@ Widget buildPieChart(List<Ingredient> ingredients) {
 
 Widget buildCategoryLegend(
     List<String> categories, Map<String, double> categoryData) {
-  categoryData.values.reduce((a, b) => a + b);
+  // ตรวจสอบก่อนว่ามีข้อมูลหรือไม่
+  if (categoryData.isEmpty) {
+    return Center(
+      child: Text(
+        'No category data available',
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  double total = categoryData.values.reduce((a, b) => a + b);
+  
   return SingleChildScrollView(
     child: Wrap(
       spacing: 10.0,
       runSpacing: 10.0,
       children: categories.map((category) {
         double categoryAmount = categoryData[category] ?? 0;
+        double percentage = (categoryAmount / total) * 100;
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 10.0),
           child: Row(
@@ -688,7 +715,7 @@ Widget buildCategoryLegend(
               ),
               SizedBox(width: 8),
               Text(
-                '$category ${categoryAmount.toStringAsFixed(2)} ฿',
+                '$category: ${categoryAmount.toStringAsFixed(2)}฿ (${percentage.toStringAsFixed(1)}%)',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -704,12 +731,25 @@ Widget buildCategoryLegend(
 
 Widget buildCategorySource(
     List<String> sources, Map<String, double> sourceData) {
+  // ตรวจสอบก่อนว่ามีข้อมูลหรือไม่
+  if (sourceData.isEmpty) {
+    return Center(
+      child: Text(
+        'No source data available',
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  double total = sourceData.values.reduce((a, b) => a + b);
+
   return SingleChildScrollView(
     child: Wrap(
       spacing: 10.0,
       runSpacing: 10.0,
       children: sources.map((source) {
         double sourceAmount = sourceData[source] ?? 0;
+        double percentage = (sourceAmount / total) * 100;
         return Padding(
           padding: const EdgeInsets.only(left: 70),
           child: Row(
@@ -721,7 +761,7 @@ Widget buildCategorySource(
               ),
               SizedBox(width: 8),
               Text(
-                '$source ${sourceAmount.toStringAsFixed(1)}',
+                '$source: ${sourceAmount.toStringAsFixed(1)} (${percentage.toStringAsFixed(1)}%)',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -743,6 +783,16 @@ Widget buildDonutChart(List<Ingredient> ingredients) {
     sourceData[source] = (sourceData[source] ?? 0) + ingredient.quantity;
   }
 
+  // ตรวจสอบก่อนว่ามีข้อมูลหรือไม่
+  if (sourceData.isEmpty) {
+    return Center(
+      child: Text(
+        'No data available for this month',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
   double total = sourceData.values.reduce((a, b) => a + b);
 
   List<PieChartSectionData> sections = sourceData.entries.map((entry) {
@@ -750,15 +800,13 @@ Widget buildDonutChart(List<Ingredient> ingredients) {
     return PieChartSectionData(
       color: getColorForSource(entry.key),
       value: entry.value,
-      title: '${entry.key}\n${percentage.toStringAsFixed(1)}%',
+      title: '${percentage.toStringAsFixed(1)}%',
       radius: 60,
       titleStyle: TextStyle(
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: FontWeight.bold,
-        color: Colors.black,
+        color: Colors.white,
       ),
-      titlePositionPercentageOffset: 0.55,
-      showTitle: true,
     );
   }).toList();
 

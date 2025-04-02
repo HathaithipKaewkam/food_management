@@ -233,21 +233,40 @@ Future<void> onMarkAllPurchased(bool isPurchased) async {
       .get();
 
   try {
+    // ตรวจสอบว่ามีค่า kcal ในรายการนี้หรือไม่
+    double kcalValue = 0.0;
+    if (item.containsKey('kcal') && item['kcal'] != null) {
+      kcalValue = (item['kcal'] is int)
+          ? (item['kcal'] as int).toDouble()
+          : (item['kcal'] as num?)?.toDouble() ?? 0.0;
+      
+      // ลบการคำนวณที่หารด้วยจำนวนออก
+      // ใช้ค่า kcal จาก userCart โดยตรง
+    }
+    
+    print("🔢 Item kcal value directly: $kcalValue for ${item['ingredientsName']}");
+    
     if (existingIngredientSnapshot.docs.isNotEmpty) {
-      // Update existing ingredient if name AND storage match
       var existingDoc = existingIngredientSnapshot.docs.first;
-      var currentQuantity = existingDoc.data()['quantity'] ?? 0;
+      var existingData = existingDoc.data();
+      var currentQuantity = existingData['quantity'] ?? 0;
+      
+      // ถ้ามีค่า kcal ใหม่ใช้ค่าใหม่ ถ้าไม่มีใช้ค่าเดิม
+      double finalKcal = kcalValue > 0 ? kcalValue : 
+                       (existingData['kcal'] is num ? (existingData['kcal'] as num).toDouble() : 0.0);
+      
+      print("📊 Updating existing ingredient with kcal: $finalKcal");
       
       await existingDoc.reference.update({
         'quantity': currentQuantity + item['quantity'],
         'updateDate': now,
         'expirationDate': expirationDate,
         'price': item['price'],
+        'kcal': finalKcal, // ใช้ค่า kcal โดยตรง ไม่ผ่านการคำนวณ
       });
       
-      print("✅ Updated existing ingredient in ${item['storage']}");
+      print("✅ Updated existing ingredient in ${item['storage']} with kcal: $finalKcal");
     } else {
-      // Create new ingredient if either name OR storage is different
       await userIngredientsRef.add({
         'ingredientsName': item['ingredientsName'],
         'quantity': item['quantity'],
@@ -262,18 +281,15 @@ Future<void> onMarkAllPurchased(bool isPurchased) async {
         'storage': item['storage'],
         'source': item['source'],
         'updateDate': now,
+        'kcal': kcalValue, // ใช้ค่า kcal โดยตรง ไม่ผ่านการคำนวณ
+        'usageHistory': [],
       });
       
-      print("✅ Added new ingredient in ${item['storage']}");
+      print("✅ Added new ingredient in ${item['storage']} with kcal: $kcalValue");
     }
 
-  
     await _addToPurchaseHistory(docId, item);
-    
-   
     await _removeFromUserCart(docId);
-    
-   
     await _addToIngredientsHistory(item);
 
   } catch (e) {
@@ -321,10 +337,17 @@ Future<void> _removeFromUserCart(String docId) async {
   }
 }
 
-// เพิ่มประวัติการเพิ่มจำนวนวัตถุดิบใน ingredientsHistory
+
 Future<void> _addToIngredientsHistory(Map<String, dynamic> item) async {
   String uid = FirebaseAuth.instance.currentUser!.uid;
   DateTime now = DateTime.now();
+
+  double kcalValue = 0.0;
+  if (item.containsKey('kcal') && item['kcal'] != null) {
+    kcalValue = (item['kcal'] is int)
+        ? (item['kcal'] as int).toDouble()
+        : (item['kcal'] as num?)?.toDouble() ?? 0.0;
+  }
 
   var ingredientsHistoryRef = FirebaseFirestore.instance
       .collection('users')
@@ -334,15 +357,16 @@ Future<void> _addToIngredientsHistory(Map<String, dynamic> item) async {
   try {
     await ingredientsHistoryRef.add({
       'ingredientsName': item['ingredientsName'],
-      'quantityAdded': item['quantity'], // จำนวนที่เพิ่ม
-      'addedDate': now,  // วันที่เพิ่ม
-      'category': item['category'],  // หมวดหมู่
-      'imageUrl': item['imageUrl'],  // URL ของภาพ
-      'storage': item['storage'],  // ที่เก็บ
-      'source': item['source'],  // แหล่งที่มา
-      'unit': item['unit'],  // หน่วย
+      'quantityAdded': item['quantity'], 
+      'addedDate': now,  
+      'category': item['category'],  
+      'imageUrl': item['imageUrl'],  
+      'storage': item['storage'],  
+      'source': item['source'], 
+      'unit': item['unit'], 
+      'kcal': kcalValue, 
     });
-    print("✅ Item added to ingredientsHistory.");
+    print("✅ Item added to ingredientsHistory with kcal: $kcalValue");
   } catch (e) {
     print("❌ Error adding to ingredientsHistory: $e");
   }

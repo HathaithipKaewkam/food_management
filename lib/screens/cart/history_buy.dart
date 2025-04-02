@@ -433,8 +433,10 @@ int currentMonth = DateTime.now().month;
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Text('No ingredient for this month',
-                        style: TextStyle(fontSize: 14, color: Colors.black54));
+                    return 
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: const Text('No ingredient for this month',
+                        style: TextStyle(fontSize: 14, color: Colors.black54)));
                   }
 
                   List<Ingredient> allIngredients =

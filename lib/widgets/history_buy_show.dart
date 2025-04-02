@@ -40,19 +40,44 @@ if (daysToExpiry < 0) {
         crossAxisAlignment: CrossAxisAlignment.start, 
         children: [
           Container(
-            width: 80,
-            height: 110,
-            decoration: BoxDecoration(
-              color: Color(0xFFe6ebf1),
-              borderRadius: BorderRadius.circular(16),
-              image: DecorationImage(
-                image: NetworkImage(ingredient.imageUrl),
-                fit: BoxFit.none,
-                scale: 7.0,
-                alignment: Alignment.center,
+              width: 80,
+              height: 110,
+              decoration: BoxDecoration(
+                color: Color(0xFFe6ebf1),
+                borderRadius: BorderRadius.circular(16),
               ),
+              child: ingredient.imageUrl != null && ingredient.imageUrl.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      ingredient.imageUrl,
+                      fit: BoxFit.none,
+                      scale: 7.0,
+                      alignment: Alignment.center,
+                      errorBuilder: (context, error, stackTrace) {
+                        print("Image error: $error");
+                        return Container(
+                          width: 80,
+                          height: 110,
+                          decoration: BoxDecoration(
+                            color: Color(0xFFe6ebf1),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            Icons.restaurant,
+                            color: Colors.grey.shade700,
+                            size: 40,
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                : Icon(
+                    Icons.restaurant,
+                    color: Colors.grey.shade700,
+                    size: 40,
+                  ),
             ),
-          ),
           const SizedBox(width: 7),
           Flexible(
             child: Container(

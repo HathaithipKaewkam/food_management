@@ -42,6 +42,10 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
   DateTime? _expirationDate;
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
+   double ingredientKcal = 0.0; 
+  String originalUnit = ''; 
+  double originalQuantity = 1.0; 
+  bool isIngredientInDatabase = false; 
 
 
   @override
@@ -87,6 +91,18 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       selectedDate =
           shelflife > 0 ? DateTime.now().add(Duration(days: shelflife)) : null;
     }
+    ingredientKcal = widget.ingredient?['kcal']?.toDouble() ?? 0.0;
+    _nameController.addListener(() {
+    // หน่วงเวลาเล็กน้อยเพื่อไม่ให้ query บ่อยเกินไป
+    Future.delayed(Duration(milliseconds: 500), () {
+      if (_nameController.text == _nameController.text.trim()) {
+        _checkIngredientInDatabase();
+      }
+    });
+  });
+  if (widget.ingredient != null && _nameController.text.isNotEmpty) {
+    _checkIngredientInDatabase();
+  }
   }
 
   void dispose() {
@@ -97,7 +113,92 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
     _minQuantityController.dispose();
     _shelflifeController.dispose();
     _storageController.dispose();
+     _nameController.removeListener(() {});
     super.dispose();
+    
+  }
+
+Future<void> _checkIngredientInDatabase() async {
+  if (_nameController.text.isEmpty) return;
+  
+  try {
+    print("🔍 Checking ingredient: ${_nameController.text.trim()}");
+    
+    QuerySnapshot ingredientSnapshot = await FirebaseFirestore.instance
+        .collection('ingredients')
+        .where('ingredientsName', isEqualTo: _nameController.text.trim())
+        .get();
+    
+    print("📊 Found ${ingredientSnapshot.docs.length} ingredients matching the name");
+    
+    if (ingredientSnapshot.docs.isNotEmpty) {
+      DocumentSnapshot doc = ingredientSnapshot.docs.first;
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      
+      setState(() {
+        isIngredientInDatabase = true;
+        originalUnit = data['unit'] ?? 'Pieces';
+        
+        // เก็บค่า kcal ต่อหน่วยโดยตรง
+        ingredientKcal = (data['kcal'] is int) 
+            ? (data['kcal'] as int).toDouble() 
+            : (data['kcal'] as num?)?.toDouble() ?? 0.0;
+            
+        originalQuantity = 1.0; // ค่าเริ่มต้น 1 หน่วย
+        
+        if (selectedUnit.isEmpty) {
+          selectedUnit = originalUnit;
+          _unitController.text = originalUnit;
+        }
+      });
+      
+      print("✅ Found ingredient in database: ${_nameController.text} - ${ingredientKcal} kcal per $originalUnit");
+    } else {
+      setState(() {
+        isIngredientInDatabase = false;
+        ingredientKcal = 0.0;
+        print("⚠️ Ingredient not found in database, setting kcal to 0");
+      });
+    }
+  } catch (e) {
+    print("❌ Error checking ingredient in database: $e");
+    setState(() {
+      isIngredientInDatabase = false;
+      ingredientKcal = 0.0;
+    });
+  }
+}
+  
+  double calculateKcal() {
+    if (!isIngredientInDatabase) return 0.0;
+    
+    double quantity = double.tryParse(_quantityController.text) ?? 1.0;
+    
+    if (selectedUnit == originalUnit) {
+      return ingredientKcal * quantity;
+    }
+    
+    switch (originalUnit) {
+
+      case 'Kilograms (kg)':
+        if (selectedUnit == 'Grams (g)') {
+    
+          return (ingredientKcal / 1000) * quantity;
+        }
+        break;
+        
+      case 'Grams (g)':
+        if (selectedUnit == 'Kilograms (kg)') {
+        
+          return (ingredientKcal * 1000) * quantity;
+        }
+        break;
+        
+      default:
+        return ingredientKcal * quantity;
+    }
+    
+    return ingredientKcal * quantity;
   }
 
   List<String> recipeTypes = ['Fridge', 'Freezer', 'Pantry'];
@@ -123,49 +224,74 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
           .where('ingredientsName', isEqualTo: newIngredient['ingredientsName'])
           .get();
 
+       double calculatedKcal = isIngredientInDatabase ? calculateKcal() : 0.0;
+
       if (existingIngredients.docs.isNotEmpty) {
-        DocumentSnapshot doc = existingIngredients.docs.first;
+  DocumentSnapshot doc = existingIngredients.docs.first;
+  Map<String, dynamic> docData = doc.data() as Map<String, dynamic>;
 
-        await userIngredients.doc(doc.id).update({
-          'quantity': FieldValue.increment(newIngredient['quantity']),
-          'expirationDate': newIngredient['expirationDate'] ??
-              (shelflife > 0
-                  ? DateTime.now()
-                      .add(Duration(days: shelflife))
-                      .toIso8601String()
-                  : doc['expirationDate'] ??
-                      DateTime.now().add(Duration(days: 7)).toIso8601String()),
-          'updateDate': Timestamp.now(),
-        });
+  // เพิ่มค่า kcal ต่อหน่วย โดยไม่คำนวณ
+  double kcalPerUnit = 0.0;
+  if (isIngredientInDatabase) {
+    // ถ้าเป็นวัตถุดิบที่มีในฐานข้อมูล ใช้ค่า ingredientKcal (ต่อหน่วย) โดยตรง
+    kcalPerUnit = ingredientKcal;
+  } else if (docData.containsKey('kcal')) {
+    // ถ้าไม่มีในฐานข้อมูลแต่มีค่า kcal เดิม ให้ใช้ค่าเดิม
+    kcalPerUnit = (docData['kcal'] is int)
+        ? (docData['kcal'] as int).toDouble()
+        : (docData['kcal'] as num?)?.toDouble() ?? 0.0;
+  }
 
-        // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
-        await historyCollection.add({
-          'ingredientsName': newIngredient['ingredientsName'],
-          'category': newIngredient['category'],
-          'unit': newIngredient['unit'],
-          'quantityAdded': newIngredient['quantity'],
-          'addedDate': Timestamp.now(),
-          'source': 'home',
-          'imageUrl': newIngredient['imageUrl'] ?? '',
-          'storage': newIngredient['storage'],
-        });
-      } else {
-        newIngredient['createDate'] = Timestamp.now();
+  print("📊 Using kcal per unit: $kcalPerUnit for ${newIngredient['ingredientsName']}");
 
-        DocumentReference newDoc = await userIngredients.add(newIngredient);
+  await userIngredients.doc(doc.id).update({
+    'quantity': FieldValue.increment(newIngredient['quantity']),
+    'expirationDate': newIngredient['expirationDate'] ??
+        (shelflife > 0
+            ? DateTime.now()
+                .add(Duration(days: shelflife))
+                .toIso8601String()
+            : doc['expirationDate'] ??
+                DateTime.now().add(Duration(days: 7)).toIso8601String()),
+    'updateDate': Timestamp.now(),
+    'kcal': kcalPerUnit, // เก็บค่า kcal ต่อหน่วย โดยตรง ไม่ใช่ FieldValue.increment
+  });
 
-        // 🟢 บันทึกประวัติการเพิ่มวัตถุดิบ
-        await historyCollection.add({
-          'ingredientsName': newIngredient['ingredientsName'],
-          'category': newIngredient['category'],
-          'unit': newIngredient['unit'],
-          'quantityAdded': newIngredient['quantity'],
-          'addedDate': Timestamp.now(),
-          'source': 'home',
-          'imageUrl': newIngredient['imageUrl'] ?? '',
-          'storage': newIngredient['storage'],
-        });
-      }
+  // บันทึกประวัติการเพิ่มวัตถุดิบ
+  await historyCollection.add({
+    'ingredientsName': newIngredient['ingredientsName'],
+    'category': newIngredient['category'],
+    'unit': newIngredient['unit'],
+    'quantityAdded': newIngredient['quantity'],
+    'addedDate': Timestamp.now(),
+    'source': 'home',
+    'imageUrl': newIngredient['imageUrl'] ?? '',
+    'storage': newIngredient['storage'],
+    'kcal': kcalPerUnit, // ใช้ค่า kcal ต่อหน่วย
+  });
+} else {
+  // กรณีเป็นวัตถุดิบใหม่
+  // ใช้ค่า kcal ต่อหน่วยจากฐานข้อมูล ไม่ใช่ค่าที่คำนวณ
+  double kcalPerUnit = isIngredientInDatabase ? ingredientKcal : 0.0;
+  
+  newIngredient['kcal'] = kcalPerUnit; // เก็บค่า kcal ต่อหน่วย
+  newIngredient['createDate'] = Timestamp.now();
+
+  DocumentReference newDoc = await userIngredients.add(newIngredient);
+
+  // บันทึกประวัติการเพิ่มวัตถุดิบ
+  await historyCollection.add({
+    'ingredientsName': newIngredient['ingredientsName'],
+    'category': newIngredient['category'],
+    'unit': newIngredient['unit'],
+    'quantityAdded': newIngredient['quantity'],
+    'addedDate': Timestamp.now(),
+    'source': 'home',
+    'imageUrl': newIngredient['imageUrl'] ?? '',
+    'storage': newIngredient['storage'],
+    'kcal': kcalPerUnit, // ใช้ค่า kcal ต่อหน่วย
+  });
+}
     } catch (e) {
       print("❌ Error saving ingredient: $e");
       throw e;
@@ -231,6 +357,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
 
     double quantity = double.tryParse(_quantityController.text) ?? 1.0;
     double minQuantity = double.tryParse(_minQuantityController.text) ?? 1.0;
+    double kcalPerUnit = isIngredientInDatabase ? ingredientKcal : 0.0;
 
     Map<String, dynamic> newIngredient = {
       'ingredientsName': _nameController.text.trim(),
@@ -242,6 +369,7 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
       'expirationDate': expirationDate.toIso8601String(),
       'imageUrl': imageUrl,
       'source': 'home',
+      'kcal':  kcalPerUnit,
     };
 
     await _saveIngredient(newIngredient);

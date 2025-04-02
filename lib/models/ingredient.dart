@@ -22,7 +22,9 @@ class Ingredient {
   final DateTime? addedDate; 
   final Map<String, bool> allergenInfo;
   final String userId;
-  final List<dynamic> usageHistory; 
+  final List<dynamic> usageHistory;
+  final double kcal;
+ 
   
   bool isSelected;
 
@@ -50,6 +52,7 @@ class Ingredient {
     this.isSelected = false,
     this.usageHistory = const [],
     this.isThrowed,
+    required this.kcal,
   });
 
   bool isThrownAway() {
@@ -75,6 +78,7 @@ class Ingredient {
       expirationDate: DateTime.now().add(const Duration(days: 7)),
       source: 'API',
       imageUrl: '',
+       kcal: 0.0,
     );
   }
 
@@ -106,6 +110,13 @@ class Ingredient {
       quantityAdded: doc['quantityAdded'] ?? 0,
       addedDate: _parseDate(doc['addedDate']),
       isSelected: doc['isSelected'] ?? false,
+      kcal: (doc['kcal'] is int) 
+        ? (doc['kcal'] as int).toDouble() 
+        : (doc['kcal'] as num?)?.toDouble() ?? 0.0,
+        isThrowed: doc['isThrowed'] as bool?, 
+    usageHistory: doc['usageHistory'] is List 
+        ? List<dynamic>.from(doc['usageHistory'])
+        : [],
     );
   }
 
@@ -131,6 +142,9 @@ class Ingredient {
       'quantityAdded': quantityAdded,
       'addedDate': addedDate?.toIso8601String(),      
       'isSelected': isSelected,
+       'kcal': kcal,
+       'isThrowed': isThrowed, 
+    'usageHistory': usageHistory, 
     };
   }
 
@@ -165,7 +179,8 @@ class Ingredient {
     userId: json['userId'] ?? '',
     usageHistory: json['usageHistory'] is List
         ? List<Map<String, dynamic>>.from(json['usageHistory'])
-        : [],  // หากเป็น Map ให้แปลงเป็น List ว่าง
+        : [],
+     kcal: (json['kcal'] ?? 0.0).toDouble(),
   );
 }
 
@@ -195,6 +210,7 @@ class Ingredient {
       'addedDate': addedDate?.toIso8601String(),      
       'isSelected': isSelected,
        'isThrowed': isThrowed,
+        'kcal': kcal,
     };
   }
 
