@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/screens/setting/edit_allergies.dart';
 import 'package:food_project/screens/setting/edit_goal.dart';
+import 'package:food_project/screens/setting/edit_password.dart';
 import 'package:food_project/screens/setting/edit_preferences.dart';
 import 'package:food_project/screens/setting/edit_profile.dart';
 
@@ -348,9 +349,7 @@ Widget _buildSettings() {
               _buildSettingsTile(
                 icon: Icons.password,
                 title: 'Change Password',
-                onTap: () {
-                
-                },
+                 onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => EditPassword())); },
               )
              
             ],
