@@ -211,7 +211,6 @@ class _HistoryIngredientState extends State<HistoryIngredient> {
     print("🔍 Debug -> selectedYear: $selectedYear");
     print("🔍 Debug -> availableMonths: $availableMonths");
 
-    // Find the correct month string for the selected month and year
     String selectedMonthString =
         DateFormat('MMMM yyyy').format(DateTime(selectedYear, selectedMonth));
 
