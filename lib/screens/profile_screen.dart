@@ -1032,7 +1032,7 @@ void _logout() async {
                 ],
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 10),
             Container(
             margin: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: ElevatedButton(

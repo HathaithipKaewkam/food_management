@@ -5,6 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:food_project/screens/setting/edit_allergies.dart';
+import 'package:food_project/screens/setting/edit_goal.dart';
+import 'package:food_project/screens/setting/edit_preferences.dart';
+import 'package:food_project/screens/setting/edit_profile.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -272,31 +276,23 @@ Widget _buildSettingsAccount() {
               _buildSettingsTile(
                 icon: Icons.person,
                 title: 'Profile Data',
-                onTap: () {
-                 
-                },
-              ),
+                onTap: () { Navigator.push(context, MaterialPageRoute(builder: (context) => EditProfile())); },
+              ),    
                 _buildSettingsTile(
                 icon: Icons.favorite,
                 title: 'Favorite Foods',
-                onTap: () {
-                 
-                },
+                onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => EditPreferences())); },
               ),
                 _buildSettingsTile(
                 icon: Icons.warning_amber,
                 title: 'Food Allergies',
-                onTap: () {
-                 
-                },
+                onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => EditAllergies())); },
               ),
              
               _buildSettingsTile(
                 icon: Icons.flag,
                 title: 'My Goal',
-                onTap: () {
-                
-                },
+              onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => EditGoal())); },
               )
              
             ],
