@@ -10,6 +10,7 @@ import 'package:food_project/screens/setting/edit_goal.dart';
 import 'package:food_project/screens/setting/edit_password.dart';
 import 'package:food_project/screens/setting/edit_preferences.dart';
 import 'package:food_project/screens/setting/edit_profile.dart';
+import 'package:food_project/screens/setting/policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -403,11 +404,17 @@ Widget _buildHelp() {
               ),
              
               _buildSettingsTile(
-                icon: Icons.privacy_tip_outlined,
-                title: 'Privacy Policy',
-                onTap: () {
-                
-                },
+                  icon: Icons.privacy_tip_outlined,
+                  title: 'Privacy Policy',
+                  onTap: () {
+                    // เมื่อกดไปที่ Privacy Policy ให้ไปที่หน้า PrivacyPolicyScreen
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PrivacyPolicyScreen(),
+                      ),
+                    );
+                  },
               )
              
             ],

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:food_project/screens/login/accept_policy.dart';
 import 'package:food_project/screens/login/food_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -114,14 +115,10 @@ class _CompleteProfileState extends State<CompleteProfile> {
 
     return Scaffold(
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(top: 50, left: 10 , right: 10),
+        padding: const EdgeInsets.only(top: 50, left: 10, right: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [],
-            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3),
               child: const Text(
@@ -200,11 +197,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
               icon: FontAwesomeIcons.dumbbell,
               value: selectedActivity.isEmpty ? null : selectedActivity,
               hint: "Choose Activity",
-              items: [
-              'Sedentary', 
-              'Light', 
-              'Moderate', 
-              'Active'],
+              items: ['Sedentary', 'Light', 'Moderate', 'Active'],
               onChanged: (value) {
                 setState(() {
                   selectedActivity = value!;
@@ -231,10 +224,14 @@ class _CompleteProfileState extends State<CompleteProfile> {
                               activity: selectedActivity,
                               profileImage: selectedImage,
                             );
+
+                            // นำทางไปหน้า AcceptPolicyScreen
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => FoodPreferences()),
+                                builder: (context) =>
+                                    AcceptPolicyScreen(), // ไปหน้า AcceptPolicyScreen
+                              ),
                             );
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -269,7 +266,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
                         ),
                       ),
               ),
-            ),
+            )
           ],
         ),
       ),
@@ -303,14 +300,11 @@ class _CompleteProfileState extends State<CompleteProfile> {
                 value: value,
                 items: items.map((item) {
                   return DropdownMenuItem(
-                    value: item, 
-                    child: Text(
-                      item,
-                      style: const TextStyle(
-                      fontWeight: FontWeight.bold, 
-                      )
-                    )
-                      );
+                      value: item,
+                      child: Text(item,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          )));
                 }).toList(),
                 onChanged: onChanged,
                 isExpanded: true,
@@ -387,14 +381,13 @@ class _CompleteProfileState extends State<CompleteProfile> {
               controller: controller,
               keyboardType: TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')), 
-                _CustomInputFormatter(), 
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+                _CustomInputFormatter(),
               ],
               style: const TextStyle(
-                 fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black
-              ),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black),
               decoration: InputDecoration(
                 hintText: hint,
                 border: InputBorder.none,
@@ -436,17 +429,14 @@ class _CustomInputFormatter extends TextInputFormatter {
   ) {
     final text = newValue.text;
 
-    
     if (text.startsWith('-')) {
       return oldValue;
     }
 
-    
     if (text.startsWith('00')) {
       return oldValue;
     }
 
-    
     if (text.startsWith('0') && text.length > 1 && text[1] != '.') {
       return oldValue;
     }
