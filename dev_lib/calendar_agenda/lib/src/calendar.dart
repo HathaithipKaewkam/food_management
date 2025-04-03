@@ -292,6 +292,8 @@ class CalendarAgendaState extends State<CalendarAgenda>
             top: widget.appbar ? 50.0 : 0.0,
             child:  Container(
                 width: MediaQuery.of(context).size.width,
+                child: Container(
+                width: MediaQuery.of(context).size.width, 
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -301,25 +303,13 @@ class CalendarAgendaState extends State<CalendarAgenda>
                             onTap: () => widget.fullCalendar!
                                 ? _showFullCalendar(_locale, widget.weekDay)
                                 : null,
-                            child: Row(
-                              children: [
-                                Text(
-                                  DateFormat.yMMMM(Locale(_locale).toString())
-                                      .format(_selectedDate!),
-                                  style: TextStyle(
-                                    fontSize: 18.0,
-                                    color: widget.dateColor,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
+                            child: SizedBox(), 
                           )
                         : SizedBox(),
                     training
                   ],
                 ),
+              ),
               ),
             
           ),

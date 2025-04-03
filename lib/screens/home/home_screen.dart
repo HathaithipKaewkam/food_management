@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/models/ingredient.dart';
-import 'package:food_project/screens/home/schedule_screen.dart';
+import 'package:food_project/screens/recipe/schedule_screen.dart';
 import 'package:food_project/screens/ingredient/ingrediant_detail.dart';
 import 'package:food_project/screens/ingredient/search_ingredient.dart';
 import 'package:food_project/widgets/ingredient_widget.dart';

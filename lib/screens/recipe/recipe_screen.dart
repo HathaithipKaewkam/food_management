@@ -5,11 +5,11 @@ import 'package:food_project/constants.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/models/recipe.dart';
 import 'package:food_project/screens/recipe/favorite_screen.dart';
-import 'package:food_project/screens/recipe/meal_schedule.dart';
 import 'package:food_project/screens/recipe/myrecipe_screen.dart';
 import 'package:food_project/screens/recipe/poupular_screen.dart';
 import 'package:food_project/screens/recipe/recipe_detail.dart';
 import 'package:food_project/screens/recipe/recommend_screen.dart';
+import 'package:food_project/screens/recipe/schedule_screen.dart';
 import 'package:food_project/services/recipe_reccomend_service.dart';
 import 'package:food_project/widgets/recipe_widget.dart';
 import 'package:page_transition/page_transition.dart';
@@ -27,6 +27,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   final RecipeRecommendationService _recommendationService = RecipeRecommendationService();
   List<Map<String, dynamic>> recommendedRecipes = [];
   bool isLoading = true;
+  
 
 
   @override
@@ -137,7 +138,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const MealScheduleScreen(),
+                            builder: (context) => const ScheduleScreen(),
                           ),
                         );
                       },
