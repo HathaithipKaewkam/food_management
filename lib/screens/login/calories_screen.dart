@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/screens/login/goal_screen.dart';
+import 'package:food_project/screens/root_screen.dart';
 
 class CaloriesMacronutrient extends StatefulWidget {
   @override
@@ -25,12 +26,14 @@ class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
   double height = 0.0; 
   String gender = '';  
   String activity = '';  
+  String goal = "";
 
   @override
   void initState() {
     super.initState();
     _fetchUserName();
-    _fetchUserProfile();;
+    _fetchUserProfile();
+    _fetchUserGoal();
   }
 
   Future<void> _fetchUserName() async {
@@ -82,6 +85,26 @@ class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
     }
   }
 
+  Future<void> _fetchUserGoal() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    try {
+      DocumentSnapshot goalDoc = await FirebaseFirestore.instance
+          .collection('userGoals')
+          .doc(user.uid)
+          .get();
+
+      if (goalDoc.exists) {
+        setState(() {
+          goal = goalDoc['goal'] ?? '';
+        });
+      }
+    } catch (e) {
+      print('Error fetching user goal: $e');
+    }
+  }
+}
+
    int _calculateAge(DateTime birthday) {
     DateTime today = DateTime.now();
     int age = today.year - birthday.year;
@@ -93,47 +116,81 @@ class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
 
 
   void calculateCalories() {
-
-     if (weight == 0.0 || height == 0.0 || age == 0 || gender.isEmpty || activity.isEmpty) {
+  if (weight == 0.0 || height == 0.0 || age == 0 || gender.isEmpty || activity.isEmpty) {
     print("Missing data for calculation");
     return;
   }
-    double bmr;
-    if (gender == 'Male') {
-      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
-    } else {
-      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
-    }
-
-    double activityMultiplier;
-    switch (activity) {
-      case 'Sedentary':
-        activityMultiplier = 1.2;
-        break;
-      case 'Light':
-        activityMultiplier = 1.375;
-        break;
-      case 'Moderate':
-        activityMultiplier = 1.55;
-        break;
-      case 'Active':
-        activityMultiplier = 1.725;
-        break;
-      default:
-        activityMultiplier = 1.2;
-    }
-
-
-    caloriesPerDay = bmr * activityMultiplier;
-
-    proteinGrams = (caloriesPerDay * proteinPercentage) / 4; 
-    carbsGrams = (caloriesPerDay * carbsPercentage) / 4; 
-    fatGrams = (caloriesPerDay * fatPercentage) / 9; 
-
-    setState(() {});
-
-    saveToDatabase();
+  
+  // คำนวณ BMR เหมือนเดิม
+  double bmr;
+  if (gender == 'Male') {
+    bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+  } else {
+    bmr = 10 * weight + 6.25 * height - 5 * age - 161;
   }
+
+  // คำนวณ activity multiplier เหมือนเดิม
+  double activityMultiplier;
+  switch (activity) {
+    case 'Sedentary':
+      activityMultiplier = 1.2;
+      break;
+    case 'Light':
+      activityMultiplier = 1.375;
+      break;
+    case 'Moderate':
+      activityMultiplier = 1.55;
+      break;
+    case 'Active':
+      activityMultiplier = 1.725;
+      break;
+    default:
+      activityMultiplier = 1.2;
+  }
+
+  double tdee = bmr * activityMultiplier;
+
+  switch (goal) {
+    case 'Lose Weight':
+      caloriesPerDay = tdee * 0.8; 
+     
+      proteinPercentage = 0.35; 
+      carbsPercentage = 0.35;   
+      fatPercentage = 0.3;     
+      break;
+      
+    case 'Build Muscle':
+      caloriesPerDay = tdee * 1.1; 
+      proteinPercentage = 0.4; 
+      carbsPercentage = 0.4;   
+      fatPercentage = 0.2;      
+      break;
+      
+    case 'Balanced Diet':
+      caloriesPerDay = tdee; 
+      proteinPercentage = 0.3;
+      carbsPercentage = 0.4;
+      fatPercentage = 0.3;
+      break;
+      
+    case 'Healthy Eating':
+      caloriesPerDay = tdee; 
+      proteinPercentage = 0.3;
+      carbsPercentage = 0.45; 
+      fatPercentage = 0.25;  
+      break;
+      
+    default:
+      caloriesPerDay = tdee;
+  }
+
+  proteinGrams = (caloriesPerDay * proteinPercentage) / 4; 
+  carbsGrams = (caloriesPerDay * carbsPercentage) / 4; 
+  fatGrams = (caloriesPerDay * fatPercentage) / 9; 
+
+  setState(() {});
+  saveToDatabase();
+}
 
   Future<void> saveToDatabase() async {
   final user = FirebaseAuth.instance.currentUser;
@@ -148,6 +205,10 @@ class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
         'proteinGrams': proteinGrams,
         'carbsGrams': carbsGrams,
         'fatGrams': fatGrams,
+         'goal': goal, 
+        'proteinPercentage': proteinPercentage,
+        'carbsPercentage': carbsPercentage,     
+        'fatPercentage': fatPercentage,       
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true)); 
 
@@ -311,10 +372,13 @@ class _CaloriesMacronutrientState extends State<CaloriesMacronutrient> {
           Center(
             child: ElevatedButton(
               onPressed: () {
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) =>
-                       const GoalScreen()),);
+                 Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                              builder: (context) =>
+                                  RootPage(),
+                            ),      
+                             );
                   },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF325b51),

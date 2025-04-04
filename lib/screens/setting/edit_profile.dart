@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/screens/login/food_preferences.dart';
+import 'package:food_project/services/CalorieCalculatorService.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
@@ -325,6 +326,7 @@ void initState() {
                               activity: selectedActivity,
                               profileImage: selectedImage,
                             );
+                            await CalorieCalculatorService.updateUserCalories();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('User profile updated successfully!'),

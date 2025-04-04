@@ -837,7 +837,24 @@ void _logout() async {
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     return Scaffold(
-      body: Padding(
+      body: StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('usersCaloriesMacronutrient')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data!.exists) {
+          var data = snapshot.data!.data() as Map<String, dynamic>;
+          if (data.containsKey('caloriesPerDay')) {
+            if (data['caloriesPerDay'] is num) {
+              targetCalories = (data['caloriesPerDay'] as num).toDouble();
+            } else if (data['caloriesPerDay'] is String) {
+              targetCalories = double.tryParse(data['caloriesPerDay']) ?? 0.0;
+            }
+          }
+        }
+        
+        return Padding(
         padding: const EdgeInsets.only(top: 20, left: 0),
         child: ListView(
           children: [
@@ -872,7 +889,7 @@ void _logout() async {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 105),
+                  const SizedBox(width: 190),
                   Container(
                     width: 70,
                     height: 70,
@@ -1067,8 +1084,9 @@ void _logout() async {
           ),
                                 ],
                               ),
-                            ),
-                          );
+                            );
+                            
+  }));
                         }
 
                         

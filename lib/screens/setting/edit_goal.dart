@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/screens/root_screen.dart';
+import 'package:food_project/services/CalorieCalculatorService.dart';
 
 class EditGoal extends StatefulWidget {
   const EditGoal({super.key});
@@ -118,8 +119,9 @@ class _EditGoalState extends State<EditGoal> {
           });
       
       print('✅ Goal saved successfully: $goal');
+
+      await CalorieCalculatorService.updateUserCalories();
       
-      // แสดง snackbar ว่าบันทึกสำเร็จ
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Goal updated successfully!'),
@@ -127,7 +129,6 @@ class _EditGoalState extends State<EditGoal> {
         ),
       );
       
-      // กลับไปยังหน้า Settings แทนที่จะไปหน้า RootPage
       Navigator.pop(context);
       
     } catch (e) {

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/screens/login/calories_screen.dart';
+import 'package:food_project/screens/login/goal_screen.dart';
 
 class FoodAllergies extends StatefulWidget {
   @override
@@ -174,7 +175,7 @@ class _FoodAllergiesState extends State<FoodAllergies> {
                   );
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
               Center(
                 child: ElevatedButton(
                   onPressed: () async {
@@ -186,7 +187,7 @@ class _FoodAllergiesState extends State<FoodAllergies> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => CaloriesMacronutrient()),
+                            builder: (context) => GoalScreen()),
                       );
                     } else {
                       print("User not logged in");
@@ -199,7 +200,7 @@ class _FoodAllergiesState extends State<FoodAllergies> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                     padding: const EdgeInsets.symmetric(
-                        vertical: 15, horizontal: 80),
+                        vertical: 10, horizontal: 80),
                   ),
                   child: const Text(
                     'Next',

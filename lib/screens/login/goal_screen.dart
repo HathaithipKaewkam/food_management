@@ -2,6 +2,8 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:food_project/screens/login/calories_screen.dart';
 import 'package:food_project/screens/root_screen.dart';
 
 class GoalScreen extends StatefulWidget {
@@ -64,6 +66,18 @@ class _GoalScreenState extends State<GoalScreen> {
       body: SafeArea(
         child: Stack(
           children: [
+              Positioned(
+                top: 10,
+                left: 10,
+                child: IconButton(
+                   icon: const FaIcon(FontAwesomeIcons.arrowLeft),
+                color: Colors.black,
+                iconSize: 20,
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
             Center(
               child: CarouselSlider(
                 items: goalArr
@@ -168,7 +182,7 @@ class _GoalScreenState extends State<GoalScreen> {
                               context,
                               MaterialPageRoute(
                               builder: (context) =>
-                                  RootPage(selectedGoal: selectedGoal),
+                                  CaloriesMacronutrient(),
                             ),      
                              );
                         },

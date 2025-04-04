@@ -102,24 +102,35 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   
 }
 
- String _getFormattedDate() {
-    final now = DateTime.now();
-    final List<String> months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
-    ];
-    return "${months[now.month - 1]} ${now.day} ${now.year}";
+ String _getFormattedDate(DateTime date) {
+  final now = DateTime.now();
+  final List<String> months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  
+  final List<String> weekdays = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+  ];
+  
+  // ตรวจสอบว่าเป็นวันนี้หรือไม่
+  bool isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+  
+  if (isToday) {
+    return "Today, ${months[date.month - 1]} ${date.day}, ${date.year}";
+  } else {
+    // ตรวจสอบว่าเป็นวันพรุ่งนี้หรือไม่
+    final tomorrow = now.add(Duration(days: 1));
+    bool isTomorrow = date.year == tomorrow.year && date.month == tomorrow.month && date.day == tomorrow.day;
+    
+    if (isTomorrow) {
+      return "Tomorrow, ${months[date.month - 1]} ${date.day}, ${date.year}";
+    } else {
+      // วันอื่นๆ แสดงชื่อวัน
+      return "${weekdays[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}";
+    }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -160,7 +171,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                    Text(
-              'Today, ${_getFormattedDate()}',
+              _getFormattedDate(_selectedDateAppBBar),
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -202,10 +213,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       width: double.maxFinite,
       height: double.maxFinite,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-            colors: TColor.primaryG,
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter),
+        gradient: const LinearGradient(
+                colors: [Colors.green, Colors.lightGreen],
+              ),
         borderRadius: BorderRadius.circular(10.0),
       ),
     ),
