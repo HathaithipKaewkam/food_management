@@ -443,10 +443,10 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                             ),
                                           );
                                         },
-                                        child: const Text(
+                                        child: Text(
                                           'See All',
                                           style: TextStyle(
-                                              fontSize: 16, color: Colors.black),
+                                              fontSize: 16, color: Colors.red.shade700),
                                         ),
                                       ),
                                     ],

@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/models/recipe.dart';
+import 'package:food_project/screens/recipe/create_recipe.dart';
 import 'package:food_project/screens/recipe/favorite_screen.dart';
 import 'package:food_project/screens/recipe/myrecipe_screen.dart';
 import 'package:food_project/screens/recipe/poupular_screen.dart';
@@ -35,6 +37,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     super.initState();
     _loadRecommendations();
   }
+  
 
   Future<void> _loadRecommendations() async {
   try {
@@ -93,12 +96,17 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   
     List<String> recipeTypes = [
-      'All',
-      'Appetizers',
-      'Main Dishes',
-      'Side Dishes',
-      'Desserts',
-      'Beverages',
+        'All',         
+        'Breakfast',   
+        'Lunch',       
+        'Dinner',       
+        'Appetizers',  
+        'Main Dishes',  
+        'Side Dishes',  
+        'Soups',       
+        'Snacks',       
+        'Desserts',    
+        'Beverages',    
     ];
 
     bool toggleIsFavorated(bool isFavorited) {
@@ -108,7 +116,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.only(left: 0),
+        padding: const EdgeInsets.only(left: 0 ),
         child: ListView(
           children: [
             Padding(
@@ -200,7 +208,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   ),
 
                   const SizedBox(
-                      width: 7), // Space between search and favorite button
+                      width: 10), // Space between search and favorite button
 
                   // Favorite Button
                   Container(
@@ -237,7 +245,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     ),
                   ),
                   // Add button
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 10),
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -251,16 +259,16 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         ),
                       ],
                     ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.add,
-                        color: Constants.blackColor,
-                        size: 25,
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.add,
+                          color: Constants.blackColor,
+                          size: 25,
+                        ),
+                        onPressed: () {
+                          _showCreateRecipeModal(context);
+                        },
                       ),
-                      onPressed: () {
-                        print("add icon pressed");
-                      },
-                    ),
                   ),
                 ],
               ),
@@ -335,7 +343,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
                    builder: (context) =>
                   RecommendScreen(recipes: recipeList),)
                     ),
-                child: const Text("See All"),
+                child: const Text("See All",
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+                ),
+
                 )
               ],
             ),
@@ -564,7 +579,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
                             builder: (context) =>
                             MyrecipeScreen(recipes: recipeList),)
                               ),
-                          child: const Text("See All"),
+                          child: const Text("See All",
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+                ),
                           )
                         ],
                       ),
@@ -621,7 +642,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       builder: (context) =>
                       PoupularScreen(recipes: recipeList),)
                         ),
-                    child: const Text("See All"),
+                    child: const Text("See All",
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+                ),
                     )
                     ],
                   ),
@@ -657,4 +684,295 @@ class _RecipeScreenState extends State<RecipeScreen> {
            ) 
             ));
 }
+}
+void _showCreateRecipeModal(BuildContext context) {
+  final TextEditingController recipeNameController = TextEditingController();
+  final TextEditingController cookingTimeController = TextEditingController();
+  final TextEditingController servingsController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) {
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.55, 
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
+          ),
+        ),
+        padding: EdgeInsets.all(20),
+        
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Create Recipe',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              SizedBox(height: 20),
+              
+              // Recipe Name Section Header
+              Text(
+                'Recipe Name',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: 8),
+              
+              // Recipe Name Field
+             TextFormField(
+              controller: recipeNameController,
+              maxLength: 50,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+              ],
+              decoration: InputDecoration(
+                hintText: 'Enter recipe name',
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: Icon(Icons.restaurant_menu),
+                counterText: '',
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a recipe name';
+                }
+                if (value.length < 3) {
+                  return 'Recipe name must be at least 3 characters';
+                }
+                if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) {
+                  return 'Only letters and spaces are allowed';
+                }
+                return null;
+              },
+            ),
+              SizedBox(height: 20),
+              
+              // Cooking Details Section Header
+              Text(
+                'Cooking Details',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: 8),
+              
+              // Cooking Time and Servings in same row
+              Row(
+                children: [
+                  // Cooking Time Column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Cooking Time',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        TextFormField(
+                          controller: cookingTimeController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly, 
+                          ],
+                          decoration: InputDecoration(
+                            hintText: 'Minutes',
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            prefixIcon: Icon(Icons.timer),
+                            suffixText: 'min',
+                          ),
+                           validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Required';
+                            }
+                            int? parsedValue = int.tryParse(value);
+                            if (parsedValue == null) {
+                              return 'Numbers only';
+                            }
+                            if (parsedValue <= 0) {
+                              return 'Must be greater than 0';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  
+                  // Servings Column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Servings',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        TextFormField(
+                          controller: servingsController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,  
+                          ],
+                          decoration: InputDecoration(
+                            hintText: 'People',
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            prefixIcon: Icon(Icons.people),
+                          ),
+                         validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Required';
+                              }
+                              int? parsedValue = int.tryParse(value);
+                              if (parsedValue == null) {
+                                return 'Numbers only';
+                              }
+                              if (parsedValue <= 0) {
+                                return 'Must be greater than 0';
+                              }
+                              return null;
+                            },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              
+              SizedBox(height: 20),
+              
+              // Instructions text
+              Text(
+                'Continue to add ingredients and instructions on the next screen',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              
+              SizedBox(height: 16),
+              
+              // Buttons (Cancel and Create)
+              Row(
+                children: [
+                  // Cancel Button
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.black,
+                        backgroundColor: Colors.grey[200],
+                        padding: EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  
+                  // Create Button
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (_formKey.currentState!.validate()) {
+                          // เก็บข้อมูลเบื้องต้น
+                          final initialRecipeData = {
+                            'recipeName': recipeNameController.text,
+                            'totalCookingTime': int.parse(cookingTimeController.text),
+                            'servings': int.parse(servingsController.text),
+                          };
+                          
+                          // ปิด modal bottom sheet
+                          Navigator.pop(context);
+                          
+                          // เปิดหน้า CreateRecipeScreen พร้อมส่งข้อมูลเบื้องต้นไป
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CreateRecipeScreen(
+                                initialData: initialRecipeData,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Color(0xFF78d454),
+                        padding: EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text(
+                        'Continue',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }

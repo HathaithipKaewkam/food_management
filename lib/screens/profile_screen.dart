@@ -855,18 +855,16 @@ void _logout() async {
         }
         
         return Padding(
-        padding: const EdgeInsets.only(top: 20, left: 0),
+        padding: const EdgeInsets.only(top: 20),
         child: ListView(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.only(left: 12 , right: 12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 0),
-                    child: Column(
+      
+                   Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -888,8 +886,8 @@ void _logout() async {
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 190),
+                    
+      
                   Container(
                     width: 70,
                     height: 70,

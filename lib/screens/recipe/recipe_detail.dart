@@ -150,21 +150,6 @@ class _RecipeDetailState extends State<RecipeDetail> {
             ),
           ),
           const SizedBox(height: 10),
-          Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.recipe.description,
-                    style: const TextStyle(
-                      fontSize: 16,
-                    ),
-                    maxLines: null,
-                  ),
-                ],
-              )),
-          const SizedBox(height: 10),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -187,12 +172,12 @@ class _RecipeDetailState extends State<RecipeDetail> {
           ),
           const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.only( left: 20, right: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     Row(
                       children: [
@@ -216,7 +201,7 @@ class _RecipeDetailState extends State<RecipeDetail> {
                         Text('${widget.recipe.Carbo} g',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 30),
+                        const SizedBox(width: 50),
                         Image.asset('assets/images/kcal.png',
                             width: 23, height: 17),
                         const SizedBox(width: 1),
@@ -259,7 +244,7 @@ class _RecipeDetailState extends State<RecipeDetail> {
                         ],
                       ),
 
-                      // ปุ่มลด, ตัวเลข, และปุ่มเพิ่ม
+                    
                       Row(
                         children: [
                           IconButton(
@@ -272,7 +257,7 @@ class _RecipeDetailState extends State<RecipeDetail> {
                             },
                             icon: const Icon(Icons.remove),
                             iconSize: 20,
-                            color: Colors.redAccent, // สีปุ่มลบ
+                            color: Colors.redAccent, 
                           ),
                           Text(
                             "$currentNumber",
@@ -290,7 +275,7 @@ class _RecipeDetailState extends State<RecipeDetail> {
                             },
                             icon: const Icon(Icons.add),
                             iconSize: 20,
-                            color: Colors.green, // สีปุ่มเพิ่ม
+                            color: Colors.green, 
                           ),
                         ],
                       ),
@@ -307,7 +292,7 @@ class _RecipeDetailState extends State<RecipeDetail> {
             child: Container(
               padding: const EdgeInsets.all(8),
               constraints: const BoxConstraints(
-                maxWidth: 300, // จำกัดขนาดความกว้าง
+                maxWidth: 300,
               ),
               decoration: BoxDecoration(
                 color: Colors.grey[300],

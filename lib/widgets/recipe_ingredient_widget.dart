@@ -26,10 +26,11 @@ class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header Section
-        Row(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   "Ingredients",
@@ -38,13 +39,26 @@ class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 7),
-                Text(
-                  "${widget.ingredients.length} items", // จำนวนรายการวัตถุดิบ
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                TextButton(
+                  onPressed: () {
+                    
+                    print("Add all ingredients to cart");
+                  }, 
+                  child: Text("Add All to Cart"), 
                 ),
+                
+                
               ],
             ),
+           
+                Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "${widget.ingredients.length} items",
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ),
+            
           ],
         ),
         const SizedBox(height: 10),

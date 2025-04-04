@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/models/recipe.dart';
 import 'package:food_project/widgets/recipe_widget.dart';
@@ -18,54 +19,37 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
     Size size = MediaQuery.of(context).size;
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.only(top:10, left: 0),
+        padding: const EdgeInsets.only(top:20),
         child: ListView(
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.only(left: 12, right: 12),
+              padding: const EdgeInsets.only(left: 10, right: 10),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween, // ซ้าย-ขวา
+                mainAxisAlignment: MainAxisAlignment.spaceBetween, 
                 children: [
-                  // ปุ่มย้อนกลับ
-                  Container(
-                    height: 40,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(25),
-                      color: Constants.primaryColor.withOpacity(.15),
-                    ),
-                    child: IconButton(
-                      icon: Icon(Icons.arrow_back, color: Constants.primaryColor),
-                      onPressed: () {
-                        Navigator.pop(context); // กลับหน้าก่อนหน้า
-                      },
-                    ),
+                 IconButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    icon: const FaIcon(FontAwesomeIcons.arrowLeft),
+                    color: Colors.black,
+                    iconSize: 20,
                   ),
-                  // ชื่อหน้าจอ
                   Text(
-                    'Favorites',
+                    'Favorites Recipe',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Constants.primaryColor,
+                      color: Colors.black,
                     ),
                   ),
-                  // ปุ่ม List
-                  Container(
-                    height: 40,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(25),
-                      color: Constants.primaryColor.withOpacity(.15),
-                    ),
-                    child: IconButton(
-                      icon: Icon(Icons.list, color: Constants.primaryColor),
-                      onPressed: () {
-                        // เพิ่มฟังก์ชันเมื่อกดปุ่ม List
-                        print('List icon pressed');
-                      },
-                    ),
+                   IconButton(
+                    onPressed: () { 
+                    },
+                    icon: Icon( Icons.tune),
+                    color: Colors.black,
+                    iconSize: 25,
                   ),
                 ],
               ),
@@ -88,7 +72,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                         Text(
                           'Your favorited Recipes',
                           style: TextStyle(
-                            color: Constants.primaryColor,
+                            color: Colors.black.withOpacity(0.5),
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
                           ),

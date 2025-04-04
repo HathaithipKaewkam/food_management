@@ -84,24 +84,44 @@ class RecipeRecommendationService {
   }
 
   Future<List<Map<String, dynamic>>> fetchIngredientsWithExpiry(String userId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('userIngredients')
-          .get();
+  try {
+    final snapshot = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('userIngredients')
+        .get();
 
-      return snapshot.docs.map((doc) {
-        return {
-          'name': doc['ingredientsName'].toString(),
-          'expiryDate': (doc['expirationDate'] as Timestamp).toDate(),
-        };
-      }).toList();
-    } catch (e) {
-      print("❌ Error fetching ingredients with expiry: $e");
-      return [];
-    }
+    return snapshot.docs.map((doc) {
+      DateTime expiryDate;
+      
+      try {
+       
+        if (doc['expirationDate'] is Timestamp) {
+         
+          expiryDate = (doc['expirationDate'] as Timestamp).toDate();
+        } else if (doc['expirationDate'] is String) {
+         
+          expiryDate = DateTime.parse(doc['expirationDate']);
+        } else {
+        
+          print("⚠️ Unexpected expirationDate type: ${doc['expirationDate'].runtimeType} for ${doc['ingredientsName']}");
+          expiryDate = DateTime.now().add(Duration(days: 30)); // ค่า default
+        }
+      } catch (e) {
+        print("⚠️ Error parsing expirationDate for ${doc['ingredientsName']}: $e");
+        expiryDate = DateTime.now().add(Duration(days: 30)); // ค่า default
+      }
+      
+      return {
+        'name': doc['ingredientsName'].toString(),
+        'expiryDate': expiryDate,
+      };
+    }).toList();
+  } catch (e) {
+    print("❌ Error fetching ingredients with expiry: $e");
+    return [];
   }
+}
 
   
 
@@ -152,8 +172,11 @@ class RecipeRecommendationService {
 
       // Filter and score recipes
       List<Map<String, dynamic>> recommendedRecipes = [];
-      ingredientsWithExpiry.sort((a, b) => 
-        (a['expiryDate'] as DateTime).compareTo(b['expiryDate'] as DateTime));
+      ingredientsWithExpiry.sort((a, b) {
+          DateTime aDate = a['expiryDate'] is DateTime ? a['expiryDate'] : DateTime.now();
+          DateTime bDate = b['expiryDate'] is DateTime ? b['expiryDate'] : DateTime.now();
+          return aDate.compareTo(bDate);
+});
       
       for (var recipe in allRecipes) {
         try {
@@ -170,8 +193,9 @@ class RecipeRecommendationService {
             );
 
             // คำนวณวันที่เหลือก่อนหมดอายุ
-            int daysUntilExpiry = (matchingIngredient['expiryDate'] as DateTime)
-                .difference(DateTime.now()).inDays;
+            DateTime expiryDate = matchingIngredient['expiryDate'] is DateTime ? 
+              matchingIngredient['expiryDate'] : DateTime.now().add(const Duration(days: 365));
+          int daysUntilExpiry = expiryDate.difference(DateTime.now()).inDays;
 
             // ให้คะแนนเพิ่มตามความใกล้วันหมดอายุ
             if (daysUntilExpiry <= 3) {
