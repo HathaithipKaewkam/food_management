@@ -30,68 +30,157 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
   Map<String, dynamic> userIngredientsMap = {}; 
   bool isLoading = true;
   final RecipeService _recipeService = RecipeService();
+  bool isLoadingPairing = true;
+bool isLoadingRecipes = true;
 
   @override
   void initState() {
     super.initState();
+     setState(() {
+    isLoadingPairing = true;
+    isLoadingRecipes = true;
+  });
     fetchPairingIngredients();
     fetchRecipe();
     _fetchUserIngredients();
   }
 
-  Future<void> fetchRecipe() async {
-    try {
+  int extractIngredientCount(Map<String, dynamic> recipe, String key) {
+  if (recipe[key] is int) {
+    return recipe[key];
+  } else if (recipe[key] is num) {
+    return (recipe[key] as num).toInt();
+  } else {
+    return int.tryParse(recipe[key]?.toString() ?? '0') ?? 0;
+  }
+}
+
+ Future<void> fetchRecipe() async {
+  try {
+    setState(() {
+      isLoadingRecipes = true;
+    });
   
-      String ingredientName = widget.ingredient.ingredientsName.trim();
-      List<String> userIngredients = [ingredientName];
+    String ingredientName = widget.ingredient.ingredientsName.trim();
+    
+    String formattedIngredient = ingredientName
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s]'), '') 
+        .trim();
+    
+    print("🔍 ค้นหาสูตรอาหารสำหรับ: $formattedIngredient");
 
+    // ค้นหาสูตรอาหารไทย
+    List<Map<String, dynamic>> thaiRecipes = await _recipeService.getRecipesByCuisine(
+      primaryCuisine: 'Thai',
+      fallbackCuisines: [],
+      limit: 5,
+      includeIngredients: [formattedIngredient]
+    );
+
+    // ค้นหาสูตรอาหารทั่วไป
+    List<Map<String, dynamic>> generalRecipes =
+      await _recipeService.getRecipesWithImages([formattedIngredient]);
+    
+    print("📊 พบสูตรอาหารไทย ${thaiRecipes.length} สูตร และสูตรทั่วไป ${generalRecipes.length} สูตร");
+    
+    Set<int> recipeIds = {};
+    List<Map<String, dynamic>> allRecipes = [];
+
+    // กรองและเพิ่มสูตรอาหารไทยที่มีวัตถุดิบตรงกัน
+    for (var recipe in thaiRecipes) {
+      int id = recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString());
       
-      String formattedIngredient = ingredientName
-          .toLowerCase()
-          .replaceAll(RegExp(r'[^\w\s]'), '') 
-          .trim();
-
-      List<Map<String, dynamic>> fetchedRecipes =
-    await _recipeService.getRecipesWithImages([formattedIngredient]);
-
-      if (fetchedRecipes.isEmpty) {
-        print("⚠️ No recipes found in API response");
-      } else {
-        print("✅ Found ${fetchedRecipes.length} recipes");
-        fetchedRecipes.forEach((recipe) {
-          print("  - ${recipe['title']}");
-        });
+      // ตรวจสอบว่ามีส่วนผสมตรงกันหรือไม่
+      bool hasMatchingIngredient = true;
+      
+      
+      if (hasMatchingIngredient && !recipeIds.contains(id)) {
+        recipeIds.add(id);
+        recipe['isThaiCuisine'] = true;
+        allRecipes.add(recipe);
       }
-
+    }
+    
+    // กรองและเพิ่มสูตรอาหารทั่วไปที่มีวัตถุดิบตรงกัน
+    for (var recipe in generalRecipes) {
+      int id = recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString());
+      
+      if (!recipeIds.contains(id)) {
+        int usedIngredientCount = extractIngredientCount(recipe, 'usedIngredientCount');
+        if (usedIngredientCount > 0) {
+          recipeIds.add(id);
+          recipe['isThaiCuisine'] = recipe['cuisine'] == 'Thai';
+          allRecipes.add(recipe);
+        }
+      }
+    }
+    
+    // ถ้าไม่พบสูตรอาหารเลย แสดงข้อความหรือลองใช้การค้นหาอื่น
+    if (allRecipes.isEmpty) {
+      print("⚠️ ไม่พบสูตรอาหารที่มีส่วนผสมตรงกัน");
+      
+    
+    }
+    
+    // เรียงลำดับ: อาหารไทยก่อน และเรียงตามจำนวนวัตถุดิบที่ตรงกัน
+    allRecipes.sort((a, b) {
+      // เรียงตามประเภทอาหาร (อาหารไทยมาก่อน)
+      if (a['isThaiCuisine'] != b['isThaiCuisine']) {
+        return a['isThaiCuisine'] == true ? -1 : 1;
+      }
+      
+      // ถ้าเป็นประเภทเดียวกัน เรียงตามจำนวนวัตถุดิบที่ตรงกัน
+      int aMatch = extractIngredientCount(a, 'usedIngredientCount');
+      int bMatch = extractIngredientCount(b, 'usedIngredientCount');
+      
+      return bMatch.compareTo(aMatch);
+    });
+    
+    print("📊 ค้นหาสูตรอาหารแล้ว: ${allRecipes.length} สูตร (อาหารไทย: ${allRecipes.where((r) => r['isThaiCuisine'] == true).length} สูตร)");
+    
+    if (mounted) {
       setState(() {
-        recipes = fetchedRecipes;
-        isLoading = false;
+        recipes = allRecipes;
+        isLoadingRecipes = false;
       });
-    } catch (e) {
-      print("❌ Error fetching recipes: $e");
+    }
+  } catch (e) {
+    print("❌ Error fetching recipes: $e");
+    if (mounted) {
       setState(() {
         recipes = [];
-        isLoading = false;
+        isLoadingRecipes = false;
       });
     }
   }
+}
 
   Future<void> fetchPairingIngredients() async {
-    try {
-      List<Map<String, String>> fetchedIngredients =
-          await getRecipeAndPairings(widget.ingredient.ingredientsName);
+  try {
+    setState(() {
+      isLoadingPairing = true;
+    });
+    
+    List<Map<String, String>> fetchedIngredients =
+        await getRecipeAndPairings(widget.ingredient.ingredientsName);
+    
+    if (mounted) {
       setState(() {
         pairingIngredients = fetchedIngredients;
-        isLoading = false;
+        isLoadingPairing = false;
       });
-    } catch (e) {
-      print("Error fetching pairing ingredients: $e");
+    }
+  } catch (e) {
+    print("Error fetching pairing ingredients: $e");
+    if (mounted) {
       setState(() {
         pairingIngredients = [];
-        isLoading = false;
+        isLoadingPairing = false;
       });
     }
   }
+}
 
   Future<void> checkUserIngredients() async {
     String uid = FirebaseAuth.instance.currentUser!.uid;
@@ -484,7 +573,21 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
               ),
             ),
             const SizedBox(height: 10),
-            pairingIngredients.isEmpty
+            isLoadingPairing
+            ?  Column(
+                  children: [
+                    CircularProgressIndicator(color: Color(0xFF5CB77E)),
+                    SizedBox(height: 10),
+                    Text(
+                      "Finding ingredients that pair well...",
+                      style: TextStyle(
+                        color: Color(0xFF595959),
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                )
+            : pairingIngredients.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Text(
@@ -562,14 +665,57 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  if (recipes.isNotEmpty)
+                   isLoadingRecipes
+                      ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(color: Color(0xFF5CB77E)),
+                              SizedBox(height: 10),
+                              Text(
+                                "Finding recipes...",
+                                style: TextStyle(
+                                  color: Color(0xFF595959),
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          )
+                        
+                      :recipes.isEmpty
+                       ? Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
+                    child: Text(
+                      "No recipes found for this ingredient.",
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 16,
+                      ),
+                      textAlign: TextAlign.left,
+                    ),
+                  
+                )
+              :
                     Column(
                       children: recipes.map((recipe) {
                         int index = recipes.indexOf(recipe);
-                        int matchedIngredients =
-                            int.parse(recipe['usedIngredientCount'] ?? '0');
-                        int totalIngredients = matchedIngredients +
-                            int.parse(recipe['missedIngredientCount'] ?? '0');
+                        int matchedIngredients = 0;
+                        if (recipe['usedIngredientCount'] is int) {
+                          matchedIngredients = recipe['usedIngredientCount'];
+                        } else if (recipe['usedIngredientCount'] is num) {
+                          matchedIngredients = (recipe['usedIngredientCount'] as num).toInt();
+                        } else {
+                          matchedIngredients = int.tryParse(recipe['usedIngredientCount']?.toString() ?? '0') ?? 0;
+                        }
+                        int missedIngredients = 0;
+                        if (recipe['missedIngredientCount'] is int) {
+                          missedIngredients = recipe['missedIngredientCount'];
+                        } else if (recipe['missedIngredientCount'] is num) {
+                          missedIngredients = (recipe['missedIngredientCount'] as num).toInt();
+                        } else {
+                          missedIngredients = int.tryParse(recipe['missedIngredientCount']?.toString() ?? '0') ?? 0;
+                        }
+
+                        int totalIngredients = matchedIngredients + missedIngredients;
                         return Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 5.0, vertical: 10.0),
@@ -697,21 +843,12 @@ class _IngredientDetailPageState extends State<IngredientDetailPage> {
                                 ]));
                       }).toList(),
                     )
-                  else
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text(
-                        "No recipes found.",
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                 
           ],
         ),
       ),
-    );
+    ])
+      ));
   }
 }
 

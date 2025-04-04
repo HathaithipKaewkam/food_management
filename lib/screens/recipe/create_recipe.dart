@@ -12,9 +12,11 @@ import 'package:image_picker/image_picker.dart';
 
 class CreateRecipeScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
+  final Function? onRecipeCreated;
   const CreateRecipeScreen({
     Key? key, 
     this.initialData,
+    this.onRecipeCreated,
   }) : super(key: key);
 
   @override
@@ -121,9 +123,9 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
     _servingsController.text.isNotEmpty && 
     int.tryParse(_servingsController.text) != null &&
     _cookingTimeController.text.isNotEmpty && 
-    int.tryParse(_cookingTimeController.text) != null &&
-    ingredients.isNotEmpty && 
-    instructions.isNotEmpty;
+    int.tryParse(_cookingTimeController.text) != null;
+    
+  
   
   _isFormValid.value = isValid;
 }
@@ -217,6 +219,10 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Recipe created successfully!')),
     );
+     if (widget.onRecipeCreated != null) {
+    widget.onRecipeCreated!();
+  }
+  
     
     Navigator.pop(context);
   } catch (e) {
@@ -637,41 +643,56 @@ Container(
                           const SizedBox(height: 120),
                           
                           // Save Button
-                        ValueListenableBuilder<bool>(
-                                valueListenable: _isFormValid,
-                                builder: (context, isValid, child) {
-                                  return Visibility(
-                                    visible: isValid, // แสดงเฉพาะเมื่อ isValid เป็น true
-                                    child: Column(
-                                      children: [
-                                        const SizedBox(height: 30),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: ElevatedButton(
-                                            onPressed: _createRecipe,
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Color(0xFF78d454),
-                                              padding: const EdgeInsets.symmetric(vertical: 15),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(10),
-                                              ),
-                                            ),
-                                            child: const Text(
-                                              'Add Recipe',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                          const SizedBox(height: 10),
+                        Column(
+  children: [
+    const SizedBox(height: 5),
+    SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () {
+         
+          if (!_formKey.currentState!.validate()) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please fill out all required fields correctly')),
+            );
+            return;
+          }
+          if (ingredients.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please add at least one ingredient')),
+            );
+            return;
+          }
+          if (instructions.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please add at least one instruction step')),
+            );
+            return;
+          }
+          
+          
+          _createRecipe();
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Color(0xFF78d454),
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: const Text(
+          'Add Recipe',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    ),
+  ],
+),
+                        
                         ],
                       ),
                     ),

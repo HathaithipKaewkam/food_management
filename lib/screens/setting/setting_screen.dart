@@ -67,7 +67,7 @@ Future<void> _fetchProfileImage() async {
       
       if (profileDoc.exists && profileDoc.data() is Map<String, dynamic>) {
         Map<String, dynamic> data = profileDoc.data() as Map<String, dynamic>;
-        print("📄 Document data: $data");
+      
         
         if (data.containsKey('profileImage') && data['profileImage'] != null) {
           String imageValue = data['profileImage'].toString();

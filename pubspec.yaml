@@ -64,6 +64,7 @@ dependencies:
   animated_text_kit: ^4.2.3
   percent_indicator: ^4.2.4
   ulid: ^2.0.1
+  dart_date: ^1.5.3
 
 dev_dependencies:
   flutter_test:

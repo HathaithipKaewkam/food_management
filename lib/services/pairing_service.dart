@@ -36,7 +36,7 @@ Future<List<String>> getRecipesByIngredients(List<String> ingredients) async {
 
   final response = await http.get(
     Uri.parse(
-      'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientString&apiKey=bd24cc0518a546b3a16d79dee986ea98',
+      'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientString&apiKey=36440b5c03cb475c993bed762cee0c75',
     ),
   );
 
@@ -52,7 +52,7 @@ Future<List<String>> getRecipesByIngredients(List<String> ingredients) async {
 Future<List<Map<String, String>>> getRecipeAndPairings(String ingredientName) async {
   final response = await http.get(
     Uri.parse(
-        'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientName&apiKey=bd24cc0518a546b3a16d79dee986ea98'),
+        'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientName&apiKey=36440b5c03cb475c993bed762cee0c75'),
   );
 
   if (response.statusCode == 200) {

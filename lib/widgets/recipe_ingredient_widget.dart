@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/models/recipe.dart';
 
 
 class RecipeIngredientWidget extends StatefulWidget {
-  final List<IngredientUsage> ingredients; // รับ List<Ingredient>
+ final List<IngredientUsage> ingredients;
   final Recipe recipe;
   final int currentNumber;
-
+  final List<Map<String, dynamic>> userIngredients;
   const RecipeIngredientWidget({
     super.key,
     required this.ingredients,
     required this.recipe,
     required this.currentNumber,
+     required this.userIngredients,
   });
 
   @override
@@ -19,6 +21,26 @@ class RecipeIngredientWidget extends StatefulWidget {
 }
 
 class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
+
+   bool _hasIngredient(Ingredient recipeIngredient) {
+  return widget.userIngredients.any((userIngredient) => 
+      userIngredient['ingredient'] != null && 
+      userIngredient['ingredient']['ingredientsName'] != null &&
+      userIngredient['ingredient']['ingredientsName'].trim().toLowerCase() == 
+      recipeIngredient.ingredientsName.trim().toLowerCase());
+}
+
+  Map<String, dynamic>? _getUserIngredient(Ingredient recipeIngredient) {
+  try {
+    return widget.userIngredients.firstWhere((userIngredient) => 
+        userIngredient['ingredient'] != null && 
+        userIngredient['ingredient']['ingredientsName'] != null &&
+        userIngredient['ingredient']['ingredientsName'].trim().toLowerCase() == 
+        recipeIngredient.ingredientsName.trim().toLowerCase());
+  } catch (e) {
+    return null;
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -63,48 +85,76 @@ class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
         ),
         const SizedBox(height: 10),
         // Ingredient List
-        Column(
+         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: widget.ingredients.map((ingredientUsage) {
-            final ingredient = ingredientUsage.ingredient; // ดึงข้อมูลวัตถุดิบ
+            final ingredient = ingredientUsage.ingredient;
             final adjustedQuantityUsed = ingredientUsage.quantityUsed *
                 widget.currentNumber /
                 widget.recipe.servings;
+            
+            
+            final hasIngredient = _hasIngredient(ingredient);
+            
             return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Row(
-                children: [
-                  // รูปภาพวัตถุดิบ
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(15),
-                      image: DecorationImage(
-                        image: AssetImage(ingredient.imageUrl),
-                        fit: BoxFit.fill,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Card(
+                elevation: 1,
+                color: Colors.white, 
+                margin: EdgeInsets.zero,
+                
+                
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  child: Row(
+                    children: [
+                      // ไอคอนด้านซ้าย
+                     Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: hasIngredient 
+                            ? const Color(0xFF78d454).withOpacity(0.2) 
+                            : Colors.redAccent.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12), // สี่เหลี่ยมมน
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.dining, 
+                            color: hasIngredient ? const Color(0xFF78d454) : Colors.redAccent,
+                            size: 22,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 16),
+                      
+                      // เนื้อหาหลัก (ชื่อและปริมาณ)
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ingredient.ingredientsName,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${adjustedQuantityUsed.toStringAsFixed(2)} ${ingredient.unit}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  // ชื่อวัตถุดิบ
-                  Text(
-                    ingredient.ingredientsName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  // ปริมาณที่ใช้
-                  Text(
-                    '${adjustedQuantityUsed.toStringAsFixed(2)} ${ingredient.unit}', // จำนวน + หน่วย
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
+                ),
               ),
             );
           }).toList(),

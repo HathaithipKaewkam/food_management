@@ -36,7 +36,7 @@ class InstructionsWidget extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4), // ลดระยะห่างระหว่างหัวข้อกับรายการ
+          const SizedBox(height: 8), // ลดระยะห่างระหว่างหัวข้อกับรายการ
           ListView.builder(
             shrinkWrap: true, // ช่วยให้ ListView ไม่ขยายเกินขนาด
             physics: const NeverScrollableScrollPhysics(),
@@ -76,7 +76,7 @@ class RecipeStep extends StatelessWidget {
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                color: TColor.secondaryColor1,
+                color: Colors.green,
                 borderRadius: BorderRadius.circular(10),
               ),
               alignment: Alignment.center,
@@ -93,7 +93,7 @@ class RecipeStep extends StatelessWidget {
               DottedDashedLine(
                   height: 50,
                   width: 0,
-                  dashColor: TColor.secondaryColor1,
+                  dashColor: Colors.greenAccent,
                   axis: Axis.vertical)
           ],
         ),

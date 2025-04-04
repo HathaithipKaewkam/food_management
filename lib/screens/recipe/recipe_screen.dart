@@ -29,6 +29,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
   final RecipeRecommendationService _recommendationService = RecipeRecommendationService();
   List<Map<String, dynamic>> recommendedRecipes = [];
   bool isLoading = true;
+  List<Recipe> userRecipes = [];
+  bool isLoadingUserRecipes = true;
   
 
 
@@ -36,7 +38,96 @@ class _RecipeScreenState extends State<RecipeScreen> {
   void initState() {
     super.initState();
     _loadRecommendations();
+     _loadUserRecipes();
   }
+
+  Future<void> _loadUserRecipes() async {
+  try {
+    setState(() {
+      isLoadingUserRecipes = true;
+    });
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userRecipesSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('userRecipe')
+          .orderBy('createdAt', descending: true)
+          .get();
+            print('Found ${userRecipesSnapshot.docs.length} recipes in Firestore');
+
+      List<Recipe> loadedRecipes = [];
+      
+      for (var doc in userRecipesSnapshot.docs) {
+        final data = doc.data();
+        
+        // แปลงข้อมูล ingredients จาก Firestore เป็น IngredientUsage objects
+        List<IngredientUsage> ingredients = [];
+        for (var ingData in (data['ingredients'] as List<dynamic>? ?? [])) {
+          final ingredient = Ingredient(
+            ingredientsName: ingData['name'] ?? '',
+            unit: ingData['unit'] ?? '',
+            quantity: 0,
+            minQuantity: 0,
+            category: 'Other',
+            storage: 'Pantry',
+            source: 'Recipe',
+            userId: user.uid,
+            ingredientId: DateTime.now().millisecondsSinceEpoch.toString(),
+            imageUrl: 'assets/images/ingredient_placeholder.png',
+            expirationDate: DateTime.now().add(Duration(days: 30)),
+            kcal: 0,
+          );
+          
+          ingredients.add(IngredientUsage(
+            ingredient: ingredient,
+            quantityUsed: (ingData['amount'] ?? 0).toDouble(),
+          ));
+        }
+        
+        // สร้าง Recipe object จากข้อมูลใน Firestore
+        Recipe recipe = Recipe(
+          recipeId: data['recipeId'] ?? 0,
+          recipeName: data['recipeName'] ?? '',
+          description: data['description'] ?? '',
+          ingredients: ingredients,
+          instructions: List<String>.from(data['instructions'] ?? []),
+          preparationTime: data['preparationTime'] ?? 0,
+          cookingTime: data['cookingTime'] ?? 0,
+          servings: data['servings'] ?? 1,
+          category: data['category'] ?? 'Other',
+          imageUrl: data['imageUrl'] ?? '',
+          Protein: (data['Protein'] ?? 0).toDouble(),
+          Fat: (data['Fat'] ?? 0).toDouble(),
+          Carbo: (data['Carbo'] ?? 0).toDouble(),
+          Kcal: data['Kcal'] ?? 0,
+          isFavorite: data['isFavorite'] ?? false,
+        );
+        
+        loadedRecipes.add(recipe);
+      }
+      
+      if (mounted) {
+        setState(() {
+          userRecipes = loadedRecipes;
+          isLoadingUserRecipes = false;
+        });
+      }
+    } else {
+      setState(() {
+        isLoadingUserRecipes = false;
+      });
+    }
+  } catch (e) {
+    print('Error loading user recipes: $e');
+    if (mounted) {
+      setState(() {
+        isLoadingUserRecipes = false;
+      });
+    }
+  }
+}
   
 
   Future<void> _loadRecommendations() async {
@@ -47,15 +138,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      print('👤 Loading recommendations for user: ${user.uid}');
+     
       
-      // Add debug log before API call
-      print('🔍 Calling getRecommendedRecipes...');
+    
       
       final recipes = await _recommendationService.getRecommendedRecipes(user.uid);
       
-      // Add detailed logging
-      print('📊 Received ${recipes.length} recommendations');
+  
       if (recipes.isNotEmpty) {
         print('First recipe: ${recipes[0]['title']}');
       }
@@ -65,8 +154,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           recommendedRecipes = recipes;
           isLoading = false;
         });
-        // Verify state update
-        print('🔄 State updated - recommendedRecipes length: ${recommendedRecipes.length}');
+     
       }
     } else {
       print('⚠️ No user logged in');
@@ -85,6 +173,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
   }
 }
+
+
 
 
   @override
@@ -208,7 +298,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   ),
 
                   const SizedBox(
-                      width: 10), // Space between search and favorite button
+                      width: 10), 
 
                   // Favorite Button
                   Container(
@@ -590,32 +680,81 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         ],
                       ),
                     ),
-                ListView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  itemCount: recipeList.length,
-                  itemBuilder: (context, index) {
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          PageTransition(
-                            child: RecipeDetail(
-                              recipe: recipeList[index],
-                              recipeId: recipeList[index].recipeId,
-                            ),
-                            type: PageTransitionType.bottomToTop,
-                          ),
-                        );
-                      },
-                      child: RecipeWidget(
-                        index: index,
-                        recipeScreenList: recipeList,
-                        recipe: null,
-                      ),
-                    );
-                  },
+                 isLoadingUserRecipes
+    ? Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 30.0),
+          child: CircularProgressIndicator(
+            color: Color(0xFF5CB77E),
+          ),
+        ),
+      )
+    : userRecipes.isEmpty
+      ? Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 30.0),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.restaurant_menu,
+                  size: 50,
+                  color: Colors.grey[400],
                 ),
+                SizedBox(height: 16),
+                Text(
+                  'You haven\'t created any recipes yet',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                  ),
+                ),
+                SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    _showCreateRecipeModal(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF78d454),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('Create Recipe'),
+                ),
+              ],
+            ),
+          ),
+        )
+     
+      : ListView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          itemCount: userRecipes.length > 3 ? 3 : userRecipes.length, 
+          itemBuilder: (context, index) {
+            print('Building recipe at index $index: ${userRecipes[index].recipeName}');
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  PageTransition(
+                    child: RecipeDetail(
+                      recipe: userRecipes[index],
+                      recipeId: userRecipes[index].recipeId,
+                    ),
+                    type: PageTransitionType.bottomToTop,
+                  ),
+                   ).then((_) {
+               
+                _loadUserRecipes();
+        }
+                );
+              },
+              child: RecipeWidget(
+                index: index,
+                recipeScreenList: userRecipes,
+                recipe: null,
+              ),
+            );
+          },
+        ),
               ],
             ),
             // Recipe of The Week
@@ -931,27 +1070,34 @@ void _showCreateRecipeModal(BuildContext context) {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          // เก็บข้อมูลเบื้องต้น
-                          final initialRecipeData = {
-                            'recipeName': recipeNameController.text,
-                            'totalCookingTime': int.parse(cookingTimeController.text),
-                            'servings': int.parse(servingsController.text),
-                          };
+                         if (_formKey.currentState!.validate()) {
+                            // เก็บข้อมูลเบื้องต้น
+                            final initialRecipeData = {
+                              'recipeName': recipeNameController.text,
+                              'totalCookingTime': int.parse(cookingTimeController.text),
+                              'servings': int.parse(servingsController.text),
+                            };
+                            
+                           
+                            Navigator.pop(context);
+                            
                           
-                          // ปิด modal bottom sheet
-                          Navigator.pop(context);
-                          
-                          // เปิดหน้า CreateRecipeScreen พร้อมส่งข้อมูลเบื้องต้นไป
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => CreateRecipeScreen(
-                                initialData: initialRecipeData,
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CreateRecipeScreen(
+                                  initialData: initialRecipeData,
+                                 
+                                  onRecipeCreated: () {
+                                  
+                                    if (context.findAncestorStateOfType<_RecipeScreenState>() != null) {
+                                      context.findAncestorStateOfType<_RecipeScreenState>()!._loadUserRecipes();
+                                    }
+                                  },
+                                ),
                               ),
-                            ),
-                          );
-                        }
+                            );
+                          }
                       },
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.white,
