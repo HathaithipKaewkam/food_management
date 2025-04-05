@@ -77,9 +77,10 @@ class _FoodAllergiesState extends State<FoodAllergies> {
           TextButton(
             onPressed: () {
               Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => CaloriesMacronutrient()),
-              );
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => GoalScreen()),
+                      );
             },
             child: const Text(
               'Skip',

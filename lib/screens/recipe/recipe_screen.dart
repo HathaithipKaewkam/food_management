@@ -8,11 +8,14 @@ import 'package:food_project/models/recipe.dart';
 import 'package:food_project/screens/recipe/create_recipe.dart';
 import 'package:food_project/screens/recipe/favorite_screen.dart';
 import 'package:food_project/screens/recipe/myrecipe_screen.dart';
-import 'package:food_project/screens/recipe/poupular_screen.dart';
+import 'package:food_project/screens/recipe/popular_screen.dart';
+import 'package:food_project/screens/recipe/week_screen.dart';
 import 'package:food_project/screens/recipe/recipe_detail.dart';
 import 'package:food_project/screens/recipe/recommend_screen.dart';
 import 'package:food_project/screens/recipe/schedule_screen.dart';
+import 'package:food_project/services/popular_recipe_service.dart';
 import 'package:food_project/services/recipe_reccomend_service.dart';
+import 'package:food_project/services/recipe_service.dart';
 import 'package:food_project/widgets/recipe_widget.dart';
 import 'package:page_transition/page_transition.dart';
 
@@ -31,6 +34,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool isLoading = true;
   List<Recipe> userRecipes = [];
   bool isLoadingUserRecipes = true;
+  List<Map<String, dynamic>> weeklyRecipes = [];
+  bool isLoadingWeeklyRecipes = true;
+  final RecipeService _recipeService = RecipeService();
+  List<Map<String, dynamic>> popularRecipes = [];
+  bool isLoadingPopularRecipes = true;
+  final PopularRecipeService _popularRecipeService = PopularRecipeService();
+  
   
 
 
@@ -38,7 +48,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
   void initState() {
     super.initState();
     _loadRecommendations();
-     _loadUserRecipes();
+    _loadUserRecipes();
+    _loadWeeklyRecipes();
+     _loadPopularRecipes();
   }
 
   Future<void> _loadUserRecipes() async {
@@ -128,7 +140,31 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
   }
 }
-  
+
+ Future<void> _loadWeeklyRecipes() async {
+    try {
+      setState(() {
+        isLoadingWeeklyRecipes = true;
+      });
+      
+      final recipes = await _recipeService.getWeeklyRecipes(5); 
+      
+      if (mounted) {
+        setState(() {
+          weeklyRecipes = recipes;
+          isLoadingWeeklyRecipes = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading weekly recipes: $e');
+      if (mounted) {
+        setState(() {
+          isLoadingWeeklyRecipes = false;
+        });
+      }
+    }
+  }
+
 
   Future<void> _loadRecommendations() async {
   try {
@@ -173,6 +209,32 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
   }
 }
+
+Future<void> _loadPopularRecipes() async {
+    try {
+      setState(() {
+        isLoadingPopularRecipes = true;
+      });
+      
+      final recipes = await _popularRecipeService.getPopularRecipes(limit: 5);
+      
+      if (mounted) {
+        setState(() {
+          popularRecipes = recipes;
+          isLoadingPopularRecipes = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading popular recipes: $e');
+      if (mounted) {
+        setState(() {
+          isLoadingPopularRecipes = false;
+        });
+      }
+    }
+}
+
+
 
 
 
@@ -877,51 +939,266 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     color: Colors.black,
                   ),
                 ),
-                  TextButton
-                    (onPressed: () => Navigator.push(
-                      context, MaterialPageRoute(
-                      builder: (context) =>
-                      PoupularScreen(recipes: recipeList),)
-                        ),
-                    child: const Text("See All",
-                style: TextStyle(
-                  color: Colors.green,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-                ),
-                    )
+                 TextButton(
+  onPressed: () => Navigator.push(
+    context, 
+    MaterialPageRoute(
+      builder: (context) => WeekScreen(
+        weeklyRecipes: weeklyRecipes,
+      ),
+    ),
+  ),
+  child: const Text(
+    "See All",
+    style: TextStyle(
+      color: Colors.green,
+      fontSize: 14,
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+),
                     ],
                   ),
                 ),
-                ListView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  itemCount: recipeList.length,
-                  itemBuilder: (context, index) {
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          PageTransition(
-                            child: RecipeDetail(
-                              recipe: recipeList[index],
-                              recipeId: recipeList[index].recipeId,
-                              recipeDocId: recipeList[index].recipeDocId ?? recipeList[index].recipeId.toString(),
-                            ),
-                            type: PageTransitionType.bottomToTop,
+                isLoadingWeeklyRecipes
+  ? Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 30.0),
+        child: CircularProgressIndicator(
+          color: Color(0xFF5CB77E),
+        ),
+      ),
+    )
+  : weeklyRecipes.isEmpty
+    ? Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 30.0),
+          child: Text(
+            'No weekly recipes available',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 16,
+            ),
+          ),
+        ),
+      )
+    : ListView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
+        itemCount: weeklyRecipes.length > 3 ? 3 : weeklyRecipes.length,
+        itemBuilder: (context, index) {
+          final recipe = weeklyRecipes[index];
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                PageTransition(
+                  child: RecipeDetail(
+                    recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+                    recipeDocId: recipe['id'].toString(),
+                    recipe: Recipe(
+                      recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+                      recipeName: recipe['title'] ?? '',
+                      description: recipe['summary'] ?? '',
+                      ingredients: (recipe['ingredients'] as List<dynamic>? ?? []).map((ingredient) {
+                        return IngredientUsage(
+                          ingredient: Ingredient.fromAPI(
+                            id: ingredient['id']?.toString() ?? '',
+                            name: ingredient['name'] ?? '',
+                            amount: ingredient['amount']?.toDouble() ?? 0.0,
+                            unit: ingredient['unit'] ?? '',
                           ),
+                          quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
                         );
-                      },
-                      child: RecipeWidget(
-                        index: index,
-                        recipeScreenList: recipeList,
-                        recipe: null,
-         ) );
-                    },
+                      }).toList(),
+                      instructions: (recipe['instructions'] as List<dynamic>? ?? [])
+                          .map((step) => step.toString())
+                          .toList(),
+                      preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
+                      cookingTime: 0,
+                      servings: recipe['servings'] ?? 1,
+                      category: recipe['dishTypes'] != null && recipe['dishTypes'] is List && (recipe['dishTypes'] as List).isNotEmpty
+                          ? (recipe['dishTypes'] as List)[0]
+                          : 'Main Course',
+                      imageUrl: recipe['image'] ?? '',
+                      Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
+                      Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
+                      Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
+                      Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
+                      isFavorite: false,
+                    ),
                   ),
+                  type: PageTransitionType.bottomToTop,
+                ),
+              );
+            },
+            child: RecipeWidget(
+              index: index,
+              recipeScreenList: [], // ไม่ได้ใช้
+              recipe: Recipe(
+                recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+                recipeName: recipe['title'] ?? '',
+                description: '',
+                ingredients: [],
+                instructions: [],
+                preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
+                cookingTime: 0,
+                servings: recipe['servings'] ?? 1,
+                category: recipe['dishTypes'] != null && recipe['dishTypes'] is List && (recipe['dishTypes'] as List).isNotEmpty
+                    ? (recipe['dishTypes'] as List)[0]
+                    : 'Main Course',
+                imageUrl: recipe['image'] ?? '',
+                Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
+                Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
+                Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
+                Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
+                isFavorite: false,
+              ),
+            ),
+          );
+        },
+      ),
                 ],
               ),
+              // Popular Recipes
+           const SizedBox(height: 20),
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'Popular Recipes',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.push(
+              context, 
+              MaterialPageRoute(
+                builder: (context) => PopularScreen(
+                  popularRecipes: popularRecipes,
+                ),
+              ),
+            ),
+            child: const Text(
+              "See All",
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+        ],
+      ),
+    ),
+    isLoadingPopularRecipes
+      ? Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 30.0),
+            child: CircularProgressIndicator(
+              color: Color(0xFF5CB77E),
+            ),
+          ),
+        )
+      : popularRecipes.isEmpty
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 30.0),
+              child: Text(
+                'No popular recipes available',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          )
+        : ListView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            shrinkWrap: true,
+            itemCount: popularRecipes.length > 3 ? 3 : popularRecipes.length,
+            itemBuilder: (context, index) {
+              final recipe = popularRecipes[index];
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    PageTransition(
+                      child: RecipeDetail(
+                        recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+                        recipeDocId: recipe['id'].toString(),
+                        recipe: Recipe(
+                          recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+                          recipeName: recipe['title'] ?? '',
+                          description: recipe['summary'] ?? '',
+                          ingredients: (recipe['ingredients'] as List<dynamic>? ?? []).map((ingredient) {
+                            return IngredientUsage(
+                              ingredient: Ingredient.fromAPI(
+                                id: ingredient['id']?.toString() ?? '',
+                                name: ingredient['name'] ?? '',
+                                amount: ingredient['amount']?.toDouble() ?? 0.0,
+                                unit: ingredient['unit'] ?? '',
+                              ),
+                              quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
+                            );
+                          }).toList(),
+                          instructions: (recipe['instructions'] as List<dynamic>? ?? [])
+                              .map((step) => step.toString())
+                              .toList(),
+                          preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
+                          cookingTime: 0,
+                          servings: recipe['servings'] ?? 1,
+                          category: recipe['dishTypes'] != null && recipe['dishTypes'] is List && (recipe['dishTypes'] as List).isNotEmpty
+                              ? (recipe['dishTypes'] as List)[0]
+                              : 'Main Course',
+                          imageUrl: recipe['image'] ?? '',
+                          Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
+                          Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
+                          Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
+                          Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
+                          isFavorite: false,
+                        ),
+                      ),
+                      type: PageTransitionType.bottomToTop,
+                    ),
+                  );
+                },
+                child: RecipeWidget(
+                  index: index,
+                  recipeScreenList: [], // ไม่ได้ใช้
+                  recipe: Recipe(
+                    recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+                    recipeName: recipe['title'] ?? '',
+                    description: '',
+                    ingredients: [],
+                    instructions: [],
+                    preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
+                    cookingTime: 0,
+                    servings: recipe['servings'] ?? 1,
+                    category: recipe['dishTypes'] != null && recipe['dishTypes'] is List && (recipe['dishTypes'] as List).isNotEmpty
+                        ? (recipe['dishTypes'] as List)[0]
+                        : 'Main Course',
+                    imageUrl: recipe['image'] ?? '',
+                    Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
+                    Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
+                    Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
+                    Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
+                    isFavorite: false,
+                  ),
+                ),
+              );
+            },
+          ),
+  ],
+),
            ] 
            ) 
             ));
@@ -1225,3 +1502,5 @@ void _showCreateRecipeModal(BuildContext context) {
     },
   );
 }
+
+
