@@ -165,6 +165,7 @@ class _RecipeWidgetState extends State<RecipeWidget> {
             child: RecipeDetail(
               recipe: widget.recipeScreenList[widget.index],
               recipeId: widget.recipeScreenList[widget.index].recipeId,
+              recipeDocId: widget.recipeScreenList[widget.index].recipeDocId ?? '0',
             ),
             type: PageTransitionType.bottomToTop,
           ),

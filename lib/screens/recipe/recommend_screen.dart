@@ -82,6 +82,7 @@ class _RecommendScreen extends State<RecommendScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => RecipeDetail(
+                          recipeDocId: recipe['id']?.toString() ?? '0',
                           recipeId: int.tryParse(recipe['id']?.toString() ?? '0') ?? 0,
                           recipe: Recipe(
                             recipeId: int.tryParse(recipe['id']?.toString() ?? '0') ?? 0,
@@ -271,6 +272,7 @@ class _RecommendScreen extends State<RecommendScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => RecipeDetail(
+                          recipeDocId: widget.recipes[index].recipeDocId ?? '0',
                           recipe: widget.recipes[index],
                           recipeId: widget.recipes[index].recipeId,
                         ),

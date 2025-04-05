@@ -182,14 +182,18 @@ class _MyrecipeScreen extends State<MyrecipeScreen> {
                 itemBuilder: (context, index) {
                   return GestureDetector(
                     onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => RecipeDetail(
-                          recipe: userRecipes[index],
-                          recipeId: userRecipes[index].recipeId,
-                        ),
-                      ),
-                    ),
+  context,
+  MaterialPageRoute(
+    builder: (context) => RecipeDetail(
+      recipe: userRecipes[index],
+      recipeId: userRecipes[index].recipeId,
+      recipeDocId: userRecipes[index].recipeDocId ?? userRecipes[index].recipeId.toString(),
+    ),
+  ),
+).then((_) {
+  // โหลดข้อมูลใหม่หลังจากกลับมา
+  fetchUserRecipes();
+}),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 3),
                       child: SizedBox(

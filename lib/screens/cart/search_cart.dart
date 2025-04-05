@@ -430,8 +430,8 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
         : (ingredient['kcal'] as num?)?.toDouble() ?? 0.0;
     originalUnit = ingredient['unit'] ?? 'Pieces';
     
-    print("📊 Ingredient ${ingredient['ingredientsName']} has ${ingredientKcal} kcal per ${originalUnit}");
   }
+  
     
 
     List<Map<String, dynamic>> userIngredients = userIngredientsMap.entries.map((entry) {

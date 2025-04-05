@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/models/recipe.dart';
+import 'package:food_project/screens/cart/cart_screen.dart';
 
 
 class RecipeIngredientWidget extends StatefulWidget {
@@ -22,60 +25,222 @@ class RecipeIngredientWidget extends StatefulWidget {
 
 class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
 
-  bool _hasIngredient(Ingredient recipeIngredient) {
+  bool _hasIngredient(Ingredient recipeIngredient, double recipeQuantity) {
   try {
-    print("Checking if user has ingredient: ${recipeIngredient.ingredientsName}");
+    print("Checking if user has ingredient: ${recipeIngredient.ingredientsName}, need: $recipeQuantity");
     if (widget.userIngredients.isEmpty || recipeIngredient.ingredientsName.isEmpty) {
       return false;
     }
     
-    // แสดง log ข้อมูล userIngredients ทั้งหมดเพื่อตรวจสอบ
-    print("Available user ingredients:");
+   
     for (var ing in widget.userIngredients) {
       if (ing['ingredient'] != null && ing['ingredient']['ingredientsName'] != null) {
-        print("- ${ing['ingredient']['ingredientsName']}");
+      
       }
     }
     
     String recipeIngName = recipeIngredient.ingredientsName.trim().toLowerCase();
+    String recipeUnit = recipeIngredient.unit.trim().toLowerCase();
     
-    bool hasMatch = widget.userIngredients.any((userIngredient) {
+    for (var userIngredient in widget.userIngredients) {
       if (userIngredient == null || userIngredient['ingredient'] == null) {
-        return false;
+        continue;
       }
       
       String userIngName = userIngredient['ingredient']['ingredientsName']?.toString().trim().toLowerCase() ?? '';
+      String userUnit = userIngredient['ingredient']['unit']?.toString().trim().toLowerCase() ?? '';
+      double userQuantity = userIngredient['quantity'] is num ? (userIngredient['quantity'] as num).toDouble() : 0.0;
       
-      print("Comparing: '$userIngName' with '$recipeIngName'");
-      return userIngName == recipeIngName;
-    });
+      // ชื่อวัตถุดิบตรงกัน
+      if (userIngName == recipeIngName) {
+       
+        
+        // ถ้าหน่วยตรงกัน เทียบปริมาณได้โดยตรง
+        if (userUnit == recipeUnit) {
+          return userQuantity >= recipeQuantity;
+        } 
+        // หากหน่วยไม่ตรงกัน แต่สามารถแปลงได้
+        else if (canConvertUnits(userUnit, recipeUnit)) {
+          double convertedQuantity = convertQuantity(userQuantity, userUnit, recipeUnit);
+          return convertedQuantity >= recipeQuantity;
+        } 
+        // ถ้าหน่วยไม่ตรงกันและไม่สามารถแปลงได้ ให้ผ่านไปเนื่องจากไม่สามารถเปรียบเทียบได้
+        else {
+          return true; // อนุโลมให้ผ่านเนื่องจากมีวัตถุดิบชนิดนี้ แต่ไม่สามารถเปรียบเทียบปริมาณได้
+        }
+      }
+    }
     
-    print("Result for ${recipeIngredient.ingredientsName}: $hasMatch");
-    return hasMatch;
+    return false; // ไม่พบวัตถุดิบ
   } catch (e) {
     print('Error in _hasIngredient: $e');
     return false;
   }
 }
 
-  Map<String, dynamic>? _getUserIngredient(Ingredient recipeIngredient) {
+// ฟังก์ชันตรวจสอบว่าสามารถแปลงหน่วยได้หรือไม่
+bool canConvertUnits(String fromUnit, String toUnit) {
+  // กลุ่มหน่วยวัดที่สามารถแปลงระหว่างกันได้
+  List<List<String>> convertibleUnitGroups = [
+    ['g', 'gram', 'grams', 'kg', 'kilogram', 'kilograms'],
+    ['ml', 'milliliter', 'milliliters', 'l', 'liter', 'liters'],
+    ['tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons', 'cup', 'cups']
+  ];
+  
+  // ตรวจสอบว่าทั้งสองหน่วยอยู่ในกลุ่มเดียวกันหรือไม่
+  for (var group in convertibleUnitGroups) {
+    if (group.contains(fromUnit) && group.contains(toUnit)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// ฟังก์ชันแปลงปริมาณระหว่างหน่วยต่างๆ
+double convertQuantity(double quantity, String fromUnit, String toUnit) {
+  // แปลงหน่วยน้ำหนัก
+  if (fromUnit == 'kg' && toUnit == 'g') {
+    return quantity * 1000;
+  } else if (fromUnit == 'g' && toUnit == 'kg') {
+    return quantity / 1000;
+  }
+  
+  // แปลงหน่วยปริมาตร
+  else if (fromUnit == 'l' && toUnit == 'ml') {
+    return quantity * 1000;
+  } else if (fromUnit == 'ml' && toUnit == 'l') {
+    return quantity / 1000;
+  }
+  
+  // แปลงหน่วยทำอาหาร
+  else if (fromUnit == 'tbsp' && toUnit == 'tsp') {
+    return quantity * 3;
+  } else if (fromUnit == 'tsp' && toUnit == 'tbsp') {
+    return quantity / 3;
+  } else if (fromUnit == 'cup' && toUnit == 'tbsp') {
+    return quantity * 16;
+  } else if (fromUnit == 'tbsp' && toUnit == 'cup') {
+    return quantity / 16;
+  } else if (fromUnit == 'cup' && toUnit == 'tsp') {
+    return quantity * 48;
+  } else if (fromUnit == 'tsp' && toUnit == 'cup') {
+    return quantity / 48;
+  }
+  
+  // หากไม่มีการแปลงที่กำหนด
+  return quantity;
+}
+
+ Map<String, dynamic>? _getUserIngredient(Ingredient recipeIngredient) {
   try {
-    return widget.userIngredients.firstWhere((userIngredient) => 
-        userIngredient['ingredient'] != null && 
-        userIngredient['ingredient']['ingredientsName'] != null &&
-        userIngredient['ingredient']['ingredientsName'].trim().toLowerCase() == 
-        recipeIngredient.ingredientsName.trim().toLowerCase());
-  } catch (e) {
+    String recipeIngName = recipeIngredient.ingredientsName.trim().toLowerCase();
+    
+    for (var userIngredient in widget.userIngredients) {
+      if (userIngredient == null || userIngredient['ingredient'] == null) {
+        continue;
+      }
+      
+      String userIngName = userIngredient['ingredient']['ingredientsName']?.toString().trim().toLowerCase() ?? '';
+      
+      if (userIngName == recipeIngName) {
+        return userIngredient;
+      }
+    }
     return null;
+  } catch (e) {
+    print('Error in _getUserIngredient: $e');
+    return null;
+  }
+}
+
+Future<void> _addToCart(String userId, Map<String, dynamic> ingredient) async {
+  try {
+    CollectionReference userCart = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('userCart');
+
+    CollectionReference historyCart = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('historyCart');
+
+    // ตรวจสอบว่ามีในตะกร้าแล้วหรือไม่
+    QuerySnapshot cartQuery = await userCart
+        .where('ingredientsName', isEqualTo: ingredient['ingredientsName'])
+        .get();
+
+    // ตรวจสอบว่ามีในวัตถุดิบของผู้ใช้แล้วหรือไม่ (เพื่อดึงค่า category, storage, source)
+    QuerySnapshot userIngredientsQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('userIngredients')
+        .where('ingredientsName', isEqualTo: ingredient['ingredientsName'])
+        .get();
+
+    // เตรียมข้อมูลสำหรับเพิ่ม/อัปเดต
+    Map<String, dynamic> newIngredient = {...ingredient};
+    
+    // ถ้าผู้ใช้มีวัตถุดิบนี้อยู่แล้ว ให้ใช้ค่าเดิม
+    if (userIngredientsQuery.docs.isNotEmpty) {
+      var existingUserIngredient = userIngredientsQuery.docs.first.data() as Map<String, dynamic>;
+      
+      // ใช้ค่าเดิมจากวัตถุดิบของผู้ใช้
+      newIngredient['category'] = existingUserIngredient['category'] ?? 'Fruits';
+      newIngredient['storage'] = existingUserIngredient['storage'] ?? 'Fridge';
+      newIngredient['source'] = existingUserIngredient['source'] ?? 'Supermarket';
+      
+      print("📍 Using existing values for ${ingredient['ingredientsName']}: Category=${newIngredient['category']}, Storage=${newIngredient['storage']}, Source=${newIngredient['source']}");
+    } else {
+      // ถ้าไม่มีวัตถุดิบนี้ ให้ใช้ค่า default
+      newIngredient['category'] = ingredient['category'] ?? 'Fruits';
+      newIngredient['storage'] = ingredient['storage'] ?? 'Fridge';
+      newIngredient['source'] = ingredient['source'] ?? 'Supermarket';
+      
+      print("📍 Using default values for ${ingredient['ingredientsName']}: Category=${newIngredient['category']}, Storage=${newIngredient['storage']}, Source=${newIngredient['source']}");
+    }
+
+    // ถ้ามีในตะกร้าแล้ว อัปเดตปริมาณ
+    if (cartQuery.docs.isNotEmpty) {
+      DocumentSnapshot existingDoc = cartQuery.docs.first;
+      double existingQuantity = (existingDoc['quantity'] is int)
+          ? (existingDoc['quantity'] as int).toDouble()
+          : (existingDoc['quantity'] as num?)?.toDouble() ?? 0.0;
+      
+      double newQuantity = existingQuantity + (ingredient['quantity'] as num).toDouble();
+      
+      await existingDoc.reference.update({
+        'quantity': newQuantity,
+        // อัปเดตค่าอื่นๆ ด้วยเพื่อให้แน่ใจว่าใช้ค่าล่าสุด
+        'category': newIngredient['category'],
+        'storage': newIngredient['storage'],
+        'source': newIngredient['source'],
+      });
+      
+      print("✅ Updated quantity for ${ingredient['ingredientsName']} to $newQuantity");
+    } else {
+      // เพิ่มวัตถุดิบใหม่
+      await userCart.add(newIngredient);
+      print("✅ Added new ingredient to cart: ${ingredient['ingredientsName']}");
+    }
+
+    // บันทึกประวัติ
+    Map<String, dynamic> historyItem = {
+      ...newIngredient,  // ใช้ข้อมูลที่ปรับแล้ว
+      'addedAt': FieldValue.serverTimestamp(),
+    };
+    
+    await historyCart.add(historyItem);
+    print("✅ History saved for ${ingredient['ingredientsName']}");
+  } catch (e) {
+    print("❌ Error saving to cart: $e");
+    throw e;
   }
 }
 
   @override
   Widget build(BuildContext context) {
-    print("Ingredients to display: ${widget.ingredients.length}");
-  for (var ing in widget.ingredients) {
-    print("Display ingredient: ${ing.ingredient.ingredientsName}, Unit: ${ing.ingredient.unit}, Quantity: ${ing.quantityUsed}");
-  }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -93,13 +258,93 @@ class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    
-                    print("Add all ingredients to cart");
-                  }, 
-                  child: Text("Add All to Cart"), 
-                ),
+               TextButton(
+  onPressed: () async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Please log in to add items to cart"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+      
+      // รายการวัตถุดิบที่ไม่มีหรือมีไม่เพียงพอ
+      List<Map<String, dynamic>> ingredientsToAdd = [];
+      
+      for (var ingredientUsage in widget.ingredients) {
+        final ingredient = ingredientUsage.ingredient;
+        final adjustedQuantityUsed = ingredientUsage.quantityUsed * 
+            widget.currentNumber / 
+            widget.recipe.servings;
+        
+        final hasEnough = _hasIngredient(ingredient, adjustedQuantityUsed);
+        
+        if (!hasEnough) {
+         Map<String, dynamic>? userIngredientInfo = _getUserIngredient(ingredient);
+double userQuantity = 0.0;
+if (userIngredientInfo != null && userIngredientInfo['quantity'] != null) {
+  userQuantity = userIngredientInfo['quantity'] is num ? 
+      (userIngredientInfo['quantity'] as num).toDouble() : 0.0;
+}
+
+double quantityToAdd = adjustedQuantityUsed - userQuantity;
+if (quantityToAdd <= 0) quantityToAdd = adjustedQuantityUsed;
+
+
+
+ingredientsToAdd.add({
+  'ingredientsName': ingredient.ingredientsName,
+  'imageUrl': ingredient.imageUrl,
+  'unit': ingredient.unit,
+  'quantity': quantityToAdd,
+  'price': 0,
+});
+        }
+      }
+      
+      if (ingredientsToAdd.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("You have all required ingredients!"),
+            backgroundColor: Color(0xFF78d454),
+          ),
+        );
+        return;
+      }
+      
+      // เพิ่มวัตถุดิบที่ไม่มีลงในตะกร้า
+      for (var ingredient in ingredientsToAdd) {
+        await _addToCart(user.uid, ingredient);
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("${ingredientsToAdd.length} ingredients added to cart"),
+          backgroundColor: Color(0xFF78d454),
+        ),
+      );
+    } catch (e) {
+      print("Error adding ingredients to cart: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error adding ingredients to cart: $e"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  },
+  child: const Text(
+    "Add All to Cart", 
+    style: TextStyle(
+      color: Color(0xFF78d454),
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+),
                 
                 
               ],
@@ -126,7 +371,15 @@ class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
                 widget.recipe.servings;
             
             
-            final hasIngredient = _hasIngredient(ingredient);
+           final hasIngredient = _hasIngredient(ingredient, adjustedQuantityUsed);
+    
+            // หาปริมาณที่ user มีอยู่
+            Map<String, dynamic>? userIngredientInfo = _getUserIngredient(ingredient);
+            double userQuantity = 0.0;
+            if (userIngredientInfo != null && userIngredientInfo['quantity'] != null) {
+              userQuantity = userIngredientInfo['quantity'] is num ? 
+                  (userIngredientInfo['quantity'] as num).toDouble() : 0.0;
+            }
             
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -178,7 +431,10 @@ class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
                               '${adjustedQuantityUsed.toStringAsFixed(2)} ${ingredient.unit}',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.grey[600],
+                                color: userQuantity >= adjustedQuantityUsed 
+                                ? const Color(0xFF78d454) 
+                                : Colors.redAccent,
+
                               ),
                             ),
                           ],

@@ -482,6 +482,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         context,
                         MaterialPageRoute(
                         builder: (context) => RecipeDetail(
+                          recipeDocId: recipe['id']?.toString() ?? '0',
                           recipeId: int.tryParse(recipe['id']?.toString() ?? '0') ?? 0,
                           recipe: Recipe(
                             recipeId: int.tryParse(recipe['id']?.toString() ?? '0') ?? 0,
@@ -727,11 +728,73 @@ class _RecipeScreenState extends State<RecipeScreen> {
             ),
           ),
         )
-     
-      : ListView.builder(
+        : StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(FirebaseAuth.instance.currentUser?.uid)
+              .collection('userRecipe')
+              .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
+              
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Center(child: Text("No recipes found"));
+              }
+              
+             List<Recipe> userRecipes = snapshot.data!.docs.map((doc) {
+  final data = doc.data() as Map<String, dynamic>;
+  
+  // แปลงข้อมูล ingredients
+  List<IngredientUsage> ingredients = [];
+  for (var ingData in (data['ingredients'] as List<dynamic>? ?? [])) {
+    final ingredient = Ingredient(
+      ingredientsName: ingData['name'] ?? '',
+      unit: ingData['unit'] ?? '',
+      quantity: 0,
+      minQuantity: 0,
+      category: 'Other',
+      storage: 'Pantry',
+      source: 'Recipe',
+      userId: FirebaseAuth.instance.currentUser?.uid ?? '',
+      ingredientId: DateTime.now().millisecondsSinceEpoch.toString(),
+      imageUrl: 'assets/images/ingredient_placeholder.png',
+      expirationDate: DateTime.now().add(Duration(days: 30)),
+      kcal: 0,
+    );
+    
+    ingredients.add(IngredientUsage(
+      ingredient: ingredient,
+      quantityUsed: (ingData['amount'] ?? 0).toDouble(),
+    ));
+  }
+  
+  // สร้าง Recipe object
+  return Recipe(
+    recipeId: data['recipeId'] ?? 0,
+    recipeName: data['recipeName'] ?? '',
+    description: data['description'] ?? '',
+    ingredients: ingredients,
+    instructions: List<String>.from(data['instructions'] ?? []),
+    preparationTime: data['preparationTime'] ?? 0,
+    cookingTime: data['cookingTime'] ?? 0,
+    servings: data['servings'] ?? 1,
+    category: data['category'] ?? 'Other',
+    imageUrl: data['imageUrl'] ?? '',
+    Protein: (data['Protein'] ?? 0).toDouble(),
+    Fat: (data['Fat'] ?? 0).toDouble(),
+    Carbo: (data['Carbo'] ?? 0).toDouble(),
+    Kcal: data['Kcal'] ?? 0,
+    isFavorite: data['isFavorite'] ?? false,
+    createdBy: data['createdBy'],
+    recipeDocId: doc.id,
+  );
+}).toList();
+      return ListView.builder(
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
-          itemCount: userRecipes.length > 3 ? 3 : userRecipes.length, 
+          itemCount: userRecipes.length > 5 ? 5 : userRecipes.length, 
           itemBuilder: (context, index) {
             print('Building recipe at index $index: ${userRecipes[index].recipeName}');
             return GestureDetector(
@@ -740,8 +803,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   context,
                   PageTransition(
                     child: RecipeDetail(
-                      recipe: userRecipes[index],
+                       recipe: userRecipes[index],
                       recipeId: userRecipes[index].recipeId,
+                      recipeDocId: userRecipes[index].recipeDocId ?? userRecipes[index].recipeId.toString(),
+                      
                     ),
                     type: PageTransitionType.bottomToTop,
                   ),
@@ -758,8 +823,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
               ),
             );
           },
-        ),
-              ],
+        );
+        
+  })],
             ),
             // Recipe of The Week
             const SizedBox(height: 20),
@@ -809,6 +875,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                             child: RecipeDetail(
                               recipe: recipeList[index],
                               recipeId: recipeList[index].recipeId,
+                              recipeDocId: recipeList[index].recipeDocId ?? recipeList[index].recipeId.toString(),
                             ),
                             type: PageTransitionType.bottomToTop,
                           ),

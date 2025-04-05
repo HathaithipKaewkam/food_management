@@ -11,10 +11,13 @@ import 'package:food_project/widgets/instruction_widget.dart';
 import 'package:food_project/widgets/recipe_ingredient_widget.dart';
 
 class RecipeDetail extends StatefulWidget {
-  final Recipe recipe; // รับ Recipe แทน RecipeId
-  final int recipeId; // รับ recipeId
+ final Recipe recipe; 
+  final int recipeId;
+  final String recipeDocId; 
 
-  const RecipeDetail({super.key, required this.recipe, required this.recipeId});
+  const RecipeDetail({super.key,  required this.recipe, 
+    required this.recipeId,
+    required this.recipeDocId,});
 
   @override
   State<RecipeDetail> createState() => _RecipeDetailState();
@@ -25,6 +28,8 @@ class _RecipeDetailState extends State<RecipeDetail> {
   bool showIngredients = true;
   List<Map<String, dynamic>> userIngredients = [];
   List<Recipe> recipeList = [];
+  late Recipe currentRecipe;
+   late String currentRecipeDocId;
 
   // Toggle Favorite button
   bool toggleIsFavorated(bool isFavorited) {
@@ -72,10 +77,8 @@ class _RecipeDetailState extends State<RecipeDetail> {
   @override
 void initState() {
   super.initState();
-  print("Recipe ingredients count: ${widget.recipe.ingredients.length}");
-  for (var ing in widget.recipe.ingredients) {
-    print("Ingredient: ${ing.ingredient.ingredientsName}, Unit: ${ing.ingredient.unit}, Quantity: ${ing.quantityUsed}");
-  }
+  currentRecipe = widget.recipe;
+  currentRecipeDocId = widget.recipeDocId;
   fetchUserIngredients();
 }
 
@@ -136,6 +139,75 @@ void fetchUserIngredients() async {
   }
 }
 
+Future<void> _refreshRecipeData(String recipeDocId) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
+  
+  try {
+    final doc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(user.uid)
+      .collection('userRecipe')
+      .doc(recipeDocId)
+      .get();
+    
+    if (doc.exists) {
+      final data = doc.data()!;
+      final List<IngredientUsage> ingredients = [];
+      
+      if (data['ingredients'] != null) {
+        for (var ing in data['ingredients']) {
+          final ingredient = Ingredient(
+            ingredientsName: ing['name'],
+            unit: ing['unit'],
+            imageUrl: 'assets/images/default_ing.png',
+            ingredientId: '0',
+            userId: user.uid,
+            category: 'Fruits',
+            storage: 'Fridge',
+            quantity: 0,
+            minQuantity: 0,
+            expirationDate: DateTime.now(),
+            source: 'Supermarket',
+            kcal: 0,
+          );
+          
+          ingredients.add(IngredientUsage(
+            ingredient: ingredient,
+            quantityUsed: ing['amount'].toDouble(),
+          ));
+        }
+      }
+      
+      setState(() {
+        currentRecipe = Recipe(
+          recipeId: data['recipeId'] ?? 0,
+          recipeName: data['recipeName'] ?? '',
+          description: data['description'] ?? '',
+          ingredients: ingredients,
+          instructions: List<String>.from(data['instructions'] ?? []),
+          preparationTime: data['preparationTime'] ?? 0,
+          cookingTime: data['cookingTime'] ?? 0,
+          servings: data['servings'] ?? 1,
+          category: data['category'] ?? '',
+          imageUrl: data['imageUrl'] ?? '',
+          Protein: (data['Protein'] is num) ? (data['Protein'] as num).toDouble() : 0.0,
+          Fat: (data['Fat'] is num) ? (data['Fat'] as num).toDouble() : 0.0,
+          Carbo: (data['Carbo'] is num) ? (data['Carbo'] as num).toDouble() : 0.0,
+          Kcal: data['Kcal'] ?? 0,
+          isFavorite: data['isFavorite'] ?? false,
+          createdBy: data['createdBy'],
+          recipeDocId: doc.id,
+        );
+      });
+      
+      print("✅ Recipe data refreshed successfully");
+    }
+  } catch (e) {
+    print("❌ Error refreshing recipe data: $e");
+  }
+}
+
 
 
   @override
@@ -149,7 +221,7 @@ void fetchUserIngredients() async {
           Stack(
             children: [
            Positioned(
-  child: widget.recipe.imageUrl.isEmpty ? 
+  child: currentRecipe.imageUrl.isEmpty ? 
     Container(
       height: MediaQuery.of(context).size.width,
       color: Colors.grey[200],
@@ -165,7 +237,7 @@ void fetchUserIngredients() async {
       height: MediaQuery.of(context).size.width,
       decoration: BoxDecoration(
         image: DecorationImage(
-          image: _getImageProvider(widget.recipe.imageUrl),
+          image: _getImageProvider(currentRecipe.imageUrl),
           fit: BoxFit.cover,
           onError: (exception, stackTrace) {
             print('Error loading image: $exception');
@@ -215,7 +287,7 @@ void fetchUserIngredients() async {
                                  ListTile(
                                       leading: const Icon(Icons.edit, color: Color(0xFF78d454)),
                                       title: const Text('Edit Recipe'),
-                                      onTap: () {
+                                      onTap: () async {
                                         Navigator.pop(context); // ปิด bottom sheet
                                         
                                         final user = FirebaseAuth.instance.currentUser;
@@ -226,46 +298,53 @@ void fetchUserIngredients() async {
                                           return;
                                         }
                                         
-                                        final bool isUserRecipe = user.uid == widget.recipe.createdBy;
+                                        final bool isUserRecipe = user.uid == currentRecipe.createdBy;
                                         
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => EditRecipeScreen(
-                                              initialData: {
-                                               'recipeName': widget.recipe.recipeName,
-                                                'description': widget.recipe.description,
-                                                'imageUrl': widget.recipe.imageUrl,
-                                                'category': widget.recipe.category,
-                                                'servings': widget.recipe.servings,
-                                                'preparationTime': widget.recipe.preparationTime, 
-                                                'cookingTime': widget.recipe.cookingTime,
-                                                'ingredients': widget.recipe.ingredients.map((ingredient) => {
-                                                  'name': ingredient.ingredient.ingredientsName,
-                                                  'amount': ingredient.quantityUsed,
-                                                  'unit': ingredient.ingredient.unit,
-                                                }).toList(),
-                                                'instructions': widget.recipe.instructions,
-                                                'Protein': widget.recipe.Protein,
-                                                'Fat': widget.recipe.Fat,
-                                                'Carbo': widget.recipe.Carbo,
-                                                'Kcal': widget.recipe.Kcal,
-                                                'originalId': widget.recipe.id,
-                                              },
-                                              onRecipeCreated: () {
-                                                // Callback เมื่อสร้างสูตรใหม่เสร็จสิ้น
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(isUserRecipe ? "Recipe updated successfully!" : "Recipe added to your collection!"),
-                                                    backgroundColor: const Color(0xFF78d454),
-                                                  ),
-                                                );
-                                              },
-                                              isEditingOwnRecipe: isUserRecipe, 
+                                       final result = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => EditRecipeScreen(
+                                                isEditingOwnRecipe: isUserRecipe,
+                                                initialData: {
+                                                  'docId': currentRecipeDocId,    
+                                                  'recipeId': currentRecipe.recipeId,
+                                                  'recipeName': currentRecipe.recipeName,
+                                                  'description': currentRecipe.description,
+                                                  'imageUrl': currentRecipe.imageUrl,
+                                                  'category': currentRecipe.category,
+                                                  'servings': currentRecipe.servings,
+                                                  'preparationTime': currentRecipe.preparationTime, 
+                                                  'cookingTime': currentRecipe.cookingTime,
+                                                  'ingredients': currentRecipe.ingredients.map((ingredient) => {
+                                                    'name': ingredient.ingredient.ingredientsName,
+                                                    'amount': ingredient.quantityUsed,
+                                                    'unit': ingredient.ingredient.unit,
+                                                  }).toList(),
+                                                  'instructions': currentRecipe.instructions,
+                                                  'Protein': currentRecipe.Protein,
+                                                  'Fat': currentRecipe.Fat,
+                                                  'Carbo': currentRecipe.Carbo,
+                                                  'Kcal': currentRecipe.Kcal,
+                                                  'originalId': currentRecipe.recipeId,
+                                                },
+                                                onRecipeCreated: () {
+                                                  // Callback เมื่อสร้างสูตรใหม่เสร็จสิ้น
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(isUserRecipe ? "Recipe updated successfully!" : "Recipe added to your collection!"),
+                                                      backgroundColor: const Color(0xFF78d454),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
                                             ),
-                                          ),
-                                        );
-                                      },
+                                          );
+
+                                          if (result != null && result['updated'] == true) {
+                                            print("Recipe updated, refreshing data...");
+                                            _refreshRecipeData(currentRecipeDocId);
+                                          }
+                                                                                },
                                     ),
                                   ListTile(
                                       leading: const Icon(Icons.no_meals, color: Colors.redAccent),
@@ -300,10 +379,10 @@ void fetchUserIngredients() async {
                                                           .collection('users')
                                                           .doc(user.uid)
                                                           .collection('notRecommendedRecipes')
-                                                          .doc(widget.recipe.id.toString())
+                                                          .doc(currentRecipe.id.toString())
                                                           .set({
-                                                            'recipeId': widget.recipe.id,
-                                                            'recipeName': widget.recipe.recipeName,
+                                                            'recipeId': currentRecipe.id,
+                                                            'recipeName': currentRecipe.recipeName,
                                                             'addedAt': FieldValue.serverTimestamp(),
                                                           });
                                                         
@@ -341,7 +420,7 @@ void fetchUserIngredients() async {
     
     // ตรวจสอบว่าเป็นสูตรของผู้ใช้คนปัจจุบันหรือไม่
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null && widget.recipe.createdBy == user.uid) {
+    if (user != null && currentRecipe.createdBy == user.uid) {
       // แสดง Dialog ยืนยันการลบ
       showDialog(
         context: context,
@@ -367,13 +446,13 @@ void fetchUserIngredients() async {
                       .collection('users')
                       .doc(user.uid)
                       .collection('userRecipes')
-                      .doc(widget.recipe.id.toString())
+                      .doc(currentRecipe.id.toString())
                       .delete();
                     
                     // ถ้ามีรูปภาพที่เกี่ยวข้องกับสูตรอาหาร ให้ลบออกจาก Storage ด้วย
-                    if (widget.recipe.imageUrl.isNotEmpty && widget.recipe.imageUrl.startsWith('http')) {
+                    if (currentRecipe.imageUrl.isNotEmpty && currentRecipe.imageUrl.startsWith('http')) {
                       // ดึง reference ของรูปภาพจาก URL
-                      final storageRef = FirebaseStorage.instance.refFromURL(widget.recipe.imageUrl);
+                      final storageRef = FirebaseStorage.instance.refFromURL(currentRecipe.imageUrl);
                       await storageRef.delete();
                     }
                     
@@ -467,7 +546,7 @@ void fetchUserIngredients() async {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  widget.recipe.recipeName,
+                  currentRecipe.recipeName,
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -482,7 +561,7 @@ void fetchUserIngredients() async {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    "${widget.recipe.totalCookingTime()} mins",
+                    "${currentRecipe.totalCookingTime()} mins",
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -528,28 +607,28 @@ void fetchUserIngredients() async {
                         Image.asset('assets/images/protein.png',
                             width: 20, height: 20),
                         const SizedBox(width: 2),
-                        Text('${widget.recipe.Protein} g',
+                        Text('${currentRecipe.Protein} g',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold)),
                         const SizedBox(width: 45),
                         Image.asset('assets/images/fat.png',
                             width: 20, height: 20),
                         const SizedBox(width: 2),
-                        Text('${widget.recipe.Fat} g',
+                        Text('${currentRecipe.Fat} g',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold)),
                         const SizedBox(width: 35),
                         Image.asset('assets/images/carbo.png',
                             width: 23, height: 20),
                         const SizedBox(width: 2),
-                        Text('${widget.recipe.Carbo} g',
+                        Text('${currentRecipe.Carbo} g',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold)),
                         const SizedBox(width: 50),
                         Image.asset('assets/images/kcal.png',
                             width: 23, height: 17),
                         const SizedBox(width: 1),
-                        Text('${widget.recipe.Kcal} Kcal',
+                        Text('${currentRecipe.Kcal} Kcal',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold)),
                       ],
@@ -704,14 +783,14 @@ void fetchUserIngredients() async {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: showIngredients
                 ? RecipeIngredientWidget(
-                    ingredients: widget.recipe.ingredients,
-                    recipe: widget.recipe,
+                    ingredients: currentRecipe.ingredients,
+                    recipe: currentRecipe,
                     currentNumber: currentNumber,
                     userIngredients: userIngredients,
                   )
                 : InstructionsWidget(
                     instructions:
-                        widget.recipe.instructions, // แสดง instructions
+                        currentRecipe.instructions, // แสดง instructions
                   ),
           ),
           SizedBox(height: 20),
@@ -815,8 +894,8 @@ void fetchUserIngredients() async {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(10),
                               image: DecorationImage(
-                                image: widget.recipe.imageUrl.isNotEmpty
-                                    ? _getImageProvider(widget.recipe.imageUrl)
+                                image: currentRecipe.imageUrl.isNotEmpty
+                                    ? _getImageProvider(currentRecipe.imageUrl)
                                     : const AssetImage('assets/images/placeholder.png'),
                                 fit: BoxFit.cover,
                               ),
@@ -829,7 +908,7 @@ void fetchUserIngredients() async {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  widget.recipe.recipeName,
+                                  currentRecipe.recipeName,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -837,7 +916,7 @@ void fetchUserIngredients() async {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  "${widget.recipe.totalCookingTime()} mins • ${widget.recipe.Kcal} kcal",
+                                  "${currentRecipe.totalCookingTime()} mins • ${currentRecipe.Kcal} kcal",
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey[600],
@@ -968,7 +1047,7 @@ void fetchUserIngredients() async {
                           onPressed: () {
                             // เพิ่มโค้ดสำหรับบันทึกลงแผนมื้ออาหารที่นี่
                             // เช่น บันทึกลง Firebase
-                            print("Save to meal plan: ${widget.recipe.recipeName} for $selectedMeal on ${selectedDate.day}/${selectedDate.month}/${selectedDate.year}");
+                            print("Save to meal plan: ${currentRecipe.recipeName} for $selectedMeal on ${selectedDate.day}/${selectedDate.month}/${selectedDate.year}");
                             
                             // แสดงข้อความยืนยัน
                             ScaffoldMessenger.of(context).showSnackBar(

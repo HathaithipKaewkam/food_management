@@ -72,6 +72,7 @@ class _PoupularScreen extends State<PoupularScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => RecipeDetail(
+                                      recipeDocId: widget.recipes[index].recipeDocId ?? '0',
                                       recipe: widget.recipes[index],
                                       recipeId: widget.recipes[index].recipeId,
                                     ),

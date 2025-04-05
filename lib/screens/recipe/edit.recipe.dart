@@ -76,6 +76,7 @@ class _EditRecipeScreenState extends State<EditRecipeScreen> {
   @override
 void initState() {
   super.initState();
+  print("🔍 isEditingOwnRecipe: ${widget.isEditingOwnRecipe}");
   _recipeNameController.addListener(_validateForm);
   _servingsController.addListener(_validateForm);
   _cookingTimeController.addListener(_validateForm);
@@ -240,8 +241,8 @@ void initState() {
     
     // สร้างข้อมูลสูตรอาหาร
     final recipeData = {
-      'recipeId': widget.initialData != null && widget.initialData!['originalId'] != null
-          ? widget.initialData!['originalId']
+      'recipeId': widget.initialData != null && widget.initialData!['recipeId'] != null
+          ? widget.initialData!['recipeId']
           : DateTime.now().millisecondsSinceEpoch,
       'recipeName': _recipeNameController.text,
       'description': widget.initialData?['description'] ?? '',
@@ -269,22 +270,102 @@ void initState() {
       throw Exception('User not logged in');
     }
     
-   if (widget.isEditingOwnRecipe && widget.initialData != null && widget.initialData!['originalId'] != null) {
-  // ค้นหาและอัปเดตเอกสารที่มี recipeId ตรงกัน
+  if (widget.isEditingOwnRecipe && widget.initialData != null) {
+      try {
+        // ตรวจสอบว่ามี docId ที่ถูกต้องหรือไม่
+        if (widget.initialData!.containsKey('docId') && 
+            widget.initialData!['docId'] != null && 
+            widget.initialData!['docId'] != "0" && 
+            widget.initialData!['docId'] != 0) {
+          
+          String docId = widget.initialData!['docId'];
+          print("📝 Attempting to update document with ID: $docId");
+          
+          // ตรวจสอบว่าเอกสารมีอยู่จริงก่อนอัปเดต
+          DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('userRecipe')
+            .doc(docId)
+            .get();
+          
+          if (docSnapshot.exists) {
+            print("✅ Document exists, updating...");
+            await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .collection('userRecipe')
+              .doc(docId)
+              .update(recipeData);
+            
+            print("✅ Document updated successfully with ID: $docId");
+          } else {
+            print("⚠️ Document with ID $docId does not exist, searching by recipeId...");
+            await _findAndUpdateByRecipeId(userId, recipeData);
+          }
+        } else {
+          print("⚠️ Invalid docId, searching by recipeId instead");
+          await _findAndUpdateByRecipeId(userId, recipeData);
+        }
+      } catch (e) {
+        print("❌ Error during update: $e");
+        // กรณีเกิดข้อผิดพลาด ให้ลองค้นหาด้วย recipeId แทน
+        await _findAndUpdateByRecipeId(userId, recipeData);
+      }
+    } else {
+      // กรณีสร้างสูตรใหม่จากสูตรของคนอื่น
+      print("➕ Creating new recipe");
+      DocumentReference docRef = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('userRecipe')
+        .add(recipeData);
+      
+      print("✅ Created new recipe with ID: ${docRef.id}");
+    }
+    
+    if (widget.onRecipeCreated != null) {
+      widget.onRecipeCreated!();
+    }
+    
+  String updatedDocId = '';
+if (widget.isEditingOwnRecipe && widget.initialData != null && widget.initialData!.containsKey('docId')) {
+  updatedDocId = widget.initialData!['docId'];
+}
+
+Navigator.pop(context, {
+  'updated': true,
+  'recipeData': recipeData,
+  'docId': updatedDocId, 
+});
+  } catch (e) {
+    print('❌ Error saving recipe: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error saving recipe: $e')),
+    );
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
+  }
+}
+
+// เพิ่มฟังก์ชันนี้เพื่อค้นหาและอัปเดตด้วย recipeId
+Future<void> _findAndUpdateByRecipeId(String userId, Map<String, dynamic> recipeData) async {
   try {
-    // แก้ไขให้ใช้ collection name ที่ถูกต้อง
+    int recipeId = recipeData['recipeId'];
+    print("🔍 Searching for document with recipeId: $recipeId");
+    
     final QuerySnapshot snapshot = await FirebaseFirestore.instance
       .collection('users')
       .doc(userId)
-      .collection('userRecipe')  // ตรวจสอบว่าชื่อ collection ถูกต้อง
-      .where('recipeId', isEqualTo: widget.initialData!['originalId'])
+      .collection('userRecipe')
+      .where('recipeId', isEqualTo: recipeId)
       .get();
-    
-    print("Found ${snapshot.docs.length} documents to update");
     
     if (snapshot.docs.isNotEmpty) {
       String docId = snapshot.docs.first.id;
-      print("Updating document with ID: $docId");
+      print("🔍 Found document ID: $docId using recipeId: $recipeId");
       
       await FirebaseFirestore.instance
         .collection('users')
@@ -293,50 +374,20 @@ void initState() {
         .doc(docId)
         .update(recipeData);
       
-      print("Document updated successfully");
+      print("✅ Document updated successfully by recipeId");
     } else {
-      print("No matching document found, creating new document");
-      // กรณีไม่พบเอกสารที่ต้องการอัปเดต ให้สร้างใหม่
-      await FirebaseFirestore.instance
+      print("⚠️ No document found with recipeId: $recipeId, creating new");
+      DocumentReference docRef = await FirebaseFirestore.instance
         .collection('users')
         .doc(userId)
         .collection('userRecipe')
         .add(recipeData);
+      
+      print("✅ Created new recipe with ID: ${docRef.id}");
     }
   } catch (e) {
-    print("Error during update: $e");
-    // กรณีเกิดข้อผิดพลาด ให้สร้างใหม่
-    await FirebaseFirestore.instance
-      .collection('users')
-      .doc(userId)
-      .collection('userRecipe')
-      .add(recipeData);
-  }
-} else {
-  // กรณีสร้างสูตรใหม่จากสูตรของคนอื่น
-  await FirebaseFirestore.instance
-    .collection('users')
-    .doc(userId)
-    .collection('userRecipe')
-    .add(recipeData);
-}
-    
-    
-    
-    if (widget.onRecipeCreated != null) {
-      widget.onRecipeCreated!();
-    }
-    
-    Navigator.pop(context);
-  } catch (e) {
-    print('Error saving recipe: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error saving recipe: $e')),
-    );
-  } finally {
-    setState(() {
-      _isLoading = false;
-    });
+    print("❌ Error in _findAndUpdateByRecipeId: $e");
+    throw e;
   }
 }
 

@@ -18,6 +18,7 @@ class Recipe {
   final int Kcal;
   bool isFavorite;
   String? createdBy;
+  String? recipeDocId;
 
   Recipe({
     required this.recipeId,
@@ -36,6 +37,7 @@ class Recipe {
     required this.Kcal,
     this.isFavorite = false,
     this.createdBy,
+    this.recipeDocId,
   });
 
   // คำนวณเวลารวมในการทำอาหาร
@@ -94,6 +96,7 @@ Map<String, dynamic> toJson() {
     'Kcal': Kcal,
     'isFavorite': isFavorite,
     'createdBy': createdBy,
+    'docId': recipeDocId,
   };
 }
 
@@ -149,7 +152,7 @@ factory Recipe.fromFirestore(Map<String, dynamic> data, String docId) {
   }
   
   return Recipe(
-    recipeId: int.tryParse(docId) ?? 0,
+     recipeId: int.tryParse(data['recipeId']?.toString() ?? '0') ?? 0,
     recipeName: data['recipeName'] ?? '',
     description: data['description'] ?? '',
     ingredients: ingredientList,
@@ -165,6 +168,7 @@ factory Recipe.fromFirestore(Map<String, dynamic> data, String docId) {
     Kcal: data['Kcal'] ?? 0,
     isFavorite: data['isFavorite'] ?? false,
     createdBy: data['createdBy'] ?? '',
+      recipeDocId: docId,
   );
 }
 
