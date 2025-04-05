@@ -92,7 +92,7 @@ class _MyrecipeScreen extends State<MyrecipeScreen> {
         body: SafeArea(
       child: SingleChildScrollView(
           child: Padding(
-        padding: const EdgeInsets.only(left: 7, right: 7),
+        padding: const EdgeInsets.only(top : 10 ,left: 7 , right: 7),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center, // จัดให้อยู่กลาง
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -177,6 +177,7 @@ class _MyrecipeScreen extends State<MyrecipeScreen> {
                   crossAxisCount: 2,
                   crossAxisSpacing: 15,
                   mainAxisSpacing: 20,
+                  childAspectRatio: 0.85, 
                 ),
                 itemCount: userRecipes.length,
                 itemBuilder: (context, index) {

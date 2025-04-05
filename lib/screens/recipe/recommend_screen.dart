@@ -25,7 +25,7 @@ class _RecommendScreen extends State<RecommendScreen> {
         body: SafeArea(
       child: SingleChildScrollView(
           child: Padding(
-        padding: const EdgeInsets.only(left: 7 , right: 7),
+        padding: const EdgeInsets.only(top : 10 ,left: 7 , right: 7),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -69,10 +69,10 @@ class _RecommendScreen extends State<RecommendScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // Number of columns
-                  crossAxisSpacing: 15, // Spacing between columns
-                  mainAxisSpacing: 20, // Spacing between rows
-                  childAspectRatio: 0.7, // Adjust height of grid items
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 15, 
+                  mainAxisSpacing: 20,
+                  childAspectRatio: 0.85, 
                 ),
                 itemCount: widget.recommendedRecipes!.length,
                 itemBuilder: (context, index) {
