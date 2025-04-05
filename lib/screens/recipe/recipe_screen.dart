@@ -21,8 +21,16 @@ import 'package:page_transition/page_transition.dart';
 
 
 class RecipeScreen extends StatefulWidget {
-  const RecipeScreen({super.key});
-
+  final bool isSelecting;
+   final DateTime? preselectedDate;  
+  final String? preselectedMealType; 
+  
+  const RecipeScreen({
+    Key? key, 
+    this.isSelecting = false,
+    this.preselectedDate,
+    this.preselectedMealType,
+  }) : super(key: key);
   @override
   State<RecipeScreen> createState() => _RecipeScreenState();
 }
@@ -260,6 +268,7 @@ Future<void> _loadPopularRecipes() async {
 
   @override
   Widget build(BuildContext context) {
+     print("DEBUG: RecipeScreen.build - isSelecting: ${widget.isSelecting}");
     Size size = MediaQuery.of(context).size;
 
    
@@ -904,9 +913,11 @@ Future<void> _loadPopularRecipes() async {
           shrinkWrap: true,
           itemCount: userRecipes.length > 5 ? 5 : userRecipes.length, 
           itemBuilder: (context, index) {
-            print('Building recipe at index $index: ${userRecipes[index].recipeName}');
             return GestureDetector(
               onTap: () {
+                if (widget.isSelecting) {
+                  Navigator.pop(context, userRecipes[index]); 
+                } else {
                 Navigator.push(
                   context,
                   PageTransition(
@@ -923,11 +934,16 @@ Future<void> _loadPopularRecipes() async {
                 _loadUserRecipes();
         }
                 );
-              },
+              };
+            },
               child: RecipeWidget(
                 index: index,
                 recipeScreenList: userRecipes,
                 recipe: null,
+                isSelecting: widget.isSelecting,
+                preselectedDate: widget.preselectedDate,     
+                 preselectedMealType: widget.preselectedMealType, 
+                
               ),
             );
           },
@@ -1004,6 +1020,9 @@ Future<void> _loadPopularRecipes() async {
           final recipe = weeklyRecipes[index];
           return GestureDetector(
             onTap: () {
+              if (widget.isSelecting) {
+          Navigator.pop(context, userRecipes[index]); 
+        } else {
               Navigator.push(
                 context,
                 PageTransition(
@@ -1045,10 +1064,14 @@ Future<void> _loadPopularRecipes() async {
                   type: PageTransitionType.bottomToTop,
                 ),
               );
+            }
             },
             child: RecipeWidget(
               index: 0,
               recipeScreenList: null,
+              isSelecting: widget.isSelecting,
+              preselectedDate: widget.preselectedDate,     
+                 preselectedMealType: widget.preselectedMealType,
               recipe: Recipe(
                  recipeId: _safeParseInt(recipe['id']),
                 recipeName: recipe['title'] ?? '',
@@ -1143,6 +1166,9 @@ Column(
               final recipe = popularRecipes[index];
               return GestureDetector(
                 onTap: () {
+                  if (widget.isSelecting) {
+          Navigator.pop(context, userRecipes[index]); 
+        } else {
                   Navigator.push(
                     context,
                     PageTransition(
@@ -1184,10 +1210,14 @@ Column(
                       type: PageTransitionType.bottomToTop,
                     ),
                   );
+                }
                 },
                 child: RecipeWidget(
                   index: 0,
                   recipeScreenList: null,
+                  isSelecting: widget.isSelecting,
+                  preselectedDate: widget.preselectedDate,     
+                 preselectedMealType: widget.preselectedMealType,
                   recipe: Recipe(
                     recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
                     recipeName: recipe['title'] ?? '',

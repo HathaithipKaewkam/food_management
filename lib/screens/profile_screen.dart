@@ -36,16 +36,19 @@ bool isLoadingExpired = true;
 int purchasedItemsCount = 0;
 double purchasedItemsValue = 0.0;
 bool isLoadingPurchases = true;
+int cookedMealsCount = 0;
+bool isLoadingCookedMeals = true;
 
   @override
   void initState() {
     super.initState();
     _fetchUserName();
     _fetchProfileImage();
-     _fetchCaloriesData();
-      _fetchIngredientsData();
-      _fetchExpiredItems();
-      _fetchPurchaseHistory();
+    _fetchCaloriesData();
+    _fetchIngredientsData();
+    _fetchExpiredItems();
+    _fetchPurchaseHistory();
+     _fetchCookedMeals();
   }
 
   Future<void> _fetchUserName() async {
@@ -151,6 +154,45 @@ Future<void> _fetchProfileImage() async {
       print('❌ Error fetching profile image: $e');
     }
   } 
+}
+
+Future<void> _fetchCookedMeals() async {
+  print("🔍 Starting to fetch cooked meals data");
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    try {
+      DateTime now = DateTime.now();
+      DateTime startOfWeek = now.subtract(Duration(days: 7));
+      
+      // คิวรี่ข้อมูลจาก eatingHistory collection โดยจำกัดเฉพาะรายการในช่วง 7 วันที่ผ่านมา
+      QuerySnapshot eatingHistoryQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('eatingHistory')
+          .where('date', isGreaterThanOrEqualTo: startOfWeek)
+          .get();
+      
+      // นับจำนวนมื้ออาหารทั้งหมด
+      int mealCount = eatingHistoryQuery.docs.length;
+      
+      setState(() {
+        cookedMealsCount = mealCount;
+        isLoadingCookedMeals = false;
+      });
+      
+      print("✅ Cooked meals data loaded - Count: $mealCount in the past 7 days");
+    } catch (e) {
+      print('❌ Error fetching cooked meals data: $e');
+      setState(() {
+        isLoadingCookedMeals = false;
+      });
+    }
+  } else {
+    print("⚠️ No user logged in");
+    setState(() {
+      isLoadingCookedMeals = false;
+    });
+  }
 }
 
 
@@ -1039,8 +1081,8 @@ void _logout() async {
                         icon: FontAwesomeIcons.kitchenSet,
                         iconColor: Colors.amber.shade700,
                         title: 'Cooked Meals',
-                        mainStat: '12',
-                        subText: 'Past 30 days',
+                        mainStat: isLoadingCookedMeals ? 'Loading...' : '$cookedMealsCount meals',
+                        subText: 'Past 7 days',
                       ),
                     ],
                   ),
