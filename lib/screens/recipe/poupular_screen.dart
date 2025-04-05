@@ -65,15 +65,15 @@ class _PoupularScreen extends State<PoupularScreen> {
                     crossAxisSpacing: 15, // ระยะห่างระหว่างคอลัมน์
                     mainAxisSpacing: 20, // ระยะห่างระหว่างแถว
                   ),
-                  itemCount: Recipe.recipeList.length,
+                  itemCount: widget.recipes.length,
                   itemBuilder: (context, index) {
                               return GestureDetector(
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => RecipeDetail(
-                                      recipe: Recipe.recipeList[index],
-                                      recipeId: Recipe.recipeList[index].recipeId,
+                                      recipe: widget.recipes[index],
+                                      recipeId: widget.recipes[index].recipeId,
                                     ),
                                   ),
                                 ),
@@ -92,14 +92,14 @@ class _PoupularScreen extends State<PoupularScreen> {
                                             decoration: BoxDecoration(
                                               borderRadius: BorderRadius.circular(15),
                                               image: DecorationImage(
-                                                image: AssetImage(Recipe.recipeList[index].imageUrl),
+                                                image: AssetImage(widget.recipes[index].imageUrl),
                                                 fit: BoxFit.cover,
                                               ),
                                             ),
                                           ),
                                           const SizedBox(height: 10),
                                           Text(
-                                            Recipe.recipeList[index].recipeName,
+                                            widget.recipes[index].recipeName,
                                             style: const TextStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.bold,
@@ -114,7 +114,7 @@ class _PoupularScreen extends State<PoupularScreen> {
                                               ),
                                               const SizedBox(width: 5),
                                               Text(
-                                                '${Recipe.recipeList[index].totalCookingTime()} min',
+                                                '${widget.recipes[index].totalCookingTime()} min',
                                                 style: const TextStyle(
                                                   fontSize: 14,
                                                   color: Colors.black,
@@ -131,7 +131,7 @@ class _PoupularScreen extends State<PoupularScreen> {
                                               ),
                                               const SizedBox(width: 3),
                                               Text(
-                                                '${Recipe.recipeList[index].Kcal} Kcal',
+                                                '${widget.recipes[index].Kcal} Kcal',
                                                 style: const TextStyle(
                                                   fontSize: 12,
                                                   color: Colors.black,
@@ -156,15 +156,15 @@ class _PoupularScreen extends State<PoupularScreen> {
                                           child: IconButton(
                                             onPressed: () {
                                               setState(() {
-                                                Recipe.recipeList[index].isFavorite =
-                                                    !Recipe.recipeList[index].isFavorite;
+                                                widget.recipes[index].isFavorite =
+                                                    !widget.recipes[index].isFavorite;
                                               });
                                             },
                                             icon: Icon(
-                                              Recipe.recipeList[index].isFavorite
+                                              widget.recipes[index].isFavorite
                                                   ? Icons.favorite
                                                   : Icons.favorite_border,
-                                              color: Recipe.recipeList[index].isFavorite
+                                              color: widget.recipes[index].isFavorite
                                                   ? Colors.red
                                                   : Colors.black54,
                                             ),

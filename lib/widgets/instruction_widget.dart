@@ -96,7 +96,7 @@ class RecipeStep extends StatelessWidget {
                   dashColor: Colors.greenAccent,
                   axis: Axis.vertical)
           ],
-        ),
+        ), 
         const SizedBox(
           width: 10,
         ),

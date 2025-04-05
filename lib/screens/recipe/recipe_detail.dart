@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/models/recipe.dart';
+import 'package:food_project/screens/recipe/edit.recipe.dart';
 import 'package:food_project/widgets/instruction_widget.dart';
 import 'package:food_project/widgets/recipe_ingredient_widget.dart';
 
@@ -22,7 +24,7 @@ class _RecipeDetailState extends State<RecipeDetail> {
   int currentNumber = 1;
   bool showIngredients = true;
   List<Map<String, dynamic>> userIngredients = [];
-  List<Recipe> recipeList = Recipe.recipeList;
+  List<Recipe> recipeList = [];
 
   // Toggle Favorite button
   bool toggleIsFavorated(bool isFavorited) {
@@ -70,6 +72,10 @@ class _RecipeDetailState extends State<RecipeDetail> {
   @override
 void initState() {
   super.initState();
+  print("Recipe ingredients count: ${widget.recipe.ingredients.length}");
+  for (var ing in widget.recipe.ingredients) {
+    print("Ingredient: ${ing.ingredient.ingredientsName}, Unit: ${ing.ingredient.unit}, Quantity: ${ing.quantityUsed}");
+  }
   fetchUserIngredients();
 }
 
@@ -79,25 +85,55 @@ void fetchUserIngredients() async {
   
   try {
     final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('userIngredients')
-        .get();
+      .collection('users')
+      .doc(user.uid)
+      .collection('userIngredients')
+      .get();
+    
+    if (snapshot.docs.isNotEmpty) {
+      print('Raw data structure of first user ingredient:');
+      print(snapshot.docs.first.data());
+    }
+    
+    List<Map<String, dynamic>> ingredients = [];
+    
+    for (var doc in snapshot.docs) {
+      Map<String, dynamic> data = doc.data();
+      
+      // ดึงข้อมูลตามโครงสร้างที่แท้จริงของ userIngredients
+      if (data.containsKey('ingredientsName')) {
+        String ingredientName = data['ingredientsName'] ?? '';
+        String unit = data['unit'] ?? '';
+        double quantity = (data['quantity'] is num) ? (data['quantity'] as num).toDouble() : 0.0;
+        
+        if (ingredientName.isNotEmpty) {
+          ingredients.add({
+            'ingredient': {
+              'ingredientsName': ingredientName,
+              'unit': unit,
+            },
+            'quantity': quantity,
+          });
+          print('Added user ingredient: $ingredientName');
+        } else {
+          print('Warning: Document ${doc.id} has invalid data structure');
+        }
+      } else {
+        print('Warning: Document ${doc.id} has invalid data structure');
+      }
+    }
     
     setState(() {
-      userIngredients = snapshot.docs.map((doc) {
-        return doc.data();
-      }).toList();
+      userIngredients = ingredients;
     });
+    
+    print('Fetched user ingredients: ${ingredients.length} items');
+    if (ingredients.isNotEmpty) {
+      print('First item structure: ${ingredients.first}');
+    }
   } catch (e) {
     print('Error fetching user ingredients: $e');
   }
-}
-
-bool _hasIngredient(Ingredient recipeIngredient) {
-  return userIngredients.any((userIngredient) => 
-    userIngredient['ingredient']['ingredientsName'].trim().toLowerCase() == 
-    recipeIngredient.ingredientsName.trim().toLowerCase());
 }
 
 
@@ -176,42 +212,207 @@ bool _hasIngredient(Ingredient recipeIngredient) {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                 ListTile(
+                                      leading: const Icon(Icons.edit, color: Color(0xFF78d454)),
+                                      title: const Text('Edit Recipe'),
+                                      onTap: () {
+                                        Navigator.pop(context); // ปิด bottom sheet
+                                        
+                                        final user = FirebaseAuth.instance.currentUser;
+                                        if (user == null) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text("Please login to edit recipes"), backgroundColor: Colors.redAccent),
+                                          );
+                                          return;
+                                        }
+                                        
+                                        final bool isUserRecipe = user.uid == widget.recipe.createdBy;
+                                        
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => EditRecipeScreen(
+                                              initialData: {
+                                               'recipeName': widget.recipe.recipeName,
+                                                'description': widget.recipe.description,
+                                                'imageUrl': widget.recipe.imageUrl,
+                                                'category': widget.recipe.category,
+                                                'servings': widget.recipe.servings,
+                                                'preparationTime': widget.recipe.preparationTime, 
+                                                'cookingTime': widget.recipe.cookingTime,
+                                                'ingredients': widget.recipe.ingredients.map((ingredient) => {
+                                                  'name': ingredient.ingredient.ingredientsName,
+                                                  'amount': ingredient.quantityUsed,
+                                                  'unit': ingredient.ingredient.unit,
+                                                }).toList(),
+                                                'instructions': widget.recipe.instructions,
+                                                'Protein': widget.recipe.Protein,
+                                                'Fat': widget.recipe.Fat,
+                                                'Carbo': widget.recipe.Carbo,
+                                                'Kcal': widget.recipe.Kcal,
+                                                'originalId': widget.recipe.id,
+                                              },
+                                              onRecipeCreated: () {
+                                                // Callback เมื่อสร้างสูตรใหม่เสร็จสิ้น
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(isUserRecipe ? "Recipe updated successfully!" : "Recipe added to your collection!"),
+                                                    backgroundColor: const Color(0xFF78d454),
+                                                  ),
+                                                );
+                                              },
+                                              isEditingOwnRecipe: isUserRecipe, 
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ListTile(
-                                    leading: const Icon(Icons.share,
-                                        color: Color(0xFF78d454)),
-                                    title: const Text('แชร์สูตรอาหาร'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      // เพิ่มฟังก์ชันแชร์ที่นี่
-                                    },
-                                  ),
+                                      leading: const Icon(Icons.no_meals, color: Colors.redAccent),
+                                      title: const Text('Not recommended this recipe'),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        
+                                        // แสดง Dialog ยืนยันการไม่แนะนำสูตรอาหาร
+                                        showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return AlertDialog(
+                                              title: const Text("Not Recommended this Recipe"),
+                                              content: const Text("Are you sure you want to not recommend this recipe?"),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    Navigator.pop(context); // ปิด Dialog
+                                                  },
+                                                  child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () async {
+                                                    Navigator.pop(context); // ปิด Dialog
+                                                    
+                                                    // บันทึกลง Firebase
+                                                    final user = FirebaseAuth.instance.currentUser;
+                                                    if (user != null) {
+                                                      try {
+                                                        
+                                                        await FirebaseFirestore.instance
+                                                          .collection('users')
+                                                          .doc(user.uid)
+                                                          .collection('notRecommendedRecipes')
+                                                          .doc(widget.recipe.id.toString())
+                                                          .set({
+                                                            'recipeId': widget.recipe.id,
+                                                            'recipeName': widget.recipe.recipeName,
+                                                            'addedAt': FieldValue.serverTimestamp(),
+                                                          });
+                                                        
+                                                        // แสดงข้อความยืนยัน
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text("Not recommended this recipe successfully!"),
+                                                            backgroundColor: Color(0xFF78d454),
+                                                          ),
+                                                        );
+                                                      } catch (e) {
+                                                        // แสดงข้อความเมื่อเกิดข้อผิดพลาด
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(
+                                                            content: Text("เกิดข้อผิดพลาด: $e"),
+                                                            backgroundColor: Colors.redAccent,
+                                                          ),
+                                                        );
+                                                      }
+                                                    }
+                                                  },
+                                                  child: const Text("Confirm", style: TextStyle(color: Colors.redAccent)),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      },
+                                    ),
                                   ListTile(
-                                    leading: const Icon(Icons.edit,
-                                        color: Color(0xFF78d454)),
-                                    title: const Text('แก้ไขสูตรอาหาร'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      // นำทางไปยังหน้าแก้ไขสูตรอาหาร
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.bookmark,
-                                        color: Color(0xFF78d454)),
-                                    title: const Text('บันทึกลงคอลเลคชัน'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      // เพิ่มฟังก์ชันบันทึก
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.report_problem,
-                                        color: Colors.redAccent),
-                                    title: const Text('รายงานปัญหา'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      // เพิ่มฟังก์ชันรายงาน
-                                    },
-                                  ),
+  leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
+  title: const Text('Delete Recipe'),
+  onTap: () {
+    Navigator.pop(context);
+    
+    // ตรวจสอบว่าเป็นสูตรของผู้ใช้คนปัจจุบันหรือไม่
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && widget.recipe.createdBy == user.uid) {
+      // แสดง Dialog ยืนยันการลบ
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text("Delete Recipe"),
+            content: const Text("Are you sure you want to delete this recipe?"),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // ปิด Dialog
+                },
+                child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context); // ปิด Dialog
+                  
+                  // ลบสูตรอาหารออกจาก Firebase
+                  try {
+                    // ลบสูตรอาหารจาก collection userRecipes
+                    await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .collection('userRecipes')
+                      .doc(widget.recipe.id.toString())
+                      .delete();
+                    
+                    // ถ้ามีรูปภาพที่เกี่ยวข้องกับสูตรอาหาร ให้ลบออกจาก Storage ด้วย
+                    if (widget.recipe.imageUrl.isNotEmpty && widget.recipe.imageUrl.startsWith('http')) {
+                      // ดึง reference ของรูปภาพจาก URL
+                      final storageRef = FirebaseStorage.instance.refFromURL(widget.recipe.imageUrl);
+                      await storageRef.delete();
+                    }
+                    
+                    // แสดงข้อความยืนยัน
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Deleted recipe successfully!"),
+                        backgroundColor: Color(0xFF78d454),
+                      ),
+                    );
+                    
+                    // กลับไปยังหน้าก่อนหน้า
+                    Navigator.pop(context);
+                  } catch (e) {
+                    // แสดงข้อความเมื่อเกิดข้อผิดพลาด
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("เกิดข้อผิดพลาดในการลบสูตรอาหาร: $e"),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                  }
+                },
+                child: const Text("Delete", style: TextStyle(color: Colors.redAccent)),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("คุณสามารถลบได้เฉพาะสูตรอาหารที่คุณสร้างเท่านั้น"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  },
+),
                                 ],
                               ),
                             );
@@ -320,7 +521,7 @@ bool _hasIngredient(Ingredient recipeIngredient) {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
@@ -330,14 +531,14 @@ bool _hasIngredient(Ingredient recipeIngredient) {
                         Text('${widget.recipe.Protein} g',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 30),
+                        const SizedBox(width: 45),
                         Image.asset('assets/images/fat.png',
                             width: 20, height: 20),
                         const SizedBox(width: 2),
                         Text('${widget.recipe.Fat} g',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 27),
+                        const SizedBox(width: 35),
                         Image.asset('assets/images/carbo.png',
                             width: 23, height: 20),
                         const SizedBox(width: 2),
@@ -808,7 +1009,7 @@ bool _hasIngredient(Ingredient recipeIngredient) {
     );
   },
   style: ElevatedButton.styleFrom(
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.green,
     elevation: 0,
     padding: EdgeInsets.zero,
     shape: RoundedRectangleBorder(
@@ -820,7 +1021,7 @@ bool _hasIngredient(Ingredient recipeIngredient) {
     style: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.bold,
-      color: Color(0xFF78d454),
+      color: Colors.white,
     ),
   ),
 ),

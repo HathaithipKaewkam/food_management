@@ -22,12 +22,40 @@ class RecipeIngredientWidget extends StatefulWidget {
 
 class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
 
-   bool _hasIngredient(Ingredient recipeIngredient) {
-  return widget.userIngredients.any((userIngredient) => 
-      userIngredient['ingredient'] != null && 
-      userIngredient['ingredient']['ingredientsName'] != null &&
-      userIngredient['ingredient']['ingredientsName'].trim().toLowerCase() == 
-      recipeIngredient.ingredientsName.trim().toLowerCase());
+  bool _hasIngredient(Ingredient recipeIngredient) {
+  try {
+    print("Checking if user has ingredient: ${recipeIngredient.ingredientsName}");
+    if (widget.userIngredients.isEmpty || recipeIngredient.ingredientsName.isEmpty) {
+      return false;
+    }
+    
+    // แสดง log ข้อมูล userIngredients ทั้งหมดเพื่อตรวจสอบ
+    print("Available user ingredients:");
+    for (var ing in widget.userIngredients) {
+      if (ing['ingredient'] != null && ing['ingredient']['ingredientsName'] != null) {
+        print("- ${ing['ingredient']['ingredientsName']}");
+      }
+    }
+    
+    String recipeIngName = recipeIngredient.ingredientsName.trim().toLowerCase();
+    
+    bool hasMatch = widget.userIngredients.any((userIngredient) {
+      if (userIngredient == null || userIngredient['ingredient'] == null) {
+        return false;
+      }
+      
+      String userIngName = userIngredient['ingredient']['ingredientsName']?.toString().trim().toLowerCase() ?? '';
+      
+      print("Comparing: '$userIngName' with '$recipeIngName'");
+      return userIngName == recipeIngName;
+    });
+    
+    print("Result for ${recipeIngredient.ingredientsName}: $hasMatch");
+    return hasMatch;
+  } catch (e) {
+    print('Error in _hasIngredient: $e');
+    return false;
+  }
 }
 
   Map<String, dynamic>? _getUserIngredient(Ingredient recipeIngredient) {
@@ -44,6 +72,10 @@ class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
 
   @override
   Widget build(BuildContext context) {
+    print("Ingredients to display: ${widget.ingredients.length}");
+  for (var ing in widget.ingredients) {
+    print("Display ingredient: ${ing.ingredient.ingredientsName}, Unit: ${ing.ingredient.unit}, Quantity: ${ing.quantityUsed}");
+  }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -182,7 +182,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     Size size = MediaQuery.of(context).size;
 
    
-    List<Recipe> recipeList = Recipe.recipeList;
+    List<Recipe> recipeList = [];
 
   
     List<String> recipeTypes = [
@@ -427,21 +427,25 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     color: Colors.black,
                   ),
                 ),
-                TextButton
-                (onPressed: () => Navigator.push(
-                  context, MaterialPageRoute(
-                   builder: (context) =>
-                  RecommendScreen(recipes: recipeList),)
-                    ),
-                child: const Text("See All",
-                style: TextStyle(
-                  color: Colors.green,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-                ),
-
-                )
+                TextButton(
+  onPressed: () => Navigator.push(
+    context, 
+    MaterialPageRoute(
+      builder: (context) => RecommendScreen(
+        recipes: recipeList,
+        recommendedRecipes: recommendedRecipes,
+      ),
+    )
+  ),
+  child: const Text(
+    "See All",
+    style: TextStyle(
+      color: Colors.green,
+      fontSize: 14,
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+)
               ],
             ),
           ),

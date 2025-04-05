@@ -239,7 +239,7 @@ class _AddInstructionState extends State<AddInstruction> {
                         width: 20,
                         height: 20,
                         decoration: BoxDecoration(
-                          color: TColor.secondaryColor1,
+                          color: Colors.green,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         alignment: Alignment.center,
@@ -247,7 +247,7 @@ class _AddInstructionState extends State<AddInstruction> {
                           width: 18,
                           height: 18,
                           decoration: BoxDecoration(
-                            border: Border.all(color: TColor.white, width: 3),
+                            border: Border.all(color: Colors.white, width: 3),
                             borderRadius: BorderRadius.circular(9),
                           ),
                         ),
@@ -256,7 +256,7 @@ class _AddInstructionState extends State<AddInstruction> {
                         DottedDashedLine(
                           height: 50,
                           width: 0,
-                          dashColor: TColor.secondaryColor1,
+                          dashColor: Colors.greenAccent,
                           axis: Axis.vertical,
                         ),
                     ],
@@ -342,7 +342,7 @@ class RecipeStep extends StatelessWidget {
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                color: Colors.greenAccent,
+                color: Colors.green,
                 borderRadius: BorderRadius.circular(10),
               ),
               alignment: Alignment.center,
@@ -359,7 +359,7 @@ class RecipeStep extends StatelessWidget {
               DottedDashedLine(
                   height: 50,
                   width: 0,
-                  dashColor: Colors.green,
+                  dashColor: Colors.greenAccent,
                   axis: Axis.vertical)
           ],
         ),
