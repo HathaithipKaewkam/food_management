@@ -417,8 +417,7 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
   title: const Text('Delete Recipe'),
   onTap: () {
     Navigator.pop(context);
-    
-    // ตรวจสอบว่าเป็นสูตรของผู้ใช้คนปัจจุบันหรือไม่
+
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && currentRecipe.createdBy == user.uid) {
       // แสดง Dialog ยืนยันการลบ
@@ -436,48 +435,69 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
                 child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
               ),
               TextButton(
-                onPressed: () async {
-                  Navigator.pop(context); // ปิด Dialog
-                  
-                  // ลบสูตรอาหารออกจาก Firebase
-                  try {
-                    // ลบสูตรอาหารจาก collection userRecipes
-                    await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(user.uid)
-                      .collection('userRecipes')
-                      .doc(currentRecipe.id.toString())
-                      .delete();
-                    
-                    // ถ้ามีรูปภาพที่เกี่ยวข้องกับสูตรอาหาร ให้ลบออกจาก Storage ด้วย
-                    if (currentRecipe.imageUrl.isNotEmpty && currentRecipe.imageUrl.startsWith('http')) {
-                      // ดึง reference ของรูปภาพจาก URL
-                      final storageRef = FirebaseStorage.instance.refFromURL(currentRecipe.imageUrl);
-                      await storageRef.delete();
-                    }
-                    
-                    // แสดงข้อความยืนยัน
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Deleted recipe successfully!"),
-                        backgroundColor: Color(0xFF78d454),
-                      ),
-                    );
-                    
-                    // กลับไปยังหน้าก่อนหน้า
-                    Navigator.pop(context);
-                  } catch (e) {
-                    // แสดงข้อความเมื่อเกิดข้อผิดพลาด
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text("เกิดข้อผิดพลาดในการลบสูตรอาหาร: $e"),
-                        backgroundColor: Colors.redAccent,
-                      ),
-                    );
-                  }
-                },
-                child: const Text("Delete", style: TextStyle(color: Colors.redAccent)),
-              ),
+  onPressed: () async {
+  Navigator.pop(context); // ปิด Dialog
+  
+  final scaffoldContext = ScaffoldMessenger.of(context); // เก็บ context ของ ScaffoldMessenger
+  final navigationContext = Navigator.of(context); // เก็บ context ของ Navigator
+  
+  // แสดง loading indicator
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return const Center(child: CircularProgressIndicator());
+    },
+  );
+  
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // ลบ recipe จาก Firebase
+      await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userRecipe')
+        .doc(currentRecipeDocId)
+        .delete();
+      
+      print("✅ Recipe deleted successfully with ID: $currentRecipeDocId");
+      
+      // ปิด loading dialog โดยใช้ context ปัจจุบัน
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+      
+      // แสดง SnackBar และกลับไปหน้าหลัก โดยใช้ context ที่เก็บไว้
+      scaffoldContext.showSnackBar(
+        const SnackBar(
+          content: Text("Recipe deleted successfully!"),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      // กลับไปยังหน้าก่อนหน้า
+      navigationContext.pop(true); // ส่งค่า true กลับไปเพื่อบอกว่ามีการลบ
+    }
+  } catch (e) {
+    // ปิด loading dialog ถ้า context ยังใช้ได้
+    if (context.mounted) {
+      Navigator.pop(context);
+      
+      print("❌ Error deleting recipe: $e");
+      // แสดงข้อความเมื่อเกิดข้อผิดพลาด
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error deleting recipe: $e"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+},
+  child: const Text("Delete", style: TextStyle(color: Colors.redAccent)),
+),
             ],
           );
         },
@@ -485,7 +505,7 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("คุณสามารถลบได้เฉพาะสูตรอาหารที่คุณสร้างเท่านั้น"),
+          content: Text("ํYou do not have permission to delete this recipe"),
           backgroundColor: Colors.redAccent,
         ),
       );
