@@ -51,17 +51,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             },
             controller: _pageController,
             children: [
-              createPage(
+              CreatePage(
                 image: 'assets/images/reduce_food.png',
                 title: Constants.titleOne,
                 description: Constants.descriptionOne,
               ),
-              createPage(
+              CreatePage(
                 image: 'assets/images/easy_meal.png',
                 title: Constants.titleTwo,
                 description: Constants.descriptionTwo,
               ),
-              createPage(
+              CreatePage(
                 image: 'assets/images/list_buy.png',
                 title: Constants.titleThree,
                 description: Constants.descriptionThree,
@@ -146,12 +146,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-class createPage extends StatelessWidget {
+class CreatePage extends StatelessWidget {
   final String image;
   final String title;
   final String description;
 
-  const createPage({
+  const CreatePage({
     super.key,
     required this.image,
     required this.title,
@@ -178,26 +178,26 @@ class createPage extends StatelessWidget {
             height: 20,
           ),
           Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(
-            height: 20,
-          ),
-          Text(
-            description,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w400,
-              color: Colors.grey,
-            ),
-          ),
+  title,
+  textAlign: TextAlign.center,
+  style: const TextStyle(
+    color: Colors.black,
+    fontSize: 30, 
+    fontWeight: FontWeight.bold,
+  ),
+),
+const SizedBox(
+  height: 20,
+),
+Text(
+  description,
+  textAlign: TextAlign.center,  
+  style: const TextStyle(     
+    fontSize: 20,
+    fontWeight: FontWeight.w400,
+    color: Colors.grey,
+  ),
+),
         ],
       ),
     );

@@ -5,15 +5,15 @@ import 'package:page_transition/page_transition.dart';
 
 
 class RecipeWidget extends StatefulWidget {
-  const RecipeWidget({
-    super.key,
-    required this.index,
-    required this.recipeScreenList,
-    required recipe,
-  });
-
   final int index;
-  final List<Recipe> recipeScreenList;
+  final List<Recipe>? recipeScreenList; 
+  final Recipe? recipe;
+
+  const RecipeWidget({
+    required this.index,
+    this.recipeScreenList,
+    this.recipe,
+  });
 
   @override
   _RecipeWidgetState createState() => _RecipeWidgetState();
@@ -156,6 +156,30 @@ class _RecipeWidgetState extends State<RecipeWidget> {
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
+    Recipe currentRecipe;
+    
+    if (widget.recipe != null) {
+      currentRecipe = widget.recipe!;
+    } else if (widget.recipeScreenList != null && 
+              widget.index < widget.recipeScreenList!.length) {
+      currentRecipe = widget.recipeScreenList![widget.index];
+    } else {
+      // Fallback ถ้าไม่มีข้อมูล
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Center(
+          child: Text(
+            'Recipe not available',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        ),
+      );
+    }
 
     return GestureDetector(
       onTap: () {
@@ -163,9 +187,9 @@ class _RecipeWidgetState extends State<RecipeWidget> {
           context,
           PageTransition(
             child: RecipeDetail(
-              recipe: widget.recipeScreenList[widget.index],
-              recipeId: widget.recipeScreenList[widget.index].recipeId,
-              recipeDocId: widget.recipeScreenList[widget.index].recipeDocId ?? '0',
+              recipe: currentRecipe,
+              recipeId: currentRecipe.recipeId,
+              recipeDocId: currentRecipe.recipeDocId ?? '0',
             ),
             type: PageTransitionType.bottomToTop,
           ),
@@ -185,7 +209,7 @@ class _RecipeWidgetState extends State<RecipeWidget> {
   children: [
     ClipRRect(
       borderRadius: BorderRadius.circular(8),
-      child: _buildRecipeImage(widget.recipeScreenList[widget.index].imageUrl),
+      child: _buildRecipeImage(currentRecipe.imageUrl),
     ),
     Positioned(
       top: 3,
@@ -201,17 +225,16 @@ class _RecipeWidgetState extends State<RecipeWidget> {
         child: IconButton(
           onPressed: () {
             setState(() {
-              widget.recipeScreenList[widget.index].isFavorite =
-                  !widget.recipeScreenList[widget.index].isFavorite;
+              currentRecipe.isFavorite = !currentRecipe.isFavorite;
             });
           },
           icon: Icon(
-            widget.recipeScreenList[widget.index].isFavorite
-                ? Icons.favorite
-                : Icons.favorite_border,
-            color: widget.recipeScreenList[widget.index].isFavorite
-                ? Colors.red
-                : Colors.black54,
+            currentRecipe.isFavorite
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        color: currentRecipe.isFavorite
+                            ? Colors.red
+                            : Colors.black54,
           ),
           iconSize: 20,
         ),
@@ -227,7 +250,7 @@ class _RecipeWidgetState extends State<RecipeWidget> {
                 children: [
                   // ชื่อสูตรอาหาร
                   Text(
-                    widget.recipeScreenList[widget.index].recipeName,
+                    currentRecipe.recipeName,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -236,7 +259,7 @@ class _RecipeWidgetState extends State<RecipeWidget> {
                   const SizedBox(height: 4),
                   // ประเภทของสูตรอาหาร
                   Text(
-                    widget.recipeScreenList[widget.index].category,
+                    currentRecipe.category,
                     style: const TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 8),
@@ -249,7 +272,7 @@ class _RecipeWidgetState extends State<RecipeWidget> {
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        '${widget.recipeScreenList[widget.index].totalCookingTime()} min',
+                        '${currentRecipe.totalCookingTime()} min',
                         style: const TextStyle(
                           color: Colors.black,
                         ),
@@ -262,7 +285,7 @@ class _RecipeWidgetState extends State<RecipeWidget> {
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        '${widget.recipeScreenList[widget.index].Kcal} Kcal',
+                        '${currentRecipe.Kcal} Kcal',
                         style: const TextStyle(
                           color: Colors.black,
                         ),

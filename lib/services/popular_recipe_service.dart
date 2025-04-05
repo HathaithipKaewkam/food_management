@@ -8,26 +8,26 @@ class PopularRecipeService {
   final RecipeService _recipeService = RecipeService();
   final String apiKey = '36440b5c03cb475c993bed762cee0c75';
   
-  Future<List<Map<String, dynamic>>> getPopularRecipes({int limit = 10}) async {
-    final String apiUrl = 'https://api.spoonacular.com/recipes/random';
+  Future<List<Map<String, dynamic>>> getPopularRecipes({int limit = 10 }) async {
+    final String apiUrl = 'https://api.spoonacular.com/recipes/complexSearch';
     
     Map<String, String> params = {
       'apiKey': apiKey,
       'number': limit.toString(),
-      'tags': 'popular', 
+      'sort': 'popularity',
       'addRecipeInformation': 'true',
       'fillIngredients': 'true',
       'addRecipeNutrition': 'true',
     };
     
-    final uri = Uri.https('api.spoonacular.com', '/recipes/random', params);
+    final uri = Uri.https('api.spoonacular.com', '/recipes/complexSearch', params); // แก้ไข URI ให้ถูกต้อง
     
     try {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         var responseData = json.decode(response.body);
-        var data = responseData['recipes'] as List;
+        var data = responseData['results'] as List; // ใช้ 'results' แทน 'recipes'
         List<Map<String, dynamic>> recipes = [];
 
         for (var recipe in data) {
@@ -127,7 +127,6 @@ class PopularRecipeService {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        // เก็บเฉพาะ ids ของ recipes เพื่อประหยัดพื้นที่
         List<int> recipeIds = [];
         for (var recipe in recipes) {
           if (recipe['id'] != null) {
@@ -135,7 +134,6 @@ class PopularRecipeService {
           }
         }
         
-        // บันทึกลง Firestore พร้อมวันที่ที่ดึงข้อมูล
         await FirebaseFirestore.instance
             .collection('hotRecipes')
             .doc('latest')
@@ -155,7 +153,6 @@ class PopularRecipeService {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        // ดึงข้อมูลจาก cache
         final cachedData = await FirebaseFirestore.instance
             .collection('hotRecipes')
             .doc('latest')
@@ -166,7 +163,6 @@ class PopularRecipeService {
           List<int> recipeIds = List<int>.from(data['recipeIds'] ?? []);
           List<Map<String, dynamic>> recipes = [];
           
-          // ดึงข้อมูลแต่ละสูตรตาม ID โดยใช้ RecipeService
           for (int id in recipeIds.take(limit)) {
             var recipeData = await _recipeService.getRecipeInformation(id);
             if (recipeData.isNotEmpty) {
@@ -183,7 +179,6 @@ class PopularRecipeService {
       }
     }
     
-    // ถ้าไม่สามารถดึงข้อมูลจาก cache ได้ ให้ส่งรายการว่างกลับไป
     return [];
   }
 }

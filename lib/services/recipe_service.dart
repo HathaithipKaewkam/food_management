@@ -28,6 +28,198 @@ class RecipeService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getWeeklyRecipes({int daysCount = 7}) async {
+  final DateTime now = DateTime.now();
+  final int weekNumber = _getWeekOfYear(now); 
+  
+  try {
+    // ลองดึงข้อมูลจาก Firestore ก่อน
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // ดูว่ามีข้อมูล weekly recipes ที่แคชไว้หรือไม่
+      final cachedData = await FirebaseFirestore.instance
+          .collection('weeklyRecipes')
+          .doc('week_$weekNumber')
+          .get();
+      
+      // ถ้ามีข้อมูลแคช ดึงรายละเอียดสูตรจาก recipeIds
+      if (cachedData.exists) {
+        Map<String, dynamic> data = cachedData.data() as Map<String, dynamic>;
+        List<int> recipeIds = List<int>.from(data['recipeIds'] ?? []);
+        List<Map<String, dynamic>> recipes = [];
+        
+        for (int i = 0; i < recipeIds.length && i < daysCount; i++) {
+          var recipeData = await getRecipeInformation(recipeIds[i]);
+          if (recipeData.isNotEmpty) {
+            // เพิ่มข้อมูลวันในสัปดาห์
+            recipeData['dayOfWeek'] = _getDayName(i);
+            recipes.add(recipeData);
+          }
+        }
+        
+        if (recipes.isNotEmpty) {
+          return recipes;
+        }
+      }
+    }
+    
+    // ใช้ random endpoint ถ้าไม่มีข้อมูลในแคช
+    final String apiKey = '36440b5c03cb475c993bed762cee0c75';
+    final String apiUrl = 'https://api.spoonacular.com/recipes/random';
+
+   final List<String> userTags = await _getUserPreferenceTags();
+    String selectedTags = userTags.isNotEmpty
+    ? (userTags..shuffle()).take(3).join(',')
+    : 'main course,easy'; 
+    
+    // สร้าง parameters
+    Map<String, String> params = {
+      'apiKey': apiKey,
+      'number': daysCount.toString(),
+      'tags': selectedTags,
+      'addRecipeInformation': 'true',
+      'fillIngredients': 'true',
+      'addRecipeNutrition': 'true',
+    };
+    
+    final uri = Uri.https('api.spoonacular.com', '/recipes/random', params);
+    
+    final response = await http.get(uri);
+    
+    if (response.statusCode == 200) {
+      var responseData = json.decode(response.body);
+      var data = responseData['recipes'] as List;
+      List<Map<String, dynamic>> recipes = [];
+      
+      for (int i = 0; i < data.length; i++) {
+        var recipe = data[i];
+        int recipeId = recipe['id'];
+        String title = recipe['title'] ?? 'Unknown Recipe';
+        String image = recipe['image'] ?? '';
+        int readyInMinutes = recipe['readyInMinutes'] ?? 0;
+        
+        // แปลงข้อมูลให้อยู่ในรูปแบบเดียวกับ getRecipesByCuisine
+        Map<String, dynamic> formattedRecipe = {
+          'id': recipeId,
+          'title': title,
+          'image': image,
+          'readyInMinutes': readyInMinutes.toString(),
+          'dayOfWeek': _getDayName(i),  // เพิ่มวันในสัปดาห์
+        };
+        
+        // ดึงข้อมูลประเภทอาหาร
+        if (recipe['dishTypes'] != null) {
+          List<String> dishTypes = [];
+          if (recipe['dishTypes'] is List) {
+            dishTypes = (recipe['dishTypes'] as List).map((type) => type.toString()).toList();
+          } else if (recipe['dishTypes'] is String) {
+            dishTypes = [recipe['dishTypes'].toString()];
+          }
+          formattedRecipe['dishTypes'] = dishTypes;
+        } else {
+          formattedRecipe['dishTypes'] = [];
+        }
+        
+        // ดึงข้อมูลวัฒนธรรมอาหาร (cuisine)
+        if (recipe['cuisines'] != null && recipe['cuisines'] is List && (recipe['cuisines'] as List).isNotEmpty) {
+          formattedRecipe['cuisine'] = (recipe['cuisines'] as List)[0];
+        } else {
+          formattedRecipe['cuisine'] = 'Other';
+        }
+        
+        // ดึงข้อมูลโภชนาการ
+        if (recipe['nutrition'] != null && recipe['nutrition']['nutrients'] is List) {
+          Map<String, dynamic> nutritionData = {};
+          final nutrients = recipe['nutrition']['nutrients'] as List;
+          
+          for (var nutrient in nutrients) {
+            if (nutrient['name'] == 'Calories') {
+              nutritionData['calories'] = nutrient['amount'];
+            } else if (nutrient['name'] == 'Fat') {
+              nutritionData['fat'] = nutrient['amount'];
+            } else if (nutrient['name'] == 'Carbohydrates') {
+              nutritionData['carbs'] = nutrient['amount'];
+            } else if (nutrient['name'] == 'Protein') {
+              nutritionData['protein'] = nutrient['amount'];
+            }
+          }
+          formattedRecipe['nutrition'] = nutritionData;
+        }
+        
+        // ถ้ามีคำแนะนำการทำอาหาร
+        if (recipe['analyzedInstructions'] != null && recipe['analyzedInstructions'] is List) {
+          List<String> instructions = [];
+          for (var instruction in recipe['analyzedInstructions']) {
+            if (instruction['steps'] != null && instruction['steps'] is List) {
+              for (var step in instruction['steps']) {
+                instructions.add(step['step'] ?? '');
+              }
+            }
+          }
+          formattedRecipe['instructions'] = instructions;
+        }
+        
+        // เพิ่มข้อมูลส่วนผสม
+        formattedRecipe['ingredients'] = recipe['extendedIngredients'] ?? [];
+        formattedRecipe['servings'] = recipe['servings'] ?? 1;
+        
+        recipes.add(formattedRecipe);
+      }
+      
+      // เก็บข้อมูลลงแคช
+      if (recipes.isNotEmpty && user != null) {
+        List<int> recipeIds = [];
+        for (var recipe in recipes) {
+          if (recipe['id'] != null) {
+            recipeIds.add(recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()));
+          }
+        }
+        
+        await FirebaseFirestore.instance
+            .collection('weeklyRecipes')
+            .doc('week_$weekNumber')
+            .set({
+              'recipeIds': recipeIds,
+              'createdAt': FieldValue.serverTimestamp(),
+              'weekNumber': weekNumber,
+              'year': now.year
+            });
+      }
+      
+      print("✅ ได้ ${recipes.length} เมนูอาหารประจำสัปดาห์");
+      return recipes;
+    } else {
+      print("❌ API Error: ${response.statusCode}");
+      return [];
+    }
+  } catch (e) {
+    print("❌ เกิดข้อผิดพลาดในการดึงสูตรอาหารประจำสัปดาห์: $e");
+    return [];
+  }
+}
+
+// Helper method to get day name
+String _getDayName(int dayIndex) {
+  switch (dayIndex) {
+    case 0: return 'Monday';
+    case 1: return 'Tuesday';
+    case 2: return 'Wednesday';
+    case 3: return 'Thursday';
+    case 4: return 'Friday';
+    case 5: return 'Saturday';
+    case 6: return 'Sunday';
+    default: return 'Special Day'; 
+  }
+}
+
+// Helper method to calculate week of year
+int _getWeekOfYear(DateTime date) {
+  final firstDayOfYear = DateTime(date.year, 1, 1);
+  final dayDifference = date.difference(firstDayOfYear).inDays;
+  return (dayDifference / 7).ceil() + 1;
+}
+
+
   Future<List<Map<String, dynamic>>> getRecipesWithImages(
       List<String> ingredients) async {
     if (ingredients.isEmpty) {
@@ -342,7 +534,9 @@ Future<Map<String, dynamic>> getRecipeInformation(int recipeId) async {
       
       return {
         'id': data['id'] ?? recipeId,
-        'readyInMinutes': data['readyInMinutes']?.toString() ?? 'N/A',
+        'readyInMinutes': (data['readyInMinutes'] is int 
+    ? data['readyInMinutes'] 
+    : int.tryParse(data['readyInMinutes'].toString()) ?? 0),
         'title': data['title'] ?? '',
         'image': data['image'] ?? '',
         'dishTypes': dishTypes,
@@ -363,81 +557,30 @@ Future<Map<String, dynamic>> getRecipeInformation(int recipeId) async {
   }
 }
 
+Future<List<String>> _getUserPreferenceTags() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return [];
 
-
-Future<List<Map<String, dynamic>>> getWeeklyRecipes(int limit) async {
-  final DateTime now = DateTime.now();
-  final int weekNumber = _getWeekOfYear(now); 
-  
   try {
-    // ลองดึงข้อมูลจาก Firestore ก่อน
-    User? user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      // ดูว่ามีข้อมูล weekly recipes ที่แคชไว้หรือไม่
-      final cachedData = await FirebaseFirestore.instance
-          .collection('weeklyRecipes')
-          .doc('week_$weekNumber')
-          .get();
-      
-      // ถ้ามีข้อมูลแคช ดึงรายละเอียดสูตรจาก recipeIds
-      if (cachedData.exists) {
-        Map<String, dynamic> data = cachedData.data() as Map<String, dynamic>;
-        List<int> recipeIds = List<int>.from(data['recipeIds'] ?? []);
-        List<Map<String, dynamic>> recipes = [];
-        
-        for (int id in recipeIds) {
-          var recipeData = await getRecipeInformation(id);
-          if (recipeData.isNotEmpty) {
-            recipes.add(recipeData);
-          }
-        }
-        
-        if (recipes.isNotEmpty) {
-          return recipes;
-        }
-      }
-    }
-    var recipes = await getRecipesByCuisine(
-      primaryCuisine: 'Thai',
-      fallbackCuisines: ['Chinese', 'Japanese', 'Indian', 'Vietnamese'],
-      limit: limit
-    );
-    
-    // เก็บข้อมูลลงแคช
-    if (recipes.isNotEmpty && user != null) {
-      List<int> recipeIds = [];
-      for (var recipe in recipes) {
-        if (recipe['id'] != null) {
-          recipeIds.add(recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()));
-        }
-      }
-      
-      await FirebaseFirestore.instance
-          .collection('weeklyRecipes')
-          .doc('week_$weekNumber')
-          .set({
-            'recipeIds': recipeIds,
-            'createdAt': FieldValue.serverTimestamp(),
-            'weekNumber': weekNumber,
-            'year': now.year
-          });
-      
+    final snapshot = await FirebaseFirestore.instance
+        .collection('userPreferences')
+        .doc(user.uid)
+        .collection('preferences')
+        .get();
 
-    }
-    
-    return recipes;
+    final List<String> tags = snapshot.docs
+        .map((doc) => doc['foodName'].toString().toLowerCase())
+        .toList();
+
+    return tags;
   } catch (e) {
-    print("❌ เกิดข้อผิดพลาดในการดึงสูตรอาหารประจำสัปดาห์: $e");
+    print('❌ ดึง user preference tags ไม่ได้: $e');
     return [];
   }
 }
 
-// Helper method to calculate week of year
-int _getWeekOfYear(DateTime date) {
-  final firstDayOfYear = DateTime(date.year, 1, 1);
-  final dayDifference = date.difference(firstDayOfYear).inDays;
-  return (dayDifference / 7).ceil() + 1;
-}
+
+
 
 
 }

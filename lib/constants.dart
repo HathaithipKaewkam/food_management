@@ -12,7 +12,7 @@ class Constants {
       "Track and manage your ingredients to minimize waste and save money";
   static var titleTwo = "Easy Meal Plans";
   static var descriptionTwo =
-      "Get simple recipes based on the ingredients you alredy have";
+      "Get simple recipes based on the ingredients you already have";
   static var titleThree = "Grocery List On The Go";
   static var descriptionThree =
       "Easily add and remove items to your grocery list";

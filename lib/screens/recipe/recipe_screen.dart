@@ -53,6 +53,22 @@ class _RecipeScreenState extends State<RecipeScreen> {
      _loadPopularRecipes();
   }
 
+  int _safeParseInt(dynamic value) {
+  if (value == null) return 0;
+  
+  if (value is int) return value;
+  
+  if (value is String) {
+    return int.tryParse(value) ?? 0;
+  }
+  
+  if (value is double) {
+    return value.toInt();
+  }
+  
+  return 0;
+}
+
   Future<void> _loadUserRecipes() async {
   try {
     setState(() {
@@ -147,7 +163,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         isLoadingWeeklyRecipes = true;
       });
       
-      final recipes = await _recipeService.getWeeklyRecipes(5); 
+      final recipes = await _recipeService.getWeeklyRecipes(daysCount: 7);
       
       if (mounted) {
         setState(() {
@@ -211,27 +227,30 @@ class _RecipeScreenState extends State<RecipeScreen> {
 }
 
 Future<void> _loadPopularRecipes() async {
-    try {
+  try {
+    setState(() {
+      isLoadingPopularRecipes = true;
+    });
+    
+    print("🔍 Starting to load popular recipes");
+    final recipes = await _popularRecipeService.getPopularRecipes(limit: 10);
+    
+    print("📊 Found ${recipes.length} popular recipes");
+    
+    if (mounted) {
       setState(() {
-        isLoadingPopularRecipes = true;
+        popularRecipes = recipes;
+        isLoadingPopularRecipes = false;
       });
-      
-      final recipes = await _popularRecipeService.getPopularRecipes(limit: 5);
-      
-      if (mounted) {
-        setState(() {
-          popularRecipes = recipes;
-          isLoadingPopularRecipes = false;
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading popular recipes: $e');
-      if (mounted) {
-        setState(() {
-          isLoadingPopularRecipes = false;
-        });
-      }
     }
+  } catch (e) {
+    print('❌ Error loading popular recipes: $e');
+    if (mounted) {
+      setState(() {
+        isLoadingPopularRecipes = false;
+      });
+    }
+  }
 }
 
 
@@ -545,9 +564,9 @@ Future<void> _loadPopularRecipes() async {
                         MaterialPageRoute(
                         builder: (context) => RecipeDetail(
                           recipeDocId: recipe['id']?.toString() ?? '0',
-                          recipeId: int.tryParse(recipe['id']?.toString() ?? '0') ?? 0,
+                          recipeId: _safeParseInt(recipe['id']), 
                           recipe: Recipe(
-                            recipeId: int.tryParse(recipe['id']?.toString() ?? '0') ?? 0,
+                           recipeId: _safeParseInt(recipe['id']), 
                             recipeName: recipe['title'] ?? '',
                             description: recipe['summary'] ?? '',
                             ingredients: (recipe['extendedIngredients'] as List<dynamic>? ?? []).map((ingredient) {
@@ -561,9 +580,17 @@ Future<void> _loadPopularRecipes() async {
                                 quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
                               );
                             }).toList(),
-                            instructions: (recipe['analyzedInstructions']?[0]?['steps'] as List<dynamic>? ?? [])
-                                .map((step) => step['step'].toString())
-                                .toList(),
+                            instructions: recipe['analyzedInstructions'] != null && 
+              recipe['analyzedInstructions'] is List && 
+              recipe['analyzedInstructions'].isNotEmpty &&
+              recipe['analyzedInstructions'][0] != null &&
+              recipe['analyzedInstructions'][0]['steps'] != null ? 
+    (recipe['analyzedInstructions'][0]['steps'] as List<dynamic>)
+        .map((step) => step['step'].toString())
+        .toList() : 
+    recipe['instructions'] != null && recipe['instructions'] is List ? 
+        (recipe['instructions'] as List<dynamic>).map((step) => step.toString()).toList() : 
+        [],
                             preparationTime: (recipe['preparationMinutes'] ?? 0),
                             cookingTime: (recipe['cookingMinutes'] ?? recipe['readyInMinutes'] ?? 0),
                             servings: recipe['servings'] ?? 1,
@@ -571,18 +598,22 @@ Future<void> _loadPopularRecipes() async {
                                 ? recipe['dishTypes'][0] 
                                 : 'Main Course',
                             imageUrl: recipe['image'] ?? '',
-                            Protein: double.tryParse(recipe['nutrition']?['nutrients']
-                                ?.firstWhere((n) => n['name'] == 'Protein', orElse: () => {'amount': '0'})['amount']
-                                ?.toString() ?? '0') ?? 0.0,
-                            Fat: double.tryParse(recipe['nutrition']?['nutrients']
-                                ?.firstWhere((n) => n['name'] == 'Fat', orElse: () => {'amount': '0'})['amount']
-                                ?.toString() ?? '0') ?? 0.0,
-                            Carbo: double.tryParse(recipe['nutrition']?['nutrients']
-                                ?.firstWhere((n) => n['name'] == 'Carbohydrates', orElse: () => {'amount': '0'})['amount']
-                                ?.toString() ?? '0') ?? 0.0,
-                            Kcal: int.tryParse(recipe['nutrition']?['nutrients']
-                                ?.firstWhere((n) => n['name'] == 'Calories', orElse: () => {'amount': '0'})['amount']
-                                ?.toString() ?? '0') ?? 0,
+                            Protein: recipe['nutrition']?['protein']?.toDouble() ?? 
+                 double.tryParse(recipe['nutrition']?['nutrients']
+                     ?.firstWhere((n) => n['name'] == 'Protein', orElse: () => {'amount': '0'})['amount']
+                     ?.toString() ?? '0') ?? 0.0,
+        Fat: recipe['nutrition']?['fat']?.toDouble() ?? 
+             double.tryParse(recipe['nutrition']?['nutrients']
+                 ?.firstWhere((n) => n['name'] == 'Fat', orElse: () => {'amount': '0'})['amount']
+                 ?.toString() ?? '0') ?? 0.0,
+        Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 
+               double.tryParse(recipe['nutrition']?['nutrients']
+                   ?.firstWhere((n) => n['name'] == 'Carbohydrates', orElse: () => {'amount': '0'})['amount']
+                   ?.toString() ?? '0') ?? 0.0,
+        Kcal: recipe['nutrition']?['calories']?.toInt() ?? 
+              int.tryParse(recipe['nutrition']?['nutrients']
+                  ?.firstWhere((n) => n['name'] == 'Calories', orElse: () => {'amount': '0'})['amount']
+                  ?.toString() ?? '0') ?? 0,
                             isFavorite: recipe['isFavorite'] ?? false,
                           ),
                         ),
@@ -1033,10 +1064,10 @@ Future<void> _loadPopularRecipes() async {
               );
             },
             child: RecipeWidget(
-              index: index,
-              recipeScreenList: [], // ไม่ได้ใช้
+              index: 0,
+              recipeScreenList: null,
               recipe: Recipe(
-                recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+                 recipeId: _safeParseInt(recipe['id']),
                 recipeName: recipe['title'] ?? '',
                 description: '',
                 ingredients: [],
@@ -1172,8 +1203,8 @@ Column(
                   );
                 },
                 child: RecipeWidget(
-                  index: index,
-                  recipeScreenList: [], // ไม่ได้ใช้
+                  index: 0,
+                  recipeScreenList: null,
                   recipe: Recipe(
                     recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
                     recipeName: recipe['title'] ?? '',
