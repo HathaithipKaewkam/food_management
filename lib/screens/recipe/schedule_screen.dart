@@ -50,10 +50,6 @@ Future<void> _loadMealPlans() async {
   
 
   List eventArr = [
-    {
-      "name": "Lunch",
-      "start_time": "08/12/2024 01:00 PM",
-    }
   ];
 
   List selectDayEventArr = [];
@@ -83,6 +79,14 @@ Future<void> _loadMealPlans() async {
       setState(() {});
     }
   }
+
+  bool _isPastDate() {
+  DateTime now = DateTime.now();
+  DateTime today = DateTime(now.year, now.month, now.day);
+  DateTime selectedDate = DateTime(_selectedDateAppBBar.year, _selectedDateAppBBar.month, _selectedDateAppBBar.day);
+  
+  return selectedDate.isBefore(today);
+}
 
   void _addNewMeal(String mealName, String mealType) {
   DateTime now = _selectedDateAppBBar;
@@ -340,6 +344,7 @@ Widget _buildBreakfast() {
   // Get breakfast data from Firebase
   List<dynamic> recipes = mealPlans['breakfast']['recipes'] ?? [];
   int totalCalories = mealPlans['breakfast']['totalCalories'] ?? 0;
+   bool isPast = _isPastDate();
   
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 5),
@@ -505,7 +510,7 @@ Widget _buildBreakfast() {
                       ),
                     
                     // Add button for when no recipes exist
-                    if (recipes.isEmpty)
+                    if (recipes.isEmpty&& !isPast)
                       Padding(
                         padding: const EdgeInsets.only(left: 15, bottom: 15, top: 10),
                         child: InkWell(
@@ -599,6 +604,7 @@ Widget _buildLunch() {
   // Get lunch data from Firebase
   List<dynamic> recipes = mealPlans['lunch']['recipes'] ?? [];
   int totalCalories = mealPlans['lunch']['totalCalories'] ?? 0;
+   bool isPast = _isPastDate();
   
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 5),
@@ -781,7 +787,7 @@ Widget _buildLunch() {
                       ),
                     
                     // Add button for when no recipes exist
-                    if (recipes.isEmpty)
+                    if (recipes.isEmpty&& !isPast)
                       Padding(
                         padding: const EdgeInsets.only(left: 40, bottom: 15, top: 10),
                         child: InkWell(
@@ -858,6 +864,7 @@ Widget _buildSnack() {
   // Get snack data from Firebase
   List<dynamic> recipes = mealPlans['snack']['recipes'] ?? [];
   int totalCalories = mealPlans['snack']['totalCalories'] ?? 0;
+   bool isPast = _isPastDate();
   
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 5),
@@ -1022,7 +1029,7 @@ Widget _buildSnack() {
                       ),
                     
                     // Add button for when no recipes exist
-                    if (recipes.isEmpty)
+                    if (recipes.isEmpty&& !isPast)
                       Padding(
                         padding: const EdgeInsets.only(left: 15, bottom: 15, top: 10),
                         child: InkWell(
@@ -1116,6 +1123,7 @@ Widget _buildDinner() {
   // Get dinner data from Firebase
   List<dynamic> recipes = mealPlans['dinner']['recipes'] ?? [];
   int totalCalories = mealPlans['dinner']['totalCalories'] ?? 0;
+   bool isPast = _isPastDate();
   
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 5),
@@ -1298,7 +1306,7 @@ Widget _buildDinner() {
                       ),
                     
                     // Add button for when no recipes exist
-                    if (recipes.isEmpty)
+                    if (recipes.isEmpty && !isPast)
                       Padding(
                         padding: const EdgeInsets.only(left: 40, bottom: 15, top: 10),
                         child: InkWell(

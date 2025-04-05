@@ -875,11 +875,35 @@ void _logout() async {
     );
   }
 }
+
+Future<void> _refreshAllData() async {
+  setState(() {
+    isLoadingCalories = true;
+    isLoadingIngredients = true;
+    isLoadingExpired = true;
+    isLoadingPurchases = true;
+    isLoadingCookedMeals = true;
+  });
+  
+  await Future.wait([
+    _fetchUserName(),
+    _fetchProfileImage(),
+    _fetchCaloriesData(),
+    _fetchIngredientsData(),
+    _fetchExpiredItems(),
+    _fetchPurchaseHistory(),
+    _fetchCookedMeals(),
+  ]);
+}
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     return Scaffold(
-      body: StreamBuilder<DocumentSnapshot>(
+      body: RefreshIndicator(
+      onRefresh: _refreshAllData,
+      color: Color(0xFF16a34a),
+      child: StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('usersCaloriesMacronutrient')
           .doc(FirebaseAuth.instance.currentUser?.uid)
@@ -894,7 +918,14 @@ void _logout() async {
               targetCalories = double.tryParse(data['caloriesPerDay']) ?? 0.0;
             }
           }
-        }
+
+           _fetchIngredientsData();
+            _fetchExpiredItems();
+            _fetchPurchaseHistory();
+            _fetchCookedMeals();
+          }
+
+
         
         return Padding(
         padding: const EdgeInsets.only(top: 20),
@@ -1126,7 +1157,8 @@ void _logout() async {
                               ),
                             );
                             
-  }));
+  })
+  ));
                         }
 
                         
