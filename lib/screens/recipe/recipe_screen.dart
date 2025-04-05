@@ -475,7 +475,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   padding: const EdgeInsets.only(left: 12),
                   child: Container(
                     width: 200,
-                    height: 250,
+                    height: 240,
                     margin: const EdgeInsets.only(right: 10),
                     child: GestureDetector(
                       onTap: () => Navigator.push(
@@ -651,7 +651,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           
             
             // My Recipe
-            const SizedBox(height: 20),
+           
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -740,8 +740,40 @@ class _RecipeScreenState extends State<RecipeScreen> {
               }
               
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(child: Text("No recipes found"));
-              }
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 30.0),
+      child: Column(
+        children: [
+          Icon(
+            Icons.restaurant_menu,
+            size: 50,
+            color: Colors.grey[400],
+          ),
+          SizedBox(height: 16),
+          Text(
+            'You haven\'t created any recipes yet',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 16,
+            ),
+          ),
+          SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: () {
+              _showCreateRecipeModal(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF78d454),
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Create Recipe'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
               
              List<Recipe> userRecipes = snapshot.data!.docs.map((doc) {
   final data = doc.data() as Map<String, dynamic>;

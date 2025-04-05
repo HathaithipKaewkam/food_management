@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/models/recipe.dart';
@@ -225,6 +226,7 @@ bool _showNutritionFields = false;
       'Kcal': 0,
       'isFavorite': false,
       'createdAt': FieldValue.serverTimestamp(),
+       'createdBy': FirebaseAuth.instance.currentUser?.uid,
         'Protein': protein,
       'Fat': fat,
       'Carbo': carbs,
@@ -581,6 +583,9 @@ if (_showNutritionFields) ...[
             color: Colors.black
           ),
           keyboardType: TextInputType.number,
+           inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+        ],
         ),
       ),
       const SizedBox(width: 16),
@@ -598,6 +603,9 @@ if (_showNutritionFields) ...[
             color: Colors.black
           ),
           keyboardType: TextInputType.number,
+          inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+        ],
         ),
       ),
     ],
@@ -621,6 +629,9 @@ if (_showNutritionFields) ...[
             color: Colors.black
           ),
           keyboardType: TextInputType.number,
+          inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+        ],
         ),
       ),
       const SizedBox(width: 16),
@@ -638,6 +649,9 @@ if (_showNutritionFields) ...[
             color: Colors.black
           ),
           keyboardType: TextInputType.number,
+          inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+        ],
         ),
       ),
     ],

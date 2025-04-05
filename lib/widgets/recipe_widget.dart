@@ -172,8 +172,8 @@ class _RecipeWidgetState extends State<RecipeWidget> {
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(12),
-        margin: const EdgeInsets.symmetric(vertical: 8), 
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+        margin: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/models/recipe.dart';
@@ -219,50 +220,31 @@ void initState() {
     }
   }
 
-  Future<void> _createRecipe() async {
-  if (!_formKey.currentState!.validate()) {
-    return;
-  }
-
-  if (ingredients.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please add at least one ingredient')),
-    );
-    return;
-  }
-
-  if (instructions.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please add at least one instruction step')),
-    );
-    return;
-  }
-
+  Future<void> _updateRecipe() async {
   setState(() {
     _isLoading = true;
   });
 
   try {
-    // ต้องแก้ไขส่วนนี้ให้รองรับกรณีไม่มีรูปภาพ
+    // จัดการกับรูปภาพ
     String imageUrl = '';
     if (_ingredientImage != null) {
-      // อัปโหลดรูปภาพเฉพาะเมื่อมีรูปภาพ
+      // อัปโหลดรูปภาพเฉพาะเมื่อมีรูปภาพใหม่
       imageUrl = await _uploadImage(_ingredientImage!);
     } else if (widget.initialData != null && widget.initialData!['imageUrl'] != null) {
       // ใช้รูปภาพเดิมถ้ามี
       imageUrl = widget.initialData!['imageUrl'];
     }
 
-     int kcal = int.tryParse(_caloriesController.text) ?? 0;
+    // อ่านค่าโภชนาการ
+    int kcal = int.tryParse(_caloriesController.text) ?? 0;
     double protein = double.tryParse(_proteinController.text) ?? 0.0;
     double carbs = double.tryParse(_carbsController.text) ?? 0.0;
     double fat = double.tryParse(_fatController.text) ?? 0.0;
     
     // สร้างข้อมูลสูตรอาหาร
     final recipeData = {
-      'recipeId': widget.initialData != null && widget.initialData!['recipeId'] != null
-          ? widget.initialData!['recipeId']
-          : DateTime.now().millisecondsSinceEpoch,
+      'recipeId': widget.initialData!['recipeId'],
       'recipeName': _recipeNameController.text,
       'description': widget.initialData?['description'] ?? '',
       'instructions': instructions,
@@ -272,15 +254,140 @@ void initState() {
       'preparationTime': widget.initialData?['preparationTime'] ?? 0,
       'cookingTime': int.parse(_cookingTimeController.text),
       'ingredients': ingredients,
-      'Protein': widget.initialData?['Protein'] ?? 0.0,
-      'Fat': widget.initialData?['Fat'] ?? 0.0,
-      'Carbo': widget.initialData?['Carbo'] ?? 0.0,
-      'Kcal': widget.initialData?['Kcal'] ?? 0,
+      'Protein': protein,
+      'Fat': fat,
+      'Carbo': carbs,
+      'Kcal': kcal,
+      'isFavorite': widget.initialData?['isFavorite'] ?? false,
+      'createdAt': widget.initialData?['createdAt'] ?? FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(), // เพิ่มเวลาที่อัพเดต
+      'createdBy': FirebaseAuth.instance.currentUser?.uid,
+    };
+    
+    final String? userId = FirebaseAuth.instance.currentUser?.uid;
+    
+    if (userId == null) {
+      throw Exception('User not logged in');
+    }
+
+    // ตรวจสอบว่ามี docId ที่ถูกต้องหรือไม่
+    if (widget.initialData!.containsKey('docId') && 
+        widget.initialData!['docId'] != null && 
+        widget.initialData!['docId'] != "0" && 
+        widget.initialData!['docId'] != 0) {
+      
+      String docId = widget.initialData!['docId'];
+      print("📝 Attempting to update document with ID: $docId");
+      
+      // ตรวจสอบว่าเอกสารมีอยู่จริงก่อนอัปเดต
+      DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('userRecipe')
+        .doc(docId)
+        .get();
+      
+      if (docSnapshot.exists) {
+        print("✅ Document exists, updating...");
+        await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('userRecipe')
+          .doc(docId)
+          .update(recipeData);
+        
+        print("✅ Document updated successfully with ID: $docId");
+        
+        if (widget.onRecipeCreated != null) {
+          widget.onRecipeCreated!();
+        }
+        
+        Navigator.pop(context, {
+          'updated': true,
+          'recipeData': recipeData,
+          'docId': docId,
+        });
+      } else {
+        print("⚠️ Document with ID $docId does not exist, searching by recipeId...");
+        await _findAndUpdateByRecipeId(userId, recipeData);
+        
+        if (widget.onRecipeCreated != null) {
+          widget.onRecipeCreated!();
+        }
+        
+        Navigator.pop(context, {
+          'updated': true,
+          'recipeData': recipeData,
+          'docId': widget.initialData!['docId'],
+        });
+      }
+    } else {
+      print("⚠️ Invalid docId, searching by recipeId instead");
+      await _findAndUpdateByRecipeId(userId, recipeData);
+      
+      if (widget.onRecipeCreated != null) {
+        widget.onRecipeCreated!();
+      }
+      
+      Navigator.pop(context, {
+        'updated': true,
+        'recipeData': recipeData,
+      });
+    }
+  } catch (e) {
+    print('❌ Error updating recipe: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error updating recipe: $e')),
+    );
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
+  }
+}
+
+  Future<void> _createRecipe() async {
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    // จัดการกับรูปภาพ
+    String imageUrl = '';
+    if (_ingredientImage != null) {
+      // อัปโหลดรูปภาพเฉพาะเมื่อมีรูปภาพ
+      imageUrl = await _uploadImage(_ingredientImage!);
+    } else if (widget.initialData != null && widget.initialData!['imageUrl'] != null) {
+      // ใช้รูปภาพเดิมถ้ามี
+      imageUrl = widget.initialData!['imageUrl'];
+    }
+
+    // อ่านค่าโภชนาการ
+    int kcal = int.tryParse(_caloriesController.text) ?? 0;
+    double protein = double.tryParse(_proteinController.text) ?? 0.0;
+    double carbs = double.tryParse(_carbsController.text) ?? 0.0;
+    double fat = double.tryParse(_fatController.text) ?? 0.0;
+    
+    // สร้างข้อมูลสูตรอาหาร
+    final recipeData = {
+      'recipeId': DateTime.now().millisecondsSinceEpoch, // สร้าง recipeId ใหม่
+      'recipeName': _recipeNameController.text,
+      'description': widget.initialData?['description'] ?? '',
+      'instructions': instructions,
+      'imageUrl': imageUrl,
+      'category': _selectedCategory,
+      'servings': int.parse(_servingsController.text),
+      'preparationTime': widget.initialData?['preparationTime'] ?? 0,
+      'cookingTime': int.parse(_cookingTimeController.text),
+      'ingredients': ingredients,
+      'Protein': protein,
+      'Fat': fat,
+      'Carbo': carbs,
+      'Kcal': kcal,
       'isFavorite': false,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': FirebaseAuth.instance.currentUser?.uid,
-      'isEdited': !widget.isEditingOwnRecipe, // เพิ่มฟิลด์นี้เพื่อระบุว่าเป็นสูตรที่ถูกแก้ไขจากสูตรเดิม
-      'originalRecipeId': widget.isEditingOwnRecipe ? null : widget.initialData?['originalId'], // เก็บ ID ของสูตรต้นฉบับ
+      'originalRecipeId': widget.initialData?['recipeId'], // เก็บ ID ของสูตรต้นฉบับ
     };
     
     final String? userId = FirebaseAuth.instance.currentUser?.uid;
@@ -289,78 +396,28 @@ void initState() {
       throw Exception('User not logged in');
     }
     
-  if (widget.isEditingOwnRecipe && widget.initialData != null) {
-      try {
-        // ตรวจสอบว่ามี docId ที่ถูกต้องหรือไม่
-        if (widget.initialData!.containsKey('docId') && 
-            widget.initialData!['docId'] != null && 
-            widget.initialData!['docId'] != "0" && 
-            widget.initialData!['docId'] != 0) {
-          
-          String docId = widget.initialData!['docId'];
-          print("📝 Attempting to update document with ID: $docId");
-          
-          // ตรวจสอบว่าเอกสารมีอยู่จริงก่อนอัปเดต
-          DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .collection('userRecipe')
-            .doc(docId)
-            .get();
-          
-          if (docSnapshot.exists) {
-            print("✅ Document exists, updating...");
-            await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .collection('userRecipe')
-              .doc(docId)
-              .update(recipeData);
-            
-            print("✅ Document updated successfully with ID: $docId");
-          } else {
-            print("⚠️ Document with ID $docId does not exist, searching by recipeId...");
-            await _findAndUpdateByRecipeId(userId, recipeData);
-          }
-        } else {
-          print("⚠️ Invalid docId, searching by recipeId instead");
-          await _findAndUpdateByRecipeId(userId, recipeData);
-        }
-      } catch (e) {
-        print("❌ Error during update: $e");
-        // กรณีเกิดข้อผิดพลาด ให้ลองค้นหาด้วย recipeId แทน
-        await _findAndUpdateByRecipeId(userId, recipeData);
-      }
-    } else {
-      // กรณีสร้างสูตรใหม่จากสูตรของคนอื่น
-      print("➕ Creating new recipe");
-      DocumentReference docRef = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .collection('userRecipe')
-        .add(recipeData);
-      
-      print("✅ Created new recipe with ID: ${docRef.id}");
-    }
+    // สร้างสูตรใหม่
+    DocumentReference docRef = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(userId)
+      .collection('userRecipe')
+      .add(recipeData);
+    
+    print("✅ Created new recipe with ID: ${docRef.id}");
     
     if (widget.onRecipeCreated != null) {
       widget.onRecipeCreated!();
     }
     
-  String updatedDocId = '';
-if (widget.isEditingOwnRecipe && widget.initialData != null && widget.initialData!.containsKey('docId')) {
-  updatedDocId = widget.initialData!['docId'];
-}
-
-Navigator.pop(context, {
-  'updated': true,
-  'recipeData': recipeData,
-  'docId': updatedDocId, 
-});
+    Navigator.pop(context, {
+      'updated': true,
+      'recipeData': recipeData,
+      'docId': docRef.id,
+    });
   } catch (e) {
-    print('❌ Error saving recipe: $e');
+    print('❌ Error creating recipe: $e');
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error saving recipe: $e')),
+      SnackBar(content: Text('Error creating recipe: $e')),
     );
   } finally {
     setState(() {
@@ -737,6 +794,9 @@ if (_showNutritionFields) ...[
             color: Colors.black
           ),
           keyboardType: TextInputType.number,
+           inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly, 
+        ],
         ),
       ),
       const SizedBox(width: 16),
@@ -754,6 +814,9 @@ if (_showNutritionFields) ...[
             color: Colors.black
           ),
           keyboardType: TextInputType.number,
+           inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+        ],
         ),
       ),
     ],
@@ -777,6 +840,9 @@ if (_showNutritionFields) ...[
             color: Colors.black
           ),
           keyboardType: TextInputType.number,
+          inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+        ],
         ),
       ),
       const SizedBox(width: 16),
@@ -794,6 +860,9 @@ if (_showNutritionFields) ...[
             color: Colors.black
           ),
           keyboardType: TextInputType.number,
+          inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
+        ],
         ),
       ),
     ],
@@ -802,8 +871,7 @@ if (_showNutritionFields) ...[
 
   const SizedBox(height: 16),
                           
-                          // Tab Selector (Ingredients/Instructions)
-                        
+                    
 Container(
   width: double.infinity, // ให้กว้างเต็มหน้าจอ
   padding: const EdgeInsets.all(8),
@@ -945,29 +1013,32 @@ Container(
       width: double.infinity,
       child: ElevatedButton(
         onPressed: () {
-         
-          if (!_formKey.currentState!.validate()) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please fill out all required fields correctly')),
-            );
-            return;
-          }
-          if (ingredients.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please add at least one ingredient')),
-            );
-            return;
-          }
-          if (instructions.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please add at least one instruction step')),
-            );
-            return;
-          }
-          
-          
-          _createRecipe();
-        },
+  if (!_formKey.currentState!.validate()) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please fill out all required fields correctly')),
+    );
+    return;
+  }
+  if (ingredients.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please add at least one ingredient')),
+    );
+    return;
+  }
+  if (instructions.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please add at least one instruction step')),
+    );
+    return;
+  }
+  
+  // เรียกใช้ฟังก์ชันที่ต่างกันขึ้นอยู่กับว่าเป็นการแก้ไขสูตรของตัวเองหรือไม่
+  if (widget.isEditingOwnRecipe) {
+    _updateRecipe();
+  } else {
+    _createRecipe();
+  }
+},
         style: ElevatedButton.styleFrom(
           backgroundColor: Color(0xFF78d454),
           padding: const EdgeInsets.symmetric(vertical: 15),

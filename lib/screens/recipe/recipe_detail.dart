@@ -298,7 +298,7 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
                                           return;
                                         }
                                         
-                                        final bool isUserRecipe = user.uid == currentRecipe.createdBy;
+                                       final bool isUserRecipe = user.uid == currentRecipe.createdBy;
                                         
                                        final result = await Navigator.push(
                                             context,
@@ -327,6 +327,7 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
                                                   'Kcal': currentRecipe.Kcal,
                                                   'originalId': currentRecipe.recipeId,
                                                 },
+                                                
                                                 onRecipeCreated: () {
                                                   // Callback เมื่อสร้างสูตรใหม่เสร็จสิ้น
                                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -336,6 +337,7 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
                                                     ),
                                                   );
                                                 },
+                                                
                                               ),
                                             ),
                                           );
@@ -630,7 +632,7 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
           ),
           const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.only(left: 20, right: 10),
+            padding: const EdgeInsets.only(left: 20, right: 5),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -652,14 +654,14 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
                         Text('${currentRecipe.Fat} g',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 35),
+                        const SizedBox(width: 30),
                         Image.asset('assets/images/carbo.png',
                             width: 23, height: 20),
                         const SizedBox(width: 2),
                         Text('${currentRecipe.Carbo} g',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 50),
+                        const SizedBox(width: 25),
                         Image.asset('assets/images/kcal.png',
                             width: 23, height: 17),
                         const SizedBox(width: 1),

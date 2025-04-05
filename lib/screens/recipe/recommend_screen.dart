@@ -289,7 +289,7 @@ class _RecommendScreen extends State<RecommendScreen> {
                             children: [
                               Container(
                                 width: double.infinity,
-                                height: 130,
+                                height: 120,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(15),
                                   image: DecorationImage(
