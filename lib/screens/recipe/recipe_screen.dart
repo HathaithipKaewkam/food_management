@@ -563,10 +563,10 @@ Future<void> _loadPopularRecipes() async {
                         context,
                         MaterialPageRoute(
                         builder: (context) => RecipeDetail(
-                          recipeDocId: recipe['id']?.toString() ?? '0',
-                          recipeId: _safeParseInt(recipe['id']), 
+                          recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+                          recipeDocId: recipe['id'].toString(), 
                           recipe: Recipe(
-                           recipeId: _safeParseInt(recipe['id']), 
+                           recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
                             recipeName: recipe['title'] ?? '',
                             description: recipe['summary'] ?? '',
                             ingredients: (recipe['extendedIngredients'] as List<dynamic>? ?? []).map((ingredient) {
@@ -580,40 +580,23 @@ Future<void> _loadPopularRecipes() async {
                                 quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
                               );
                             }).toList(),
-                            instructions: recipe['analyzedInstructions'] != null && 
-              recipe['analyzedInstructions'] is List && 
-              recipe['analyzedInstructions'].isNotEmpty &&
-              recipe['analyzedInstructions'][0] != null &&
-              recipe['analyzedInstructions'][0]['steps'] != null ? 
-    (recipe['analyzedInstructions'][0]['steps'] as List<dynamic>)
-        .map((step) => step['step'].toString())
-        .toList() : 
-    recipe['instructions'] != null && recipe['instructions'] is List ? 
-        (recipe['instructions'] as List<dynamic>).map((step) => step.toString()).toList() : 
-        [],
-                            preparationTime: (recipe['preparationMinutes'] ?? 0),
-                            cookingTime: (recipe['cookingMinutes'] ?? recipe['readyInMinutes'] ?? 0),
+                            instructions: (recipe['instructions'] as List<dynamic>? ?? [])
+                          .map((step) => step.toString())
+                          .toList(),
+
+                            preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
+                      cookingTime: 0,
+
                             servings: recipe['servings'] ?? 1,
                             category: (recipe['dishTypes'] as List<dynamic>? ?? []).isNotEmpty 
                                 ? recipe['dishTypes'][0] 
                                 : 'Main Course',
                             imageUrl: recipe['image'] ?? '',
-                            Protein: recipe['nutrition']?['protein']?.toDouble() ?? 
-                 double.tryParse(recipe['nutrition']?['nutrients']
-                     ?.firstWhere((n) => n['name'] == 'Protein', orElse: () => {'amount': '0'})['amount']
-                     ?.toString() ?? '0') ?? 0.0,
-        Fat: recipe['nutrition']?['fat']?.toDouble() ?? 
-             double.tryParse(recipe['nutrition']?['nutrients']
-                 ?.firstWhere((n) => n['name'] == 'Fat', orElse: () => {'amount': '0'})['amount']
-                 ?.toString() ?? '0') ?? 0.0,
-        Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 
-               double.tryParse(recipe['nutrition']?['nutrients']
-                   ?.firstWhere((n) => n['name'] == 'Carbohydrates', orElse: () => {'amount': '0'})['amount']
-                   ?.toString() ?? '0') ?? 0.0,
-        Kcal: recipe['nutrition']?['calories']?.toInt() ?? 
-              int.tryParse(recipe['nutrition']?['nutrients']
-                  ?.firstWhere((n) => n['name'] == 'Calories', orElse: () => {'amount': '0'})['amount']
-                  ?.toString() ?? '0') ?? 0,
+                           Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
+                      Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
+                      Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
+                      Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
+
                             isFavorite: recipe['isFavorite'] ?? false,
                           ),
                         ),

@@ -582,13 +582,16 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  currentRecipe.recipeName,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+               Text(
+                currentRecipe.recipeName,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
                 ),
+                overflow: TextOverflow.visible, 
+                softWrap: true,
+                maxLines: 5, 
+              ),
                 // Time cooking
                 Container(
                   padding:
@@ -852,8 +855,225 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
                       ],
                     ),
                     child: IconButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        // 1. Check for missing ingredients
+                        List<Map<String, dynamic>> missingIngredients = [];
                         
+                        // Calculate the adjusted quantities based on currentNumber (serving adjustment)
+                        for (var recipeIngredient in currentRecipe.ingredients) {
+                          // Calculate the required amount adjusted for servings
+                          double requiredAmount = recipeIngredient.quantityUsed * (currentNumber / currentRecipe.servings);
+                          String ingredientName = recipeIngredient.ingredient.ingredientsName;
+                          String unit = recipeIngredient.ingredient.unit;
+                          
+                          // Check if user has this ingredient
+                          bool isFound = false;
+                          double availableAmount = 0;
+                          
+                          for (var userIngredient in userIngredients) {
+                            if (userIngredient['ingredient'] != null && 
+                                userIngredient['ingredient']['ingredientsName'] == ingredientName) {
+                              isFound = true;
+                              availableAmount = userIngredient['quantity'] ?? 0;
+                              break;
+                            }
+                          }
+                          
+                          // If ingredient not found or quantity insufficient, add to missing list
+                          if (!isFound || availableAmount < requiredAmount) {
+                            missingIngredients.add({
+                              'ingredientName': ingredientName,
+                              'requiredAmount': requiredAmount,
+                              'unit': unit,
+                              'availableAmount': isFound ? availableAmount : 0,
+                            });
+                          }
+                        }
+                        
+                      
+                        if (missingIngredients.isNotEmpty) {
+                          bool shouldProceed = await showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: const Text("Missing Ingredients",
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent),
+                                ),
+                                content: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("You don't have enough of these ingredients:"),
+                                      const SizedBox(height: 14),
+                                      ...missingIngredients.map((ingredient) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 5),
+                                          child: Text(
+                                            "• ${ingredient['ingredientName']} ${ingredient['requiredAmount'].toStringAsFixed(1)} ${ingredient['unit']}",
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                        );
+                                      }).toList(),
+                                      const SizedBox(height: 10),
+                                      const Text("Do you still want to record your consumption ?"),
+                                    ],
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    child: const Text("Eat Anyway", 
+                                      style: TextStyle(color: Colors.green)),
+                                  ),
+                                ],
+                              );
+                            },
+                          ) ?? false;
+                          
+                          if (!shouldProceed) {
+                            return; // Exit if user cancelled
+                          }
+                        }
+                        
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Please login to record consumption"), 
+                                backgroundColor: Colors.redAccent),
+                          );
+                          return;
+                        }
+                        
+                        try {
+                          // Show loading indicator
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (BuildContext context) {
+                              return const Center(child: CircularProgressIndicator());
+                            },
+                          );
+                          
+                         
+                          final now = DateTime.now();
+                          final dateStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+                          
+                         
+                          double adjustedKcal = currentRecipe.Kcal * (currentNumber / currentRecipe.servings);
+                          
+                          
+                          await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(user.uid)
+                            .collection('calorieConsumption')
+                            .add({
+                              'date': now, 
+                              'dateStr': dateStr,
+                              'recipeId': currentRecipe.recipeId.toString(),
+                              'recipeName': currentRecipe.recipeName,
+                              'kcal': adjustedKcal.round(),
+                               'protein': currentRecipe.Protein * (currentNumber / currentRecipe.servings),
+                              'fat': currentRecipe.Fat * (currentNumber / currentRecipe.servings),
+                              'carbo': currentRecipe.Carbo * (currentNumber / currentRecipe.servings),
+                              'mealType': "", 
+                              'note': "No note",
+                              'quantity': currentNumber,
+                              'unit': "servings",
+                            });
+
+                            await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(user.uid)
+                            .collection('eatingHistory')
+                            .add({
+                              'date': now,
+                              'dateStr': dateStr,
+                              'recipeId': currentRecipe.recipeId.toString(),
+                              'recipeName': currentRecipe.recipeName,
+                              'imageUrl': currentRecipe.imageUrl,
+                              'kcal': adjustedKcal.round(),
+                              'protein': currentRecipe.Protein * (currentNumber / currentRecipe.servings),
+                              'fat': currentRecipe.Fat * (currentNumber / currentRecipe.servings),
+                              'carbo': currentRecipe.Carbo * (currentNumber / currentRecipe.servings),
+                              'mealType': "",
+                              'servings': currentNumber,
+                            });
+                          
+                          
+                          for (var recipeIngredient in currentRecipe.ingredients) {
+                            String ingredientName = recipeIngredient.ingredient.ingredientsName;
+                            double requiredAmount = recipeIngredient.quantityUsed * (currentNumber / currentRecipe.servings);
+                            
+                           
+                            for (var userIngredient in userIngredients) {
+                              if (userIngredient['ingredient'] != null && 
+                                  userIngredient['ingredient']['ingredientsName'] == ingredientName) {
+                                
+                                double availableAmount = userIngredient['quantity'] ?? 0;
+                                
+                             
+                                if (availableAmount >= requiredAmount) {
+                                  String? docId;
+                                  try {
+                                    final snapshot = await FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(user.uid)
+                                      .collection('userIngredients')
+                                      .where('ingredientsName', isEqualTo: ingredientName)
+                                      .get();
+                                    
+                                    if (snapshot.docs.isNotEmpty) {
+                                      docId = snapshot.docs.first.id;
+                                      
+                                      // Update the quantity
+                                      await FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(user.uid)
+                                        .collection('userIngredients')
+                                        .doc(docId)
+                                        .update({
+                                          'quantity': availableAmount - requiredAmount
+                                        });
+                                    }
+                                  } catch (e) {
+                                    print("Error updating ingredient $ingredientName: $e");
+                                  }
+                                }
+                                break;
+                              }
+                            }
+                          }
+                          
+                       
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            
+                            // Show success message
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Consumption recorded successfully!"),
+                                backgroundColor: Color(0xFF78d454),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          // Close loading dialog if there's an error
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Error recording consumption: $e"),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                        }
                       },
                       icon: const Icon(
                         Icons.restaurant_outlined,
