@@ -117,6 +117,26 @@ class RecipeRecommendationService {
     }
   }
 
+  Future<List<String>> fetchNotRecommendedRecipes(String userId) async {
+  try {
+    final snapshot = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notRecommendedRecipes')
+        .get();
+
+    List<String> notRecommendedIds = snapshot.docs
+        .map((doc) => doc['recipeId'].toString())
+        .toList();
+
+    print("✅ Fetched ${notRecommendedIds.length} not recommended recipes");
+    return notRecommendedIds;
+  } catch (e) {
+    print("❌ Error fetching not recommended recipes: $e");
+    return [];
+  }
+}
+
   Future<List<Map<String, dynamic>>> getRecommendedRecipes(
       String userId) async {
     try {
@@ -174,6 +194,9 @@ class RecipeRecommendationService {
     
    
     Set<int> recipeIds = {};
+
+      List<String> notRecommendedIds = await fetchNotRecommendedRecipes(userId);
+    
     
 
     for (var recipe in thaiRecipes) {
@@ -195,6 +218,11 @@ class RecipeRecommendationService {
       }
     }
 
+    List<Map<String, dynamic>> filteredRecipes = allRecipes.where((recipe) {
+      int recipeId = recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString());
+      return !notRecommendedIds.contains(recipeId.toString());
+    }).toList();
+
       // Filter and score recipes
       List<Map<String, dynamic>> recommendedRecipes = [];
       ingredientsWithExpiry.sort((a, b) {
@@ -205,7 +233,7 @@ class RecipeRecommendationService {
         return aDate.compareTo(bDate);
       });
 
-      for (var recipe in allRecipes) {
+      for (var recipe in filteredRecipes) {
         try {
           int score = 0;
           bool isValid = true;

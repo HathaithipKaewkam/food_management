@@ -361,49 +361,64 @@ Future<void> _refreshRecipeData(String recipeDocId) async {
                                               content: const Text("Are you sure you want to not recommend this recipe?"),
                                               actions: [
                                                 TextButton(
-                                                  onPressed: () {
-                                                    Navigator.pop(context); // ปิด Dialog
-                                                  },
-                                                  child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () async {
-                                                    Navigator.pop(context); // ปิด Dialog
-                                                    
-                                                    // บันทึกลง Firebase
-                                                    final user = FirebaseAuth.instance.currentUser;
-                                                    if (user != null) {
-                                                      try {
-                                                        
-                                                        await FirebaseFirestore.instance
-                                                          .collection('users')
-                                                          .doc(user.uid)
-                                                          .collection('notRecommendedRecipes')
-                                                          .doc(currentRecipe.id.toString())
-                                                          .set({
-                                                            'recipeId': currentRecipe.id,
-                                                            'recipeName': currentRecipe.recipeName,
-                                                            'addedAt': FieldValue.serverTimestamp(),
-                                                          });
-                                                        
-                                                        // แสดงข้อความยืนยัน
-                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text("Not recommended this recipe successfully!"),
-                                                            backgroundColor: Color(0xFF78d454),
-                                                          ),
-                                                        );
-                                                      } catch (e) {
-                                                        // แสดงข้อความเมื่อเกิดข้อผิดพลาด
-                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                          SnackBar(
-                                                            content: Text("เกิดข้อผิดพลาด: $e"),
-                                                            backgroundColor: Colors.redAccent,
-                                                          ),
-                                                        );
-                                                      }
-                                                    }
-                                                  },
+                                                 onPressed: () async {
+  Navigator.pop(context); // ปิด Dialog
+  
+  // แสดง loading indicator
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return const Center(child: CircularProgressIndicator());
+    },
+  );
+  
+  // บันทึกลง Firebase
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    try {
+      // อัปเดตค่า recipeId ให้ถูกต้อง (ใช้ recipeId หรือ id ตามที่มีในข้อมูล)
+      String recipeIdToStore = currentRecipe.recipeId.toString();
+      
+      await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('notRecommendedRecipes')
+        .doc(recipeIdToStore)
+        .set({
+          'recipeId': currentRecipe.recipeId,
+          'recipeName': currentRecipe.recipeName,
+          'imageUrl': currentRecipe.imageUrl,
+          'category': currentRecipe.category,
+          'addedAt': FieldValue.serverTimestamp(),
+        });
+      
+      // ปิด loading dialog
+      if (context.mounted) {
+        Navigator.pop(context);
+        
+        // แสดงข้อความยืนยัน
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Added to not recommended list successfully!"),
+            backgroundColor: Color(0xFF78d454),
+          ),
+        );
+      }
+    } catch (e) {
+      // ปิด loading dialog และแสดงข้อความเมื่อเกิดข้อผิดพลาด
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+},
                                                   child: const Text("Confirm", style: TextStyle(color: Colors.redAccent)),
                                                 ),
                                               ],

@@ -34,6 +34,11 @@ class _EditRecipeScreenState extends State<EditRecipeScreen> {
   final TextEditingController _servingsController = TextEditingController();
   final TextEditingController _cookingTimeController = TextEditingController();
   final ValueNotifier<bool> _isFormValid = ValueNotifier<bool>(false);
+  final TextEditingController _caloriesController = TextEditingController();
+final TextEditingController _proteinController = TextEditingController();
+final TextEditingController _carbsController = TextEditingController();
+final TextEditingController _fatController = TextEditingController();
+bool _showNutritionFields = false;
   
   String _selectedCategory = 'Breakfast';
   List<String> _categories = ['Breakfast',   
@@ -86,6 +91,15 @@ void initState() {
     _recipeNameController.text = widget.initialData!['recipeName'] ?? '';
     _cookingTimeController.text = widget.initialData!['cookingTime']?.toString() ?? '';
     _servingsController.text = widget.initialData!['servings']?.toString() ?? '';
+     _caloriesController.text = widget.initialData!['Kcal']?.toString() ?? '';
+    _proteinController.text = widget.initialData!['Protein']?.toString() ?? '';
+    _carbsController.text = widget.initialData!['Carbo']?.toString() ?? '';
+    _fatController.text = widget.initialData!['Fat']?.toString() ?? '';
+
+     _showNutritionFields = _caloriesController.text.isNotEmpty || 
+                          _proteinController.text.isNotEmpty || 
+                          _carbsController.text.isNotEmpty || 
+                          _fatController.text.isNotEmpty;
     
     // ตั้งค่าหมวดหมู่
     if (widget.initialData!['category'] != null) {
@@ -238,6 +252,11 @@ void initState() {
       // ใช้รูปภาพเดิมถ้ามี
       imageUrl = widget.initialData!['imageUrl'];
     }
+
+     int kcal = int.tryParse(_caloriesController.text) ?? 0;
+    double protein = double.tryParse(_proteinController.text) ?? 0.0;
+    double carbs = double.tryParse(_carbsController.text) ?? 0.0;
+    double fat = double.tryParse(_fatController.text) ?? 0.0;
     
     // สร้างข้อมูลสูตรอาหาร
     final recipeData = {
@@ -671,7 +690,117 @@ InputDecoration getCustomDecoration({String? hintText, IconData? prefixIcon}) {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                                                                              const SizedBox(height: 16),
+// Nutritional Information Section Header
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    Text(
+      'Nutritional Information (Optional)',
+      style: TextStyle(
+        color: Color(0xFF094507),
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    TextButton(
+      onPressed: () {
+        setState(() {
+          _showNutritionFields = !_showNutritionFields;
+        });
+      },
+      child: Text(
+        _showNutritionFields ? 'Hide' : 'Show',
+        style: TextStyle(color: Color(0xFF78d454)),
+      ),
+    ),
+  ],
+),
+
+// Nutrition Fields - จะแสดงเมื่อกดปุ่ม Show เท่านั้น
+if (_showNutritionFields) ...[
+  const SizedBox(height: 10),
+  
+  // Calories and Protein
+  Row(
+    children: [
+      // Calories
+      Expanded(
+        child: TextFormField(
+          controller: _caloriesController,
+          decoration: getCustomDecoration(
+            hintText: 'Calories (kcal)',
+            prefixIcon: Icons.local_fire_department,
+          ),
+          style: TextStyle(
+            fontWeight: FontWeight.bold, 
+            color: Colors.black
+          ),
+          keyboardType: TextInputType.number,
+        ),
+      ),
+      const SizedBox(width: 16),
+      
+      // Protein
+      Expanded(
+        child: TextFormField(
+          controller: _proteinController,
+          decoration: getCustomDecoration(
+            hintText: 'Protein (g)',
+            prefixIcon: Icons.fitness_center,
+          ),
+          style: TextStyle(
+            fontWeight: FontWeight.bold, 
+            color: Colors.black
+          ),
+          keyboardType: TextInputType.number,
+        ),
+      ),
+    ],
+  ),
+  
+  const SizedBox(height: 16),
+  
+  // Carbs and Fat
+  Row(
+    children: [
+      // Carbs
+      Expanded(
+        child: TextFormField(
+          controller: _carbsController,
+          decoration: getCustomDecoration(
+            hintText: 'Carbs (g)',
+            prefixIcon: Icons.grain,
+          ),
+          style: TextStyle(
+            fontWeight: FontWeight.bold, 
+            color: Colors.black
+          ),
+          keyboardType: TextInputType.number,
+        ),
+      ),
+      const SizedBox(width: 16),
+      
+      // Fat
+      Expanded(
+        child: TextFormField(
+          controller: _fatController,
+          decoration: getCustomDecoration(
+            hintText: 'Fat (g)',
+            prefixIcon: Icons.opacity,
+          ),
+          style: TextStyle(
+            fontWeight: FontWeight.bold, 
+            color: Colors.black
+          ),
+          keyboardType: TextInputType.number,
+        ),
+      ),
+    ],
+  ),
+],
+
+  const SizedBox(height: 16),
                           
                           // Tab Selector (Ingredients/Instructions)
                         
