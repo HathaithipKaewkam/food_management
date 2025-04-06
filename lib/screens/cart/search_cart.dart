@@ -411,8 +411,42 @@ void initState() {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  // แสดงตัวเลือกเพิ่มใหม่
-                  // ...โค้ดเดิม...
+                 Padding(
+                                padding: const EdgeInsets.only(left: 0),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 100,
+                                      height: 100,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFd7d8d8),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: ClipRRect(
+                                        child: SizedBox(
+                                          child: Image.asset(
+                                            'assets/images/default_ing.png',
+                                            fit: BoxFit.contain,
+                                            width: 50,
+                                            height: 50,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 30),
+                                    Expanded(
+                                      child: Text(
+                                        _searchController.text,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                 ],
               ),
               onTap: () {

@@ -9,8 +9,10 @@ class PopularRecipeService {
   final String apiKey = '36440b5c03cb475c993bed762cee0c75';
   final int maxRecipes = 5; // จำกัดสูตรสูงสุดเหลือ 5 สูตร
   final int cacheDuration = 86400000; // 24 ชั่วโมง
+  int randomOffset = DateTime.now().millisecondsSinceEpoch % 20;
+
   
-  Future<List<Map<String, dynamic>>> getPopularRecipes({int limit = 5}) async {
+  Future<List<Map<String, dynamic>>> getPopularRecipes({int limit = 5, String cuisine = 'Thai'}) async {
     // ตรวจสอบแคชก่อน
     User? user = FirebaseAuth.instance.currentUser;
     final String cacheKey = 'popular_recipes';
@@ -18,7 +20,9 @@ class PopularRecipeService {
     if (user != null) {
       try {
         final cachedDoc = await FirebaseFirestore.instance
-            .collection('cachedRecipes')
+             .collection('users')
+    .doc(user.uid)
+            .collection('userPopularRecipes')
             .doc(cacheKey)
             .get();
             
@@ -42,13 +46,16 @@ class PopularRecipeService {
     
     // กำหนดจำนวนที่ต้องการดึงเป็น 5 สูตร
     Map<String, String> params = {
+      
       'apiKey': apiKey,
       'number': limit.toString(), // ปรับให้ตรงกับ limit ที่เปลี่ยนเป็น 5
       'sort': 'popularity',
+      'cuisine': cuisine,
       'addRecipeInformation': 'true',
       'fillIngredients': 'true',
       'addRecipeNutrition': 'true',
-      'instructionsRequired': 'true', // เพิ่มพารามิเตอร์เพื่อรับวิธีทำด้วย
+      'instructionsRequired': 'true',
+      'offset': randomOffset.toString(),
     };
     
     final uri = Uri.https('api.spoonacular.com', '/recipes/complexSearch', params);
@@ -79,6 +86,7 @@ class PopularRecipeService {
             'readyInMinutes': readyInMinutes.toString(),
             'popularity': popularity,
             'isPopular': true,
+            'cuisine': cuisine,
           };
           
           // ดึงข้อมูลประเภทอาหาร
@@ -140,27 +148,26 @@ class PopularRecipeService {
           recipes.add(formattedRecipe);
         }
 
-        // บันทึกข้อมูล popular recipes ลง Firestore แบบใหม่ที่มีข้อมูลครบถ้วน
-        _cacheDetailedPopularRecipes(recipes);
+  
+        _cacheDetailedPopularRecipes(recipes, cuisine);
         
         print("🔥 Found ${recipes.length} hot recipes");
         return recipes;
       } else {
         print("❌ API Error: ${response.statusCode}");
-        return _getOfflinePopularRecipes(limit);
+        return _getOfflinePopularRecipes(limit, cuisine);
       }
     } catch (e) {
       print("❌ API Error: $e");
-      return _getOfflinePopularRecipes(limit);
+      return _getOfflinePopularRecipes(limit, cuisine);
     }
   }
 
-  // ปรับปรุงเมธอดให้บันทึกข้อมูลสูตรอาหารที่มีรายละเอียดครบถ้วน (ไม่เก็บเฉพาะ ID)
-  Future<void> _cacheDetailedPopularRecipes(List<Map<String, dynamic>> recipes) async {
+  Future<void> _cacheDetailedPopularRecipes(List<Map<String, dynamic>> recipes, String cuisine) async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        // เก็บข้อมูลสูตรอาหารทั้งหมดลงแคชแทนที่จะเก็บแค่ ID
+        final String cacheKey = cuisine.isEmpty ? 'popular_recipes' : 'popular_recipes_${cuisine.toLowerCase()}';
         await FirebaseFirestore.instance
             .collection('cachedRecipes')
             .doc('popular_recipes')
@@ -168,15 +175,15 @@ class PopularRecipeService {
               'recipes': recipes,
               'timestamp': DateTime.now().millisecondsSinceEpoch,
               'updatedAt': FieldValue.serverTimestamp(),
+              'cuisine': cuisine,
             });
         
-        print("✅ Cached ${recipes.length} detailed hot recipes to Firestore");
+       print("✅ Cached ${recipes.length} detailed hot ${cuisine.isEmpty ? '' : cuisine + ' '}recipes to Firestore");
       } catch (e) {
         print("❌ Error caching hot recipes: $e");
       }
     }
     
-    // ยังคงเก็บแบบเดิมไว้เพื่อความเข้ากันได้
     _cachePopularRecipes(recipes);
   }
 
@@ -206,9 +213,10 @@ class PopularRecipeService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _getOfflinePopularRecipes(int limit) async {
+  Future<List<Map<String, dynamic>>> _getOfflinePopularRecipes(int limit, String cuisine) async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      final String cacheKey = cuisine.isEmpty ? 'popular_recipes' : 'popular_recipes_${cuisine.toLowerCase()}';
       try {
         // ลองดึงข้อมูลจากแคชแบบใหม่ที่มีรายละเอียดครบถ้วนก่อน
         final detailedCache = await FirebaseFirestore.instance

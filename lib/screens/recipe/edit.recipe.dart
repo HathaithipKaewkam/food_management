@@ -198,6 +198,87 @@ void initState() {
   _isFormValid.value = isValid;
 }
 
+// เพิ่มฟังก์ชันนี้ในคลาส _EditRecipeScreenState
+
+void _updateNutritionValues() {
+  double totalKcal = 0.0;
+  double totalProtein = 0.0;
+  double totalFat = 0.0;
+  double totalCarbs = 0.0;
+  
+  // คำนวณคุณค่าทางโภชนาการจากวัตถุดิบทั้งหมด
+  for (var ingredient in ingredients) {
+    double amount = ingredient['amount'] is num 
+      ? (ingredient['amount'] as num).toDouble() 
+      : 0.0;
+      
+    // คำนวณ kcal ตามสัดส่วนที่ใช้
+    if (ingredient.containsKey('kcal')) {
+      double kcalPerUnit = ingredient['kcal'] is num 
+        ? (ingredient['kcal'] as num).toDouble() 
+        : 0.0;
+        
+      totalKcal += amount * kcalPerUnit;
+    }
+    
+    // ถ้ามีข้อมูลโปรตีน ไขมัน และคาร์โบไฮเดรตของวัตถุดิบ ก็นำมารวมด้วย
+    if (ingredient.containsKey('protein')) {
+      totalProtein += amount * (ingredient['protein'] is num 
+        ? (ingredient['protein'] as num).toDouble() 
+        : 0.0);
+    }
+    
+    if (ingredient.containsKey('fat')) {
+      totalFat += amount * (ingredient['fat'] is num 
+        ? (ingredient['fat'] as num).toDouble() 
+        : 0.0);
+    }
+    
+    if (ingredient.containsKey('carbs')) {
+      totalCarbs += amount * (ingredient['carbs'] is num 
+        ? (ingredient['carbs'] as num).toDouble() 
+        : 0.0);
+    }
+  }
+  
+  // อัพเดทค่าในฟอร์ม
+  _caloriesController.text = totalKcal.round().toString();
+  _proteinController.text = totalProtein.toStringAsFixed(1);
+  _fatController.text = totalFat.toStringAsFixed(1);
+  _carbsController.text = totalCarbs.toStringAsFixed(1);
+  
+  // เปิดส่วนของข้อมูลโภชนาการให้แสดงอัตโนมัติถ้ามีข้อมูล
+  if (totalKcal > 0) {
+    _showNutritionFields = true;
+  }
+}
+
+Future<Map<String, dynamic>?> _fetchUserIngredientData(String ingredientName) async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    
+    // ค้นหาวัตถุดิบจากคอลเลคชัน userIngredients ของผู้ใช้
+    final snapshot = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(user.uid)
+      .collection('userIngredients')
+      .where('ingredientsName', isEqualTo: ingredientName)
+      .limit(1)
+      .get();
+    
+    if (snapshot.docs.isNotEmpty) {
+      print("✅ พบวัตถุดิบ: $ingredientName ในฐานข้อมูลของผู้ใช้");
+      return snapshot.docs.first.data();
+    }
+    
+    return null;
+  } catch (e) {
+    print("❌ เกิดข้อผิดพลาดในการค้นหาวัตถุดิบ: $e");
+    return null;
+  }
+}
+
   Future<String> _uploadImage(File image) async {
   try {
     final storageRef = FirebaseStorage.instance.ref().child('recipe_images/${DateTime.now().millisecondsSinceEpoch}.jpg');
@@ -235,6 +316,7 @@ void initState() {
       // ใช้รูปภาพเดิมถ้ามี
       imageUrl = widget.initialData!['imageUrl'];
     }
+    _updateNutritionValues();
 
     // อ่านค่าโภชนาการ
     int kcal = int.tryParse(_caloriesController.text) ?? 0;
@@ -361,6 +443,8 @@ void initState() {
       // ใช้รูปภาพเดิมถ้ามี
       imageUrl = widget.initialData!['imageUrl'];
     }
+
+    _updateNutritionValues();
 
     // อ่านค่าโภชนาการ
     int kcal = int.tryParse(_caloriesController.text) ?? 0;
@@ -944,50 +1028,72 @@ Container(
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: showIngredients
-                                ? AddRecipeingredient(
-                                      ingredients: recipeIngredientsUI,
-                                      recipe: currentRecipe,
-                                      currentNumber: servingCount,
-                                      onAddIngredient: (newIngredient) {
-                                        setState(() {
-                                          // เพิ่มวัตถุดิบใหม่ลงในตัวแปร ingredients
-                                          ingredients.add(newIngredient);
-                                          
-                                          // สร้าง Ingredient สำหรับแสดงผลใน UI
-                                          final uiIngredient = Ingredient(
-                                            ingredientsName: newIngredient['name'],
-                                            unit: newIngredient['unit'],
-                                            imageUrl: 'assets/images/ingredient_placeholder.png',
-                                            userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown',
-                                            ingredientId: DateTime.now().millisecondsSinceEpoch.toString(),
-                                            category: 'Other',
-                                            storage: 'Pantry',
-                                            quantity: 0.0,
-                                            minQuantity: 0.0,
-                                            expirationDate: DateTime.now().add(Duration(days: 30)),
-                                            source: 'Recipe',
-                                            kcal: 0.0,
-                                           
-                                          );
-                                          
-                                          final uiIngredientUsage = IngredientUsage(
-                                            ingredient: uiIngredient,
-                                            quantityUsed: newIngredient['amount'],
-                                          );
-                                          
-                                          recipeIngredientsUI.add(uiIngredientUsage);
-                                          _validateForm(); 
-                                        });
-                                      },
-                                      onRemoveIngredient: (index) {
-                                        setState(() {
-                                          // ลบวัตถุดิบออกจากทั้งสองตัวแปร
-                                          ingredients.removeAt(index);
-                                          recipeIngredientsUI.removeAt(index);
-                                          _validateForm();
-                                        });
-                                      },
-                                    )
+                                    ? AddRecipeingredient(
+          ingredients: recipeIngredientsUI,
+          recipe: currentRecipe,
+          currentNumber: servingCount,
+          onAddIngredient: (newIngredient) async {
+            // ค้นหาข้อมูลวัตถุดิบจากฐานข้อมูลของผู้ใช้
+            final ingredientData = await _fetchUserIngredientData(newIngredient['name']);
+            
+            // ดึงค่า kcal จากฐานข้อมูล ถ้ามี
+            double kcalValue = 0.0;
+            if (ingredientData != null && ingredientData.containsKey('kcal')) {
+              kcalValue = ingredientData['kcal'] is num 
+                ? (ingredientData['kcal'] as num).toDouble() 
+                : 0.0;
+              
+              print("📊 ใช้ค่า kcal: $kcalValue จากฐานข้อมูลสำหรับวัตถุดิบ: ${newIngredient['name']}");
+            }
+            
+            setState(() {
+              // เพิ่มข้อมูล kcal ลงในวัตถุดิบ
+              Map<String, dynamic> ingredientWithKcal = {
+                ...newIngredient,
+                'kcal': kcalValue,
+              };
+              
+              // เพิ่มวัตถุดิบใหม่ลงในตัวแปร ingredients
+              ingredients.add(ingredientWithKcal);
+              
+              // สร้าง Ingredient สำหรับแสดงผลใน UI
+              final uiIngredient = Ingredient(
+                ingredientsName: newIngredient['name'],
+                unit: newIngredient['unit'],
+                imageUrl: 'assets/images/ingredient_placeholder.png',
+                userId: FirebaseAuth.instance.currentUser?.uid ?? 'unknown',
+                ingredientId: DateTime.now().millisecondsSinceEpoch.toString(),
+                category: 'Other',
+                storage: 'Pantry',
+                quantity: 0.0,
+                minQuantity: 0.0,
+                expirationDate: DateTime.now().add(Duration(days: 30)),
+                source: 'Recipe',
+                kcal: kcalValue, // ใส่ค่า kcal ที่ได้จากฐานข้อมูล
+              );
+              
+              final uiIngredientUsage = IngredientUsage(
+                ingredient: uiIngredient,
+                quantityUsed: newIngredient['amount'],
+              );
+              
+              recipeIngredientsUI.add(uiIngredientUsage);
+              
+              // คำนวณค่าโภชนาการรวมและอัพเดทใน UI
+              _updateNutritionValues();
+              _validateForm();
+            });
+          },
+          onRemoveIngredient: (index) {
+            setState(() {
+              // ลบวัตถุดิบออกจากทั้งสองตัวแปร
+              ingredients.removeAt(index);
+              recipeIngredientsUI.removeAt(index);
+              _updateNutritionValues();
+              _validateForm();
+            });
+          },
+        )
                                 : AddInstruction(
                                     instructions: instructions,
                                     onAddInstruction: (stepDescription) {

@@ -302,13 +302,13 @@ Future<void> throwItem(String? itemId) async {
             
             // Search Bar
             Padding(
-              padding: const EdgeInsets.only(left: 5),
+              padding: const EdgeInsets.only(left: 19),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    width: size.width * .65,
+                    width: size.width * .90,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -357,58 +357,7 @@ Future<void> throwItem(String? itemId) async {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 5),
-                  // Add filter button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 5,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.tune,
-                        color: Colors.black,
-                        size: 25,
-                      ),
-                      onPressed: () {
-                        // Show filter options
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  // Add more options button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 5,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.more_horiz,
-                        color: Colors.black,
-                        size: 25,
-                      ),
-                      onPressed: () {
-                        // Show more options
-                      },
-                    ),
-                  ),
+                
                 ],
               ),
             ),

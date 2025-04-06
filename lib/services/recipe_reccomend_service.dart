@@ -9,6 +9,7 @@ class RecipeRecommendationService {
 
   Future<List<String>> fetchUserIngredients(String userId) async {
     try {
+      
       final snapshot = await _firestore
           .collection('users')
           .doc(userId)
@@ -141,32 +142,64 @@ class RecipeRecommendationService {
       String userId) async {
     try {
       print('🔍 Starting getRecommendedRecipes for user: $userId');
+
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
+  
+  // สร้างคีย์แคชที่มีการเปลี่ยนแปลงเมื่อข้อมูลเปลี่ยน
+  Timestamp lastUpdated = userDoc['lastUpdated'] ?? Timestamp.now();
+
+   Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+  
+  // ดึงข้อมูลวัตถุดิบที่ใกล้หมดอายุเพื่อสร้าง signature
+  List<Map<String, dynamic>> expiringIngredients = await fetchIngredientsWithExpiry(userId);
+  expiringIngredients.sort((a, b) {
+    DateTime aDate = a['expiryDate'] is DateTime ? a['expiryDate'] : DateTime.now();
+    DateTime bDate = b['expiryDate'] is DateTime ? b['expiryDate'] : DateTime.now();
+    return aDate.compareTo(bDate);
+  });
+  
+  // สร้าง signature จากวัตถุดิบที่ใกล้หมดอายุใน 7 วัน
+  List<String> expiringSoon = [];
+  for (var ingredient in expiringIngredients) {
+    DateTime expiryDate = ingredient['expiryDate'] is DateTime 
+        ? ingredient['expiryDate'] 
+        : DateTime.now().add(Duration(days: 30));
+        
+    if (expiryDate.difference(DateTime.now()).inDays <= 7) {
+      expiringSoon.add(ingredient['name']);
+    }
+  }
+  String ingredientSignature = expiringSoon.join(',');
+  
+  // สร้างคีย์แคชใหม่ที่เปลี่ยนเมื่อข้อมูลเปลี่ยน
+  String cacheKey = 'user_${userId}_${lastUpdated.millisecondsSinceEpoch}_${ingredientSignature.hashCode}';
+  
+  // ลดอายุแคชลงเหลือ 1 ชั่วโมง
+  final int shortCacheDuration = 3600000; // 1 ชั่วโมง
       
       // ตรวจสอบแคชก่อน
-      String cacheKey = 'recommendations_${userId}_${DateTime.now().day}';
-      DocumentSnapshot cachedRecommendations = await _firestore
-          .collection('cachedRecommendations')
-          .doc(cacheKey)
+        DocumentSnapshot cachedRecommendations = await _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('userCachedRecommendations') // แยกแคชตามผู้ใช้
+      .doc(cacheKey)
           .get();
 
-      // ถ้ามีแคชและไม่เกิน 12 ชั่วโมง ให้ใช้แคช
-      if (cachedRecommendations.exists) {
-        Map<String, dynamic> cachedData = cachedRecommendations.data() as Map<String, dynamic>;
-        int timestamp = cachedData['timestamp'] ?? 0;
-        if (DateTime.now().millisecondsSinceEpoch - timestamp < 43200000) { // 12 ชั่วโมง
-          print('✅ Using cached recommendations');
-          return List<Map<String, dynamic>>.from(cachedData['recipes'] ?? []);
-        }
-      }
+         
+  if (cachedRecommendations.exists) {
+    Map<String, dynamic> cachedData = cachedRecommendations.data() as Map<String, dynamic>;
+    int timestamp = cachedData['timestamp'] ?? 0;
+    if (DateTime.now().millisecondsSinceEpoch - timestamp < shortCacheDuration) {
+      print('✅ Using cached recommendations');
+      return List<Map<String, dynamic>>.from(cachedData['recipes'] ?? []);
+    }
+  }
       
       // Fetch user data
       List<String> userIngredients = await fetchUserIngredients(userId);
       List<String> userPreferences = await fetchUserPreferences(userId);
       List<String> userAllergies = await fetchUserAllergies(userId);
       String userGoals = await fetchUserGoals(userId);
-      DocumentSnapshot userDoc =
-          await _firestore.collection('users').doc(userId).get();
-      Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
       List<Map<String, dynamic>> ingredientsWithExpiry =
           await fetchIngredientsWithExpiry(userId);
       List<String> notRecommendedIds = await fetchNotRecommendedRecipes(userId);
@@ -414,14 +447,30 @@ class RecipeRecommendationService {
 
       // แคชผลลัพธ์
       try {
-        await _firestore.collection('cachedRecommendations').doc(cacheKey).set({
-          'recipes': recommendedRecipes,
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        });
-      } catch (e) {
-        print('⚠️ Error caching recommendations: $e');
-      }
-
+  await _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('userCachedRecommendations')
+      .doc(cacheKey)
+      .set({
+    'recipes': recommendedRecipes,
+    'timestamp': DateTime.now().millisecondsSinceEpoch,
+  });
+  
+  // ลบแคชเก่าที่ไม่ใช้แล้ว (optional)
+  QuerySnapshot oldCaches = await _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('userCachedRecommendations')
+      .where(FieldPath.documentId, isNotEqualTo: cacheKey)
+      .get();
+      
+  for (var doc in oldCaches.docs) {
+    await doc.reference.delete();
+  }
+} catch (e) {
+  print('⚠️ Error caching recommendations: $e');
+}
       print('✅ Successfully fetched recommendations: ${recommendedRecipes.length} recipes');
       
       // คืนค่าคำแนะนำสุดท้าย (จำกัด 5 รายการ)

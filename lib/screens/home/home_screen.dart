@@ -440,9 +440,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(
                 height: 18), // เพิ่มช่องว่างระหว่างหมวดหมู่และช่องค้นหา
 
-            // ช่องค้นหา + ไอคอนสี่เหลี่ยมมน
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.only(left: 5),
               child: Row(
                 children: [
                   // ช่องค้นหาที่มีการจัดแต่ง
@@ -498,42 +497,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.tune,
-                        color: Constants.blackColor,
-                        size: 25,
-                      ),
-                      onPressed: () {
-                        print("List icon clicked");
-                      },
-                    ),
+                  
                   ),
-                  const SizedBox(width: 6),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 5,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.more_horiz,
-                        color: Constants.blackColor,
-                        size: 25,
-                      ),
-                      onPressed: () {
-                        print("sort");
-                      },
-                    ),
-                  ),
+                 
                 ],
               ),
             ),

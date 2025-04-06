@@ -1,4 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
 
 class Ingredient {
   
@@ -149,6 +152,11 @@ class Ingredient {
   }
 
   factory Ingredient.fromJson(Map<String, dynamic> json) {
+
+      String imageUrl = json['imageUrl'] ?? '';
+  
+  // เพิ่ม print เพื่อตรวจสอบค่าที่เข้ามา
+  print("📸 Ingredient JSON: ${json['ingredientsName']} - Image: $imageUrl");
   return Ingredient(
     ingredientId: json['id'] ?? '',
     ingredientsName: json['ingredientsName'] ?? '',
@@ -222,4 +230,30 @@ class Ingredient {
     if (date is Timestamp) return date.toDate();
     return DateTime.now().add(const Duration(days: 7));
   }
+
+ String getImageUrl() {
+  if (imageUrl.isEmpty) {
+    return 'assets/images/default_ing.png';
+  } else if (imageUrl.startsWith('http')) {
+    return imageUrl;
+  } else if (imageUrl.startsWith('assets/')) {
+    return imageUrl;
+  } else {
+    // ตรวจสอบรูปแบบชื่อไฟล์และแก้ไขถ้าจำเป็น
+    String fileName = imageUrl.trim();
+    
+    if (!fileName.toLowerCase().endsWith('.png') && 
+        !fileName.toLowerCase().endsWith('.jpg') && 
+        !fileName.toLowerCase().endsWith('.jpeg')) {
+      fileName = '$fileName.png';
+    }
+    
+    String storagePath = fileName.startsWith('ingredients/') ? fileName : 'ingredients/$fileName';
+    return 'https://firebasestorage.googleapis.com/v0/b/food-management-1ee0f.appspot.com/o/${Uri.encodeComponent(storagePath)}?alt=media';
+  }
+}
+
+
+
+
 }

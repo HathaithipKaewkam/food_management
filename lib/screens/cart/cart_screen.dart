@@ -284,7 +284,8 @@ Future<void> onMarkAllPurchased(bool isPurchased) async {
         'kcal': kcalValue, // ใช้ค่า kcal โดยตรง ไม่ผ่านการคำนวณ
         'usageHistory': [],
       });
-      
+      print("🧾 Moving item with imageUrl: ${item['imageUrl']}");
+
       print("✅ Added new ingredient in ${item['storage']} with kcal: $kcalValue");
     }
 

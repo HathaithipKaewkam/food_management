@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +9,55 @@ class IngredientNoexp extends StatelessWidget {
   final Ingredient ingredient;
 
   IngredientNoexp({required this.ingredient});
+
+ Widget buildImage() {
+  print("🔍 Building image for: ${ingredient.ingredientsName} with URL: ${ingredient.imageUrl}");
+  
+  if (ingredient.imageUrl.isEmpty) {
+    return Image.asset('assets/images/default_ing.png', width: 80, height: 80, fit: BoxFit.cover);
+  } else if (ingredient.imageUrl.startsWith('assets/')) {
+    return Image.asset(ingredient.imageUrl, width: 80, height: 80, fit: BoxFit.cover);
+  } else if (ingredient.imageUrl.startsWith('http')) {
+    return CachedNetworkImage(
+      imageUrl: ingredient.imageUrl,
+      width: 80,
+      height: 80,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => Container(
+        color: Colors.grey[200],
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      errorWidget: (context, url, error) {
+        print("❌ CachedNetworkImage error for direct URL: $error");
+        return Image.asset('assets/images/default_ing.png', width: 80, height: 80, fit: BoxFit.cover);
+      },
+    );
+  } else {
+    // เรียกใช้ getImageUrl ของ Ingredient model แทนการสร้าง URL เอง
+    try {
+      String url = ingredient.getImageUrl();
+      print("🔍 Using generated URL: $url");
+      
+      return CachedNetworkImage(
+        imageUrl: url,
+        width: 80,
+        height: 80,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: Colors.grey[200],
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+        errorWidget: (context, url, error) {
+          print("❌ CachedNetworkImage error for generated URL: $error");
+          return Image.asset('assets/images/default_ing.png', width: 80, height: 80, fit: BoxFit.cover);
+        },
+      );
+    } catch (e) {
+      print("❌ Error generating URL: $e");
+      return Image.asset('assets/images/default_ing.png', width: 80, height: 80, fit: BoxFit.cover);
+    }
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -48,35 +98,10 @@ if (daysToExpiry < 0) {
               color: Color(0xFFe6ebf1),
               borderRadius: BorderRadius.circular(16),
             ),
-             child: ingredient.imageUrl.isNotEmpty
-      ? ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.network(
-            ingredient.imageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Image.asset(
-                'assets/images/default_ing.png',
-                fit: BoxFit.cover,
-              );
-            },
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Center(
-                child: CircularProgressIndicator(
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                      : null,
-                ),
-              );
-            },
-          ),
-        )
-      : Image.asset(
-          'assets/images/default_ing.png',
-          fit: BoxFit.cover,
-        ),
+     child: ClipRRect(
+    borderRadius: BorderRadius.circular(16),
+    child: buildImage(),
+  ),
           ),
           const SizedBox(width: 5),
           Flexible(
@@ -153,3 +178,5 @@ if (daysToExpiry < 0) {
     );
   }
 }
+
+

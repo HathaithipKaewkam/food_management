@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -40,40 +41,45 @@ class _IngredientScreenState extends State<IngredientScreen> {
   TextEditingController searchController = TextEditingController();
 
   Future<void> fetchUserIngredients() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user != null) {
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('userIngredients')
-          .get();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('userIngredients')
+            .get();
 
-      print("✅ Fetched ${snapshot.docs.length} ingredients.");
+        print("✅ Fetched ${snapshot.docs.length} ingredients.");
 
-      setState(() {
-        ingredientList = snapshot.docs.map((doc) {
+        for (var doc in snapshot.docs) {
           Map<String, dynamic> data = doc.data();
-          
-         
-          data['ingredientId'] = doc.id;
+          print(
+              "📸 Ingredient ${data['ingredientsName']} has imageUrl: ${data['imageUrl']}");
+        }
 
-          return Ingredient.fromJson(data);
-        }).toList();
+        setState(() {
+          ingredientList = snapshot.docs.map((doc) {
+            Map<String, dynamic> data = doc.data();
 
-        filterIngredientsByType();
-        isLoading = false;
-      });
+            data['ingredientId'] = doc.id;
 
-      print("✅ Fetched ${snapshot.docs.length} ingredients");
-    } catch (e) {
-      print("Error fetching ingredients: $e");
-      setState(() {
-        isLoading = false;
-      });
+            return Ingredient.fromJson(data);
+          }).toList();
+
+          filterIngredientsByType();
+          isLoading = false;
+        });
+
+        print("✅ Fetched ${snapshot.docs.length} ingredients");
+      } catch (e) {
+        print("Error fetching ingredients: $e");
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
-}
 
   void filterIngredientsByType() {
     setState(() {
@@ -81,8 +87,8 @@ class _IngredientScreenState extends State<IngredientScreen> {
 
       List<Ingredient> notExpiredIngredients =
           ingredientList.where((ingredient) {
-        return ingredient.expirationDate.isAfter(now)  && 
-             !(ingredient.isThrowed ?? false);
+        return ingredient.expirationDate.isAfter(now) &&
+            !(ingredient.isThrowed ?? false);
       }).toList();
 
       if (selectedType == 'All') {
@@ -118,9 +124,8 @@ class _IngredientScreenState extends State<IngredientScreen> {
           bool matchesType =
               selectedType == 'All' || ingredient.storage == selectedType;
           bool notExpired = ingredient.expirationDate.isAfter(DateTime.now());
-           bool notThrowed = !(ingredient.isThrowed ?? false); 
-        return matchesSearch && matchesType && notExpired && notThrowed;
-          
+          bool notThrowed = !(ingredient.isThrowed ?? false);
+          return matchesSearch && matchesType && notExpired && notThrowed;
         }).toList();
 
         searchResults.sort((a, b) {
@@ -136,6 +141,70 @@ class _IngredientScreenState extends State<IngredientScreen> {
         filteredIngredientTypes = searchResults;
       }
     });
+  }
+
+  Widget _buildExpiredIngredientImage(Ingredient ingredient) {
+    print(
+        "🔍 Building expired image for: ${ingredient.ingredientsName} with URL: ${ingredient.imageUrl}");
+
+    if (ingredient.imageUrl.isEmpty) {
+      return const Icon(
+        Icons.restaurant,
+        color: Colors.white,
+        size: 40,
+      );
+    }
+
+    if (ingredient.imageUrl.startsWith('http')) {
+      return CachedNetworkImage(
+        imageUrl: ingredient.imageUrl,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: const Color(0xFFfbcdd0),
+          child: const Center(
+              child: CircularProgressIndicator(color: Colors.white)),
+        ),
+        errorWidget: (context, error, stackTrace) {
+          print("❌ Image error: $error");
+          return const Icon(
+            Icons.image_not_supported,
+            color: Colors.white,
+            size: 40,
+          );
+        },
+      );
+    } else {
+      // ใช้ getImageUrl ของ Ingredient
+      try {
+        String imageUrl = ingredient.getImageUrl();
+        print("🔍 Using generated URL for expired: $imageUrl");
+
+        return CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: const Color(0xFFfbcdd0),
+            child: const Center(
+                child: CircularProgressIndicator(color: Colors.white)),
+          ),
+          errorWidget: (context, error, stackTrace) {
+            print("❌ Expired image error: $error for URL: $imageUrl");
+            return const Icon(
+              Icons.image_not_supported,
+              color: Colors.white,
+              size: 40,
+            );
+          },
+        );
+      } catch (e) {
+        print("❌ Error creating expired image URL: $e");
+        return const Icon(
+          Icons.image_not_supported,
+          color: Colors.white,
+          size: 40,
+        );
+      }
+    }
   }
 
   @override
@@ -162,9 +231,9 @@ class _IngredientScreenState extends State<IngredientScreen> {
             data['id'] = doc.id;
             return Ingredient.fromJson(data);
           }).toList();
-           ingredientList = ingredientList.where((ingredient) => 
-          !(ingredient.isThrowed ?? false)
-        ).toList();
+          ingredientList = ingredientList
+              .where((ingredient) => !(ingredient.isThrowed ?? false))
+              .toList();
           filterIngredientsByType();
         });
       });
@@ -259,10 +328,6 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                           style: const TextStyle(
                                               color: Colors.black),
                                         ),
-                                      ),
-                                      Icon(
-                                        Icons.tune,
-                                        color: Colors.black54.withOpacity(.6),
                                       ),
                                     ],
                                   ),
@@ -446,7 +511,8 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                         child: Text(
                                           'See All',
                                           style: TextStyle(
-                                              fontSize: 16, color: Colors.red.shade700),
+                                              fontSize: 16,
+                                              color: Colors.red.shade700),
                                         ),
                                       ),
                                     ],
@@ -457,10 +523,11 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                 Padding(
                                   padding: const EdgeInsets.only(top: 0),
                                   child: ingredientList
-                                          .where((ingredient) => 
-                                          ingredient.expirationDate.isBefore(DateTime.now()) && 
-                                          ingredient.quantity > 0 &&
-            !(ingredient.isThrowed ?? false)) 
+                                          .where((ingredient) =>
+                                              ingredient.expirationDate
+                                                  .isBefore(DateTime.now()) &&
+                                              ingredient.quantity > 0 &&
+                                              !(ingredient.isThrowed ?? false))
                                           .toList()
                                           .isNotEmpty
                                       ? GestureDetector(
@@ -473,47 +540,29 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                               ),
                                             );
                                           },
-                                            child: Row(
-                                              children: [
-                                                ClipRRect(
-                                                  borderRadius: BorderRadius.circular(16),
-                                                  child: Container(
-                                                    width: 100,
-                                                    height: 100,
-                                                    color: const Color(0xFFfbcdd0),
-                                                    child: ingredientList
-                                                            .where((ingredient) => ingredient.expirationDate.isBefore(DateTime.now()) && 
-  ingredient.quantity > 0)
-                                                            .first
-                                                            .imageUrl.isNotEmpty
-                                                        ? Image.network(
-                                                            ingredientList
-                                                                .where((ingredient) => ingredient.expirationDate.isBefore(DateTime.now())  && 
-  ingredient.quantity > 0)
-                                                                .first
-                                                                .imageUrl,
-                                                            fit: BoxFit.cover,
-                                                            errorBuilder: (context, error, stackTrace) {
-                                                              print("Image error: $error");
-                                                              return Container(
-                                                                width: 100,
-                                                                height: 100,
-                                                                color: const Color(0xFFfbcdd0),
-                                                                child: const Icon(
-                                                                  Icons.image_not_supported,
-                                                                  color: Colors.white,
-                                                                  size: 40,
-                                                                ),
-                                                              );
-                                                            },
-                                                          )
-                                                        : const Icon(
-                                                            Icons.restaurant,
-                                                            color: Colors.white,
-                                                            size: 40,
-                                                          ),
-                                                  ),
+                                          child: Row(
+                                            children: [
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                child: Container(
+                                                  width: 100,
+                                                  height: 100,
+                                                  color:
+                                                      const Color(0xFFfbcdd0),
+                                                  child: _buildExpiredIngredientImage(
+                                                      ingredientList
+                                                          .where((ingredient) =>
+                                                              ingredient
+                                                                  .expirationDate
+                                                                  .isBefore(DateTime
+                                                                      .now()) &&
+                                                              ingredient
+                                                                      .quantity >
+                                                                  0)
+                                                          .first),
                                                 ),
+                                              ),
                                               const SizedBox(width: 5),
                                               Container(
                                                 padding:
@@ -657,13 +706,16 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                           );
                                         },
                                         onLongPress: () {
-                                          print("🔍 Debug - Long Pressed on Ingredient: ${ingredient.ingredientsName}");
-                                          print("🔍 Debug - Ingredient ID: ${ingredient.ingredientId}");
+                                          print(
+                                              "🔍 Debug - Long Pressed on Ingredient: ${ingredient.ingredientsName}");
+                                          print(
+                                              "🔍 Debug - Ingredient ID: ${ingredient.ingredientId}");
 
                                           if (ingredient.quantity == 0) {
-                                            return;  
+                                            return;
                                           }
-                                          if (ingredient.ingredientId.isNotEmpty) {
+                                          if (ingredient
+                                              .ingredientId.isNotEmpty) {
                                             final ingredientMap = {
                                               'id': ingredient.ingredientId,
                                               'ingredientsName':
@@ -703,45 +755,45 @@ Future<void> showUsedDialog(
       ? (ingredient['quantity'] as int).toDouble()
       : (ingredient['quantity'] as num).toDouble();
   double maxQuantity = currentQuantity;
-   TextEditingController quantityController =
+  TextEditingController quantityController =
       TextEditingController(text: currentQuantity.toStringAsFixed(1));
   TextEditingController noteController = TextEditingController();
 
   void validateAndUpdateQuantity(String value) {
-  if (value.isEmpty || value == '.') {
-    currentQuantity = 0;
-    return;
-  }
+    if (value.isEmpty || value == '.') {
+      currentQuantity = 0;
+      return;
+    }
 
-  if (value.contains('.')) {
-    var parts = value.split('.');
-    if (parts[1].length > 2) {
-      value = '${parts[0]}.${parts[1].substring(0, 2)}';
-      quantityController.text = value;
+    if (value.contains('.')) {
+      var parts = value.split('.');
+      if (parts[1].length > 2) {
+        value = '${parts[0]}.${parts[1].substring(0, 2)}';
+        quantityController.text = value;
+        quantityController.selection = TextSelection.fromPosition(
+          TextPosition(offset: value.length),
+        );
+      }
+    }
+
+    double? newQuantity = double.tryParse(value);
+    if (newQuantity != null) {
+      if (newQuantity > maxQuantity) {
+        value = maxQuantity.toStringAsFixed(2);
+        quantityController.text = value;
+        currentQuantity = maxQuantity;
+      } else if (newQuantity < 0.0) {
+        value = '0.00';
+        quantityController.text = value;
+        currentQuantity = 0.0;
+      } else {
+        currentQuantity = newQuantity;
+      }
       quantityController.selection = TextSelection.fromPosition(
         TextPosition(offset: value.length),
       );
     }
   }
-
-  double? newQuantity = double.tryParse(value);
-  if (newQuantity != null) {
-    if (newQuantity > maxQuantity) {
-      value = maxQuantity.toStringAsFixed(2);
-      quantityController.text = value;
-      currentQuantity = maxQuantity;
-    } else if (newQuantity < 0.0) {
-      value = '0.00';
-      quantityController.text = value;
-      currentQuantity = 0.0;
-    } else {
-      currentQuantity = newQuantity;
-    }
-    quantityController.selection = TextSelection.fromPosition(
-      TextPosition(offset: value.length),
-    );
-  }
-}
 
   showDialog(
     context: context,
@@ -834,8 +886,9 @@ Future<void> showUsedDialog(
                       ),
                       const SizedBox(height: 12),
 
-                     Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey.shade300),
                           borderRadius: BorderRadius.circular(12),
@@ -850,35 +903,43 @@ Future<void> showUsedDialog(
                                   ? () {
                                       setState(() {
                                         currentQuantity -= 1.0;
-                                        quantityController.text = currentQuantity.toStringAsFixed(1);
+                                        quantityController.text =
+                                            currentQuantity.toStringAsFixed(1);
                                       });
                                     }
                                   : null,
                               icon: const Icon(Icons.remove_circle_outline),
-                              color: currentQuantity >= 1 ? Colors.red : Colors.grey,
+                              color: currentQuantity >= 1
+                                  ? Colors.red
+                                  : Colors.grey,
                               padding: EdgeInsets.zero, // Reduce padding
                             ),
-                            
+
                             // Quantity input and unit
                             Expanded(
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   SizedBox(
-                                    width: 40, 
+                                    width: 40,
                                     child: TextField(
                                       controller: quantityController,
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
                                       textAlign: TextAlign.center,
-                                     onTap: () {
-                                       quantityController.clear();
-                                        quantityController.selection = TextSelection(
+                                      onTap: () {
+                                        quantityController.clear();
+                                        quantityController.selection =
+                                            TextSelection(
                                           baseOffset: 0,
-                                          extentOffset: quantityController.text.length,
+                                          extentOffset:
+                                              quantityController.text.length,
                                         );
                                       },
                                       inputFormatters: [
-                                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                                        FilteringTextInputFormatter.allow(
+                                            RegExp(r'^\d*\.?\d{0,2}')),
                                       ],
                                       onChanged: (value) {
                                         setState(() {
@@ -910,17 +971,20 @@ Future<void> showUsedDialog(
 
                             // Plus button
                             IconButton(
-                              onPressed: currentQuantity < maxQuantity 
+                              onPressed: currentQuantity < maxQuantity
                                   ? () {
                                       setState(() {
                                         currentQuantity += 1.0;
-                                        quantityController.text = currentQuantity.toStringAsFixed(1);
+                                        quantityController.text =
+                                            currentQuantity.toStringAsFixed(1);
                                       });
                                     }
-                                  : null, 
+                                  : null,
                               icon: const Icon(Icons.add_circle_outline),
-                              color: currentQuantity < maxQuantity ? Colors.green : Colors.grey, 
-                              padding: EdgeInsets.zero, 
+                              color: currentQuantity < maxQuantity
+                                  ? Colors.green
+                                  : Colors.grey,
+                              padding: EdgeInsets.zero,
                             ),
                           ],
                         ),
@@ -973,7 +1037,8 @@ Future<void> showUsedDialog(
                               return;
                             }
                             // Convert double to int for Firebase storage
-                            double usedQuantity = double.parse(quantityController.text);
+                            double usedQuantity =
+                                double.parse(quantityController.text);
                             if (usedQuantity <= 0 ||
                                 usedQuantity > maxQuantity) {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -997,23 +1062,28 @@ Future<void> showUsedDialog(
                                       .collection('userIngredients')
                                       .doc(ingredientId);
 
-                             Map<String, dynamic> resultData = await FirebaseFirestore.instance
-                                .runTransaction<Map<String, dynamic>>((transaction) async {
-                              DocumentSnapshot snapshot = await transaction.get(ingredientRef);
-                              if (!snapshot.exists) {
-                                throw Exception("Ingredient not found");
-                              }
+                              Map<String, dynamic> resultData =
+                                  await FirebaseFirestore.instance
+                                      .runTransaction<Map<String, dynamic>>(
+                                          (transaction) async {
+                                DocumentSnapshot snapshot =
+                                    await transaction.get(ingredientRef);
+                                if (!snapshot.exists) {
+                                  throw Exception("Ingredient not found");
+                                }
 
-                                Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
-                                  double currentStock = (data['quantity'] is int)
-                                      ? (data['quantity'] as int).toDouble()
-                                      : (data['quantity'] as num).toDouble();
+                                Map<String, dynamic> data =
+                                    snapshot.data() as Map<String, dynamic>;
+                                double currentStock = (data['quantity'] is int)
+                                    ? (data['quantity'] as int).toDouble()
+                                    : (data['quantity'] as num).toDouble();
 
-                                  if (usedQuantity > currentStock) {
-                                    throw Exception("Not enough stock");
-                                  }
+                                if (usedQuantity > currentStock) {
+                                  throw Exception("Not enough stock");
+                                }
 
-                                  double newQuantity = currentStock - usedQuantity;
+                                double newQuantity =
+                                    currentStock - usedQuantity;
 
                                 List<dynamic> history =
                                     List.from(data["usageHistory"] ?? []);
@@ -1026,50 +1096,46 @@ Future<void> showUsedDialog(
                                 transaction.update(ingredientRef, {
                                   "quantity": newQuantity,
                                   "usageHistory": history,
-                                  "updateDate":
-                                      Timestamp.now(), 
+                                  "updateDate": Timestamp.now(),
                                 });
                                 return {
-                                'ingredientsName': data['ingredientsName'] ?? 'Unknown',
-                                'unit': data['unit'] ?? 'Pieces',
-                                'kcal': data['kcal'],
-                                'currentStock': currentStock,
-                              };
+                                  'ingredientsName':
+                                      data['ingredientsName'] ?? 'Unknown',
+                                  'unit': data['unit'] ?? 'Pieces',
+                                  'kcal': data['kcal'],
+                                  'currentStock': currentStock,
+                                };
                               });
                               double usedKcal = 0.0;
                               if (resultData['kcal'] != null) {
                                 double kcalPerUnit = (resultData['kcal'] is int)
                                     ? (resultData['kcal'] as int).toDouble()
-                                    : (resultData['kcal'] as num?)?.toDouble() ?? 0.0;
-                                
-                               
+                                    : (resultData['kcal'] as num?)
+                                            ?.toDouble() ??
+                                        0.0;
+
                                 usedKcal = kcalPerUnit * usedQuantity;
-                                
-                                
                               }
 
-                                
-                                  if (usedKcal > 0) {
-                                    await FirebaseFirestore.instance
-                                        .collection('users')
-                                        .doc(user.uid)
-                                        .collection('calorieConsumption')
-                                        .add({
-                                          "date": Timestamp.now(),
-                                          "dateStr": DateFormat('yyyy-MM-dd').format(DateTime.now()),
-                                          "ingredientId": ingredientId,
-                                          "ingredientName": resultData['ingredientsName'],
-                                          "quantity": usedQuantity,
-                                          "unit": resultData['unit'],
-                                          "kcal": usedKcal,
-                                          "mealType": "", 
-                                          "note": note.isNotEmpty ? note : "No note",
-                                        });
-                                  }
-
-
-                                                            
-                                                            
+                              if (usedKcal > 0) {
+                                await FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(user.uid)
+                                    .collection('calorieConsumption')
+                                    .add({
+                                  "date": Timestamp.now(),
+                                  "dateStr": DateFormat('yyyy-MM-dd')
+                                      .format(DateTime.now()),
+                                  "ingredientId": ingredientId,
+                                  "ingredientName":
+                                      resultData['ingredientsName'],
+                                  "quantity": usedQuantity,
+                                  "unit": resultData['unit'],
+                                  "kcal": usedKcal,
+                                  "mealType": "",
+                                  "note": note.isNotEmpty ? note : "No note",
+                                });
+                              }
 
                               // Show success message
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -1080,26 +1146,26 @@ Future<void> showUsedDialog(
                                 ),
                               );
 
-                              
                               if (context.mounted) {
-                                  final state = context.findAncestorStateOfType<_IngredientScreenState>();
-                                  if (state != null) {
-                                    state.setState(() {
-                                      state.setupIngredientListener();
-                                    });
-                                  }
+                                final state = context.findAncestorStateOfType<
+                                    _IngredientScreenState>();
+                                if (state != null) {
+                                  state.setState(() {
+                                    state.setupIngredientListener();
+                                  });
                                 }
-                              } catch (e) {
-                                // แสดง error message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error: ${e.toString()}'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                                print('Error using ingredient: $e');
                               }
-                            },
+                            } catch (e) {
+                              // แสดง error message
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: ${e.toString()}'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              print('Error using ingredient: $e');
+                            }
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green.shade100,
                             padding: const EdgeInsets.symmetric(vertical: 16),

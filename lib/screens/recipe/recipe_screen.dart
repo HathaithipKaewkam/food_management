@@ -47,14 +47,16 @@ class _RecipeScreenState extends State<RecipeScreen> {
   List<Map<String, dynamic>> popularRecipes = [];
   bool isLoadingPopularRecipes = true;
   final PopularRecipeService _popularRecipeService = PopularRecipeService();
+  List<Map<String, dynamic>> topUserPreferenceRecipes = [];
+bool isLoadingTopRecipe = true;
 
   @override
   void initState() {
     super.initState();
     _loadRecommendations();
     _loadUserRecipes();
-    _loadWeeklyRecipes();
     _loadPopularRecipes();
+    _loadTopUserPreferenceRecipe();
   }
 
   int _safeParseInt(dynamic value) {
@@ -73,125 +75,157 @@ class _RecipeScreenState extends State<RecipeScreen> {
     return 0;
   }
 
-
- Future<void> _loadUserRecipes() async {
-  print('Starting to load user recipes...');
-  try {
-    setState(() {
-      isLoadingUserRecipes = true;
-    });
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final userRecipesSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('userRecipe')
-          .orderBy('createdAt', descending: true)
-          .get();
-
-      print('Found ${userRecipesSnapshot.docs.length} user recipes in Firestore');
-      
-      List<Recipe> loadedRecipes = [];
-
-      for (var doc in userRecipesSnapshot.docs) {
-        try {
-          final data = doc.data();
-          
-          // แปลงข้อมูล ingredients จาก Firestore เป็น IngredientUsage objects
-          List<IngredientUsage> ingredients = [];
-          if (data.containsKey('ingredients') && data['ingredients'] is List) {
-            for (var ingData in (data['ingredients'] as List<dynamic>)) {
-              if (ingData is Map<String, dynamic>) {
-                final ingredient = Ingredient(
-                  ingredientsName: ingData['name'] ?? '',
-                  unit: ingData['unit'] ?? '',
-                  quantity: 0,
-                  minQuantity: 0,
-                  category: 'Other',
-                  storage: 'Pantry',
-                  source: 'Recipe',
-                  userId: user.uid,
-                  ingredientId: DateTime.now().millisecondsSinceEpoch.toString(),
-                  imageUrl: 'assets/images/ingredient_placeholder.png',
-                  expirationDate: DateTime.now().add(Duration(days: 30)),
-                  kcal: 0,
-                );
-
-                ingredients.add(IngredientUsage(
-                  ingredient: ingredient,
-                  quantityUsed: (ingData['amount'] ?? 0).toDouble(),
-                ));
-              }
-            }
-          }
-
-          // สร้าง Recipe object จากข้อมูลใน Firestore
-          Recipe recipe = Recipe(
-            recipeId: data['recipeId'] ?? 0,
-            recipeName: data['recipeName'] ?? '',
-            description: data['description'] ?? '',
-            ingredients: ingredients,
-            instructions: List<String>.from(data['instructions'] ?? []),
-            preparationTime: data['preparationTime'] ?? 0,
-            cookingTime: data['cookingTime'] ?? 0,
-            servings: data['servings'] ?? 1,
-            category: data['category'] ?? 'Other',
-            imageUrl: data['imageUrl'] ?? '',
-            Protein: (data['Protein'] ?? 0).toDouble(),
-            Fat: (data['Fat'] ?? 0).toDouble(),
-            Carbo: (data['Carbo'] ?? 0).toDouble(),
-            Kcal: data['Kcal'] ?? 0,
-            isFavorite: data['isFavorite'] ?? false,
-            recipeDocId: doc.id,
-            createdBy: data['createdBy'],
-          );
-
-          loadedRecipes.add(recipe);
-        } catch (e) {
-          print('Error parsing recipe ${doc.id}: $e');
-          // ข้ามข้อมูลที่มีปัญหาและทำงานต่อ
-        }
-      }
-
-      print('Finished loading ${loadedRecipes.length} recipes');
-
-      setState(() {
-        userRecipes = loadedRecipes;
-        isLoadingUserRecipes = false;
-      });
-    } else {
-      setState(() {
-        isLoadingUserRecipes = false;
-        userRecipes = [];
-      });
-    }
-  } catch (e) {
-    print('Error loading user recipes: $e');
-    setState(() {
-      isLoadingUserRecipes = false;
-    });
-  }
-}
-  Future<void> _loadWeeklyRecipes() async {
+  Future<void> _loadUserRecipes() async {
+    print('Starting to load user recipes...');
     try {
       setState(() {
-        isLoadingWeeklyRecipes = true;
+        isLoadingUserRecipes = true;
       });
 
-      final recipes = await _recipeService.getWeeklyRecipes(daysCount: 7);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final userRecipesSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('userRecipe')
+            .orderBy('createdAt', descending: true)
+            .get();
 
-      if (mounted) {
+        print(
+            'Found ${userRecipesSnapshot.docs.length} user recipes in Firestore');
+
+        List<Recipe> loadedRecipes = [];
+
+        for (var doc in userRecipesSnapshot.docs) {
+          try {
+            final data = doc.data();
+
+            // แปลงข้อมูล ingredients จาก Firestore เป็น IngredientUsage objects
+            List<IngredientUsage> ingredients = [];
+            if (data.containsKey('ingredients') &&
+                data['ingredients'] is List) {
+              for (var ingData in (data['ingredients'] as List<dynamic>)) {
+                if (ingData is Map<String, dynamic>) {
+                  final ingredient = Ingredient(
+                    ingredientsName: ingData['name'] ?? '',
+                    unit: ingData['unit'] ?? '',
+                    quantity: 0,
+                    minQuantity: 0,
+                    category: 'Other',
+                    storage: 'Pantry',
+                    source: 'Recipe',
+                    userId: user.uid,
+                    ingredientId:
+                        DateTime.now().millisecondsSinceEpoch.toString(),
+                    imageUrl: 'assets/images/ingredient_placeholder.png',
+                    expirationDate: DateTime.now().add(Duration(days: 30)),
+                    kcal: 0,
+                  );
+
+                  ingredients.add(IngredientUsage(
+                    ingredient: ingredient,
+                    quantityUsed: (ingData['amount'] ?? 0).toDouble(),
+                  ));
+                }
+              }
+            }
+
+            // สร้าง Recipe object จากข้อมูลใน Firestore
+            Recipe recipe = Recipe(
+              recipeId: data['recipeId'] ?? 0,
+              recipeName: data['recipeName'] ?? '',
+              description: data['description'] ?? '',
+              ingredients: ingredients,
+              instructions: List<String>.from(data['instructions'] ?? []),
+              preparationTime: data['preparationTime'] ?? 0,
+              cookingTime: data['cookingTime'] ?? 0,
+              servings: data['servings'] ?? 1,
+              category: data['category'] ?? 'Other',
+              imageUrl: data['imageUrl'] ?? '',
+              Protein: (data['Protein'] ?? 0).toDouble(),
+              Fat: (data['Fat'] ?? 0).toDouble(),
+              Carbo: (data['Carbo'] ?? 0).toDouble(),
+              Kcal: data['Kcal'] ?? 0,
+              isFavorite: data['isFavorite'] ?? false,
+              recipeDocId: doc.id,
+              createdBy: data['createdBy'],
+            );
+
+            loadedRecipes.add(recipe);
+          } catch (e) {
+            print('Error parsing recipe ${doc.id}: $e');
+            // ข้ามข้อมูลที่มีปัญหาและทำงานต่อ
+          }
+        }
+
+        print('Finished loading ${loadedRecipes.length} recipes');
+
         setState(() {
-          weeklyRecipes = recipes;
-          isLoadingWeeklyRecipes = false;
+          userRecipes = loadedRecipes;
+          isLoadingUserRecipes = false;
+        });
+      } else {
+        setState(() {
+          isLoadingUserRecipes = false;
+          userRecipes = [];
         });
       }
     } catch (e) {
-      print('❌ Error loading weekly recipes: $e');
+      print('Error loading user recipes: $e');
+      setState(() {
+        isLoadingUserRecipes = false;
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> _convertRecipeData(
+      List<Map<String, dynamic>> recipes) {
+    return recipes.map((recipe) {
+      // แปลง extendedIngredients เป็น ingredients ถ้าจำเป็น
+      if (recipe.containsKey('extendedIngredients') &&
+          !recipe.containsKey('ingredients')) {
+        recipe['ingredients'] = recipe['extendedIngredients'];
+      }
+
+      // แปลง analyzedInstructions เป็น instructions ถ้าจำเป็น
+      if (recipe.containsKey('analyzedInstructions') &&
+          !recipe.containsKey('instructions')) {
+        List<String> steps = [];
+        for (var instruction in recipe['analyzedInstructions']) {
+          if (instruction != null && instruction.containsKey('steps')) {
+            for (var step in instruction['steps']) {
+              if (step != null && step.containsKey('step')) {
+                steps.add(step['step']);
+              }
+            }
+          }
+        }
+        recipe['instructions'] = steps;
+      }
+
+      return recipe;
+    }).toList();
+  }
+
+  Future<void> _loadTopUserPreferenceRecipe() async {
+    try {
+      setState(() {
+        isLoadingTopRecipe = true;
+      });
+
+      final recipes = await _recipeService.getTopRecipeByUserPreference();
+
       if (mounted) {
         setState(() {
-          isLoadingWeeklyRecipes = false;
+          topUserPreferenceRecipes = recipes; 
+          isLoadingTopRecipe = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading top recipe by user preference: $e');
+      if (mounted) {
+        setState(() {
+          isLoadingTopRecipe = false;
         });
       }
     }
@@ -242,10 +276,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
         isLoadingPopularRecipes = true;
       });
 
-      print("🔍 Starting to load popular recipes");
-      final recipes = await _popularRecipeService.getPopularRecipes(limit: 10);
+      print("🔍 Starting to load popular Thai recipes");
+      // เรียกใช้เมธอด getPopularRecipes โดยระบุ cuisine เป็น 'Thai'
+      final recipes = await _popularRecipeService.getPopularRecipes(
+          limit: 10, cuisine: 'Thai');
 
-      print("📊 Found ${recipes.length} popular recipes");
+      print("📊 Found ${recipes.length} popular Thai recipes");
 
       if (mounted) {
         setState(() {
@@ -284,8 +320,19 @@ class _RecipeScreenState extends State<RecipeScreen> {
       'Beverages',
     ];
 
-    bool toggleIsFavorated(bool isFavorited) {
-      return !isFavorited;
+    List<String> _extractInstructionsFromAnalyzed(
+        List<dynamic> analyzedInstructions) {
+      List<String> instructions = [];
+      for (var instruction in analyzedInstructions) {
+        if (instruction != null && instruction.containsKey('steps')) {
+          for (var step in instruction['steps']) {
+            if (step != null && step.containsKey('step')) {
+              instructions.add(step['step']);
+            }
+          }
+        }
+      }
+      return instructions;
     }
 
     return Scaffold(
@@ -329,7 +376,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 ),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 5),
 
               // Search Bar + Favorite Button Row
               Padding(
@@ -340,7 +387,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     // Search Bar
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      width: size.width * .65,
+                      width: size.width * .80,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -373,44 +420,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
                               style: const TextStyle(color: Colors.black),
                             ),
                           ),
-                          Icon(
-                            Icons.tune,
-                            color: Colors.black54.withOpacity(.6),
-                          ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(width: 10),
-
-                    // Favorite Button
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border:
-                            Border.all(color: Colors.grey.shade300, width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        onPressed: () {
-                         
-                        },
-                        icon: const Icon(
-                          Icons.replay_outlined,
-                          color: Colors.black,
-                          size: 25,
-                        ),
-                      ),
-                    ),
                     // Add button
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 5),
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -739,7 +754,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
                                               ),
                                             ],
                                           ),
-                                         
                                         ],
                                       ),
                                     ),
@@ -750,130 +764,138 @@ class _RecipeScreenState extends State<RecipeScreen> {
               ),
 
               // My Recipe
-
-             // แทนที่โค้ดส่วน My Recipe ด้วยโค้ดนี้
-Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    // ส่วนหัวข้อ My Recipe (คงไว้เหมือนเดิม)
-    Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            'My Recipe',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => MyrecipeScreen(recipes: recipeList),
-              ),
-            ).then((_) {
-              // รีโหลดข้อมูลเมื่อกลับมา
-              _loadUserRecipes();
-            }),
-            child: const Text(
-              "See All",
-              style: TextStyle(
-                color: Colors.green,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          )
-        ],
-      ),
-    ),
-    // แสดง UI ตามสถานะของ userRecipes (ไม่ใช้ StreamBuilder)
-    isLoadingUserRecipes
-      ? Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 30.0),
-            child: CircularProgressIndicator(
-              color: Color(0xFF5CB77E),
-            ),
-          ),
-        )
-      : userRecipes.isEmpty
-        ? Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 30.0),
-              child: Column(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.restaurant_menu,
-                    size: 50,
-                    color: Colors.grey[400],
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'You haven\'t created any recipes yet',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 16,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'My Recipe',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  MyrecipeScreen(recipes: recipeList),
+                            ),
+                          ).then((_) {
+                            // รีโหลดข้อมูลเมื่อกลับมา
+                            _loadUserRecipes();
+                          }),
+                          child: const Text(
+                            "See All",
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      ],
                     ),
                   ),
-                  SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      _showCreateRecipeModal(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF78d454),
-                      foregroundColor: Colors.white,
-                    ),
-                    child: Text('Create Recipe'),
-                  ),
+                  // แสดง UI ตามสถานะของ userRecipes (ไม่ใช้ StreamBuilder)
+                  isLoadingUserRecipes
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 30.0),
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF5CB77E),
+                            ),
+                          ),
+                        )
+                      : userRecipes.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 30.0),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.restaurant_menu,
+                                      size: 50,
+                                      color: Colors.grey[400],
+                                    ),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'You haven\'t created any recipes yet',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        _showCreateRecipeModal(context);
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Color(0xFF78d454),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: Text('Create Recipe'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              physics: const NeverScrollableScrollPhysics(),
+                              shrinkWrap: true,
+                              itemCount: userRecipes.length > 5
+                                  ? 5
+                                  : userRecipes.length,
+                              itemBuilder: (context, index) {
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (widget.isSelecting) {
+                                      Navigator.pop(
+                                          context, userRecipes[index]);
+                                    } else {
+                                      Navigator.push(
+                                        context,
+                                        PageTransition(
+                                          child: RecipeDetail(
+                                            recipe: userRecipes[index],
+                                            recipeId:
+                                                userRecipes[index].recipeId,
+                                            recipeDocId: userRecipes[index]
+                                                    .recipeDocId ??
+                                                userRecipes[index]
+                                                    .recipeId
+                                                    .toString(),
+                                          ),
+                                          type: PageTransitionType.bottomToTop,
+                                        ),
+                                      ).then((_) {
+                                        // รีโหลดข้อมูลเมื่อกลับมา
+                                        _loadUserRecipes();
+                                      });
+                                    }
+                                  },
+                                  child: RecipeWidget(
+                                    index: index,
+                                    recipeScreenList: userRecipes,
+                                    recipe: null,
+                                    isSelecting: widget.isSelecting,
+                                    preselectedDate: widget.preselectedDate,
+                                    preselectedMealType:
+                                        widget.preselectedMealType,
+                                  ),
+                                );
+                              },
+                            ),
                 ],
               ),
-            ),
-          )
-        : ListView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            shrinkWrap: true,
-            itemCount: userRecipes.length > 5 ? 5 : userRecipes.length,
-            itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () {
-                  if (widget.isSelecting) {
-                    Navigator.pop(context, userRecipes[index]);
-                  } else {
-                    Navigator.push(
-                      context,
-                      PageTransition(
-                        child: RecipeDetail(
-                          recipe: userRecipes[index],
-                          recipeId: userRecipes[index].recipeId,
-                          recipeDocId: userRecipes[index].recipeDocId ?? userRecipes[index].recipeId.toString(),
-                        ),
-                        type: PageTransitionType.bottomToTop,
-                      ),
-                    ).then((_) {
-                      // รีโหลดข้อมูลเมื่อกลับมา
-                      _loadUserRecipes();
-                    });
-                  }
-                },
-                child: RecipeWidget(
-                  index: index,
-                  recipeScreenList: userRecipes,
-                  recipe: null,
-                  isSelecting: widget.isSelecting,
-                  preselectedDate: widget.preselectedDate,
-                  preselectedMealType: widget.preselectedMealType,
-                ),
-              );
-            },
-          ),
-  ],
-),
               // Recipe of The Week
               const SizedBox(height: 20),
               Column(
@@ -897,7 +919,7 @@ Column(
                             context,
                             MaterialPageRoute(
                               builder: (context) => WeekScreen(
-                                weeklyRecipes: weeklyRecipes,
+                                  weeklyRecipes: topUserPreferenceRecipes,
                               ),
                             ),
                           ),
@@ -913,7 +935,7 @@ Column(
                       ],
                     ),
                   ),
-                  isLoadingWeeklyRecipes
+                  isLoadingTopRecipe
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 30.0),
@@ -922,7 +944,7 @@ Column(
                             ),
                           ),
                         )
-                      : weeklyRecipes.isEmpty
+                      : topUserPreferenceRecipes.isEmpty
                           ? Center(
                               child: Padding(
                                 padding:
@@ -939,101 +961,59 @@ Column(
                           : ListView.builder(
                               physics: const NeverScrollableScrollPhysics(),
                               shrinkWrap: true,
-                              itemCount: weeklyRecipes.length > 3
-                                  ? 3
-                                  : weeklyRecipes.length,
+                              itemCount: 5,
                               itemBuilder: (context, index) {
-                                final recipe = weeklyRecipes[index];
+                                final recipe = topUserPreferenceRecipes[index]; 
                                 return GestureDetector(
                                   onTap: () {
                                     if (widget.isSelecting) {
-                                      Navigator.pop(
-                                          context, userRecipes[index]);
+                                    Navigator.pop(context, recipe);
                                     } else {
-                                      Navigator.push(
-                                        context,
-                                        PageTransition(
-                                          child: RecipeDetail(
-                                            recipeId: recipe['id'] is int
-                                                ? recipe['id']
-                                                : int.parse(
-                                                    recipe['id'].toString()),
-                                            recipeDocId:
-                                                recipe['id'].toString(),
-                                            recipe: Recipe(
-                                              recipeId: recipe['id'] is int
-                                                  ? recipe['id']
-                                                  : int.parse(
-                                                      recipe['id'].toString()),
-                                              recipeName: recipe['title'] ?? '',
-                                              description:
-                                                  recipe['summary'] ?? '',
-                                              ingredients: (recipe[
-                                                              'ingredients']
-                                                          as List<dynamic>? ??
-                                                      [])
-                                                  .map((ingredient) {
-                                                return IngredientUsage(
-                                                  ingredient:
-                                                      Ingredient.fromAPI(
-                                                    id: ingredient['id']
-                                                            ?.toString() ??
-                                                        '',
-                                                    name: ingredient['name'] ??
-                                                        '',
-                                                    amount: ingredient['amount']
-                                                            ?.toDouble() ??
-                                                        0.0,
-                                                    unit: ingredient['unit'] ??
-                                                        '',
-                                                  ),
-                                                  quantityUsed:
-                                                      ingredient['amount']
-                                                              ?.toDouble() ??
-                                                          0.0,
-                                                );
-                                              }).toList(),
-                                              instructions: (recipe[
-                                                              'instructions']
-                                                          as List<dynamic>? ??
-                                                      [])
-                                                  .map(
-                                                      (step) => step.toString())
-                                                  .toList(),
+                                        Navigator.push(
+                    context,
+                    PageTransition(
+                      child: RecipeDetail(
+                        recipeId: recipe['id'] is int
+                            ? recipe['id']
+                            : int.parse(recipe['id'].toString()),
+                        recipeDocId: recipe['id'].toString(),
+                        recipe: Recipe(
+                          recipeId: recipe['id'] is int
+                              ? recipe['id']
+                              : int.parse(recipe['id'].toString()),
+                          recipeName: recipe['title'] ?? '',
+                          description: recipe['summary'] ?? '',
+                          ingredients: (recipe['ingredients'] as List<dynamic>? ?? [])
+                              .map((ingredient) {
+                            return IngredientUsage(
+                              ingredient: Ingredient.fromAPI(
+                                id: ingredient['id']?.toString() ?? '',
+                                name: ingredient['name'] ?? '',
+                                amount: ingredient['amount']?.toDouble() ?? 0.0,
+                                unit: ingredient['unit'] ?? '',
+                              ),
+                              quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
+                            );
+                          }).toList(),
+                          instructions: (recipe['instructions'] as List<dynamic>? ?? [])
+                              .map((step) => step.toString())
+                              .toList(),
                                               preparationTime: int.tryParse(
-                                                      recipe['readyInMinutes']
-                                                              ?.toString() ??
-                                                          '0') ??
-                                                  0,
-                                              cookingTime: 0,
-                                              servings: recipe['servings'] ?? 1,
-                                              category:
-                                                  recipe['dishTypes'] != null &&
-                                                          recipe['dishTypes']
-                                                              is List &&
-                                                          (recipe['dishTypes']
-                                                                  as List)
-                                                              .isNotEmpty
-                                                      ? (recipe['dishTypes']
-                                                          as List)[0]
-                                                      : 'Main Course',
-                                              imageUrl: recipe['image'] ?? '',
-                                              Protein: recipe['nutrition']
-                                                          ?['protein']
-                                                      ?.toDouble() ??
-                                                  0.0,
-                                              Fat: recipe['nutrition']?['fat']
-                                                      ?.toDouble() ??
-                                                  0.0,
-                                              Carbo: recipe['nutrition']
-                                                          ?['carbs']
-                                                      ?.toDouble() ??
-                                                  0.0,
-                                              Kcal: recipe['nutrition']
-                                                          ?['calories']
-                                                      ?.toInt() ??
-                                                  0,
-                                              isFavorite: false,
+                                  recipe['readyInMinutes']?.toString() ?? '0') ??
+                              0,
+                          cookingTime: 0,
+                          servings: recipe['servings'] ?? 1,
+                          category: recipe['dishTypes'] != null &&
+                                  recipe['dishTypes'] is List &&
+                                  (recipe['dishTypes'] as List).isNotEmpty
+                              ? (recipe['dishTypes'] as List)[0]
+                              : 'Main Course',
+                          imageUrl: recipe['image'] ?? '',
+                          Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
+                          Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
+                          Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
+                          Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
+                          isFavorite: false,
                                             ),
                                           ),
                                           type: PageTransitionType.bottomToTop,
@@ -1042,45 +1022,47 @@ Column(
                                     }
                                   },
                                   child: RecipeWidget(
-                                    index: 0,
+                                    index: index,
                                     recipeScreenList: null,
                                     isSelecting: widget.isSelecting,
                                     preselectedDate: widget.preselectedDate,
                                     preselectedMealType:
                                         widget.preselectedMealType,
                                     recipe: Recipe(
-                                      recipeId: _safeParseInt(recipe['id']),
-                                      recipeName: recipe['title'] ?? '',
-                                      description: '',
-                                      ingredients: [],
-                                      instructions: [],
-                                      preparationTime: int.tryParse(
-                                              recipe['readyInMinutes']
-                                                      ?.toString() ??
-                                                  '0') ??
-                                          0,
-                                      cookingTime: 0,
-                                      servings: recipe['servings'] ?? 1,
-                                      category: recipe['dishTypes'] != null &&
-                                              recipe['dishTypes'] is List &&
-                                              (recipe['dishTypes'] as List)
-                                                  .isNotEmpty
-                                          ? (recipe['dishTypes'] as List)[0]
-                                          : 'Main Course',
-                                      imageUrl: recipe['image'] ?? '',
-                                      Protein: recipe['nutrition']?['protein']
-                                              ?.toDouble() ??
-                                          0.0,
-                                      Fat: recipe['nutrition']?['fat']
-                                              ?.toDouble() ??
-                                          0.0,
-                                      Carbo: recipe['nutrition']?['carbs']
-                                              ?.toDouble() ??
-                                          0.0,
-                                      Kcal: recipe['nutrition']?['calories']
-                                              ?.toInt() ??
-                                          0,
-                                      isFavorite: false,
+                                       recipeId: _safeParseInt(recipe['id']),
+                  recipeName: recipe['title'] ?? '',
+                  description: recipe['summary'] ?? '',
+                  ingredients: (recipe['ingredients'] as List<dynamic>? ?? [])
+                      .map((ingredient) {
+                        return IngredientUsage(
+                          ingredient: Ingredient.fromAPI(
+                            id: ingredient['id']?.toString() ?? '',
+                            name: ingredient['name'] ?? '',
+                            amount: ingredient['amount']?.toDouble() ?? 0.0,
+                            unit: ingredient['unit'] ?? '',
+                          ),
+                          quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
+                        );
+                      }).toList(),
+                  instructions: (recipe['instructions'] as List<dynamic>? ?? [])
+                      .map((step) => step.toString())
+                      .toList(),
+                  preparationTime: int.tryParse(
+                          recipe['readyInMinutes']?.toString() ?? '0') ??
+                      0,
+                  cookingTime: 0,
+                  servings: recipe['servings'] ?? 1,
+                  category: recipe['dishTypes'] != null &&
+                          recipe['dishTypes'] is List &&
+                          (recipe['dishTypes'] as List).isNotEmpty
+                      ? (recipe['dishTypes'] as List)[0]
+                      : 'Main Course',
+                                     imageUrl: recipe['image'] ?? '',
+                  Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
+                  Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
+                  Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
+                  Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
+                  isFavorite: false,
                                     ),
                                   ),
                                 );
@@ -1158,6 +1140,21 @@ Column(
                                   : popularRecipes.length,
                               itemBuilder: (context, index) {
                                 final recipe = popularRecipes[index];
+                                final ingredients = (recipe['ingredients'] as List<dynamic>? ?? []).map((ingredient) {
+      return IngredientUsage(
+        ingredient: Ingredient.fromAPI(
+          id: ingredient['id']?.toString() ?? '',
+          name: ingredient['name'] ?? '',
+          amount: ingredient['amount']?.toDouble() ?? 0.0,
+          unit: ingredient['unit'] ?? '',
+        ),
+        quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
+      );
+    }).toList();
+
+    final instructions = (recipe['instructions'] as List<dynamic>? ?? []).map((step) {
+      return step.toString();
+    }).toList();
                                 return GestureDetector(
                                   onTap: () {
                                     if (widget.isSelecting) {
@@ -1167,87 +1164,29 @@ Column(
                                       Navigator.push(
                                         context,
                                         PageTransition(
-                                          child: RecipeDetail(
-                                            recipeId: recipe['id'] is int
-                                                ? recipe['id']
-                                                : int.parse(
-                                                    recipe['id'].toString()),
-                                            recipeDocId:
-                                                recipe['id'].toString(),
-                                            recipe: Recipe(
-                                              recipeId: recipe['id'] is int
-                                                  ? recipe['id']
-                                                  : int.parse(
-                                                      recipe['id'].toString()),
-                                              recipeName: recipe['title'] ?? '',
-                                              description:
-                                                  recipe['summary'] ?? '',
-                                              ingredients: (recipe[
-                                                              'ingredients']
-                                                          as List<dynamic>? ??
-                                                      [])
-                                                  .map((ingredient) {
-                                                return IngredientUsage(
-                                                  ingredient:
-                                                      Ingredient.fromAPI(
-                                                    id: ingredient['id']
-                                                            ?.toString() ??
-                                                        '',
-                                                    name: ingredient['name'] ??
-                                                        '',
-                                                    amount: ingredient['amount']
-                                                            ?.toDouble() ??
-                                                        0.0,
-                                                    unit: ingredient['unit'] ??
-                                                        '',
-                                                  ),
-                                                  quantityUsed:
-                                                      ingredient['amount']
-                                                              ?.toDouble() ??
-                                                          0.0,
-                                                );
-                                              }).toList(),
-                                              instructions: (recipe[
-                                                              'instructions']
-                                                          as List<dynamic>? ??
-                                                      [])
-                                                  .map(
-                                                      (step) => step.toString())
-                                                  .toList(),
-                                              preparationTime: int.tryParse(
-                                                      recipe['readyInMinutes']
-                                                              ?.toString() ??
-                                                          '0') ??
-                                                  0,
-                                              cookingTime: 0,
-                                              servings: recipe['servings'] ?? 1,
-                                              category:
-                                                  recipe['dishTypes'] != null &&
-                                                          recipe['dishTypes']
-                                                              is List &&
-                                                          (recipe['dishTypes']
-                                                                  as List)
-                                                              .isNotEmpty
-                                                      ? (recipe['dishTypes']
-                                                          as List)[0]
-                                                      : 'Main Course',
-                                              imageUrl: recipe['image'] ?? '',
-                                              Protein: recipe['nutrition']
-                                                          ?['protein']
-                                                      ?.toDouble() ??
-                                                  0.0,
-                                              Fat: recipe['nutrition']?['fat']
-                                                      ?.toDouble() ??
-                                                  0.0,
-                                              Carbo: recipe['nutrition']
-                                                          ?['carbs']
-                                                      ?.toDouble() ??
-                                                  0.0,
-                                              Kcal: recipe['nutrition']
-                                                          ?['calories']
-                                                      ?.toInt() ??
-                                                  0,
-                                              isFavorite: false,
+                                                     child: RecipeDetail(
+              recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+              recipeDocId: recipe['id'].toString(),
+              recipe: Recipe(
+                recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+                recipeName: recipe['title'] ?? '',
+                description: recipe['summary'] ?? '',
+                ingredients: ingredients, // ส่ง ingredients ที่แปลงแล้ว
+                instructions: instructions, // ส่ง instructions ที่แปลงแล้ว
+                preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
+                cookingTime: 0,
+                servings: recipe['servings'] ?? 1,
+                category: recipe['dishTypes'] != null &&
+                        recipe['dishTypes'] is List &&
+                        (recipe['dishTypes'] as List).isNotEmpty
+                    ? (recipe['dishTypes'] as List)[0]
+                    : 'Main Course',
+                imageUrl: recipe['image'] ?? '',
+                Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
+                Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
+                Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
+                Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
+                isFavorite: false,
                                             ),
                                           ),
                                           type: PageTransitionType.bottomToTop,
@@ -1256,47 +1195,31 @@ Column(
                                     }
                                   },
                                   child: RecipeWidget(
-                                    index: 0,
-                                    recipeScreenList: null,
-                                    isSelecting: widget.isSelecting,
-                                    preselectedDate: widget.preselectedDate,
-                                    preselectedMealType:
-                                        widget.preselectedMealType,
-                                    recipe: Recipe(
-                                      recipeId: recipe['id'] is int
-                                          ? recipe['id']
-                                          : int.parse(recipe['id'].toString()),
-                                      recipeName: recipe['title'] ?? '',
-                                      description: '',
-                                      ingredients: [],
-                                      instructions: [],
-                                      preparationTime: int.tryParse(
-                                              recipe['readyInMinutes']
-                                                      ?.toString() ??
-                                                  '0') ??
-                                          0,
-                                      cookingTime: 0,
-                                      servings: recipe['servings'] ?? 1,
-                                      category: recipe['dishTypes'] != null &&
-                                              recipe['dishTypes'] is List &&
-                                              (recipe['dishTypes'] as List)
-                                                  .isNotEmpty
-                                          ? (recipe['dishTypes'] as List)[0]
-                                          : 'Main Course',
-                                      imageUrl: recipe['image'] ?? '',
-                                      Protein: recipe['nutrition']?['protein']
-                                              ?.toDouble() ??
-                                          0.0,
-                                      Fat: recipe['nutrition']?['fat']
-                                              ?.toDouble() ??
-                                          0.0,
-                                      Carbo: recipe['nutrition']?['carbs']
-                                              ?.toDouble() ??
-                                          0.0,
-                                      Kcal: recipe['nutrition']?['calories']
-                                              ?.toInt() ??
-                                          0,
-                                      isFavorite: false,
+                                     index: 0,
+        recipeScreenList: null,
+        isSelecting: widget.isSelecting,
+        preselectedDate: widget.preselectedDate,
+        preselectedMealType: widget.preselectedMealType,
+        recipe: Recipe(
+          recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+          recipeName: recipe['title'] ?? '',
+          description: '',
+          ingredients: ingredients, // ส่ง ingredients ที่แปลงแล้ว
+          instructions: instructions, // ส่ง instructions ที่แปลงแล้ว
+          preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
+          cookingTime: 0,
+          servings: recipe['servings'] ?? 1,
+          category: recipe['dishTypes'] != null &&
+                  recipe['dishTypes'] is List &&
+                  (recipe['dishTypes'] as List).isNotEmpty
+              ? (recipe['dishTypes'] as List)[0]
+              : 'Main Course',
+          imageUrl: recipe['image'] ?? '',
+          Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
+          Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
+          Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
+          Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
+          isFavorite: false,
                                     ),
                                   ),
                                 );

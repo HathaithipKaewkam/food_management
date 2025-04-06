@@ -280,10 +280,6 @@ class _HistoryIngredientState extends State<HistoryIngredient> {
                               style: const TextStyle(color: Colors.black),
                             ),
                           ),
-                          Icon(
-                            Icons.tune,
-                            color: Colors.black54.withOpacity(.6),
-                          ),
                         ],
                       ),
                     ),

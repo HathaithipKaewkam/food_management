@@ -5,7 +5,7 @@ import 'dart:convert';
 
 class RecipeService {
   final String apiKey = '36440b5c03cb475c993bed762cee0c75';
-  final int cacheDuration = 86400000;
+  final int cacheDuration = 10800000;
   final int maxRecipes = 5;
   Future<List<String>> fetchUserIngredients() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -106,7 +106,9 @@ class RecipeService {
       if (user != null) {
         // ดูว่ามีข้อมูล weekly recipes ที่แคชไว้หรือไม่
         final cachedData = await FirebaseFirestore.instance
-            .collection('weeklyRecipes')
+              .collection('users')
+          .doc(user.uid)
+          .collection('userWeeklyRecipes') 
             .doc('${user.uid}_week_${year}_$weekNumber')
             .get();
 
@@ -169,8 +171,10 @@ class RecipeService {
         if (recipes.isNotEmpty && user != null) {
           try {
             await FirebaseFirestore.instance
-                .collection('weeklyRecipes')
-                .doc('${user.uid}_week_${year}_$weekNumber')
+               .collection('users')
+            .doc(user.uid)
+            .collection('userWeeklyRecipes')
+            .doc('week_${year}_$weekNumber')
                 .set({
               'recipes': recipes,
               'createdAt': FieldValue.serverTimestamp(),
@@ -747,6 +751,219 @@ class RecipeService {
       'servings': recipe['servings'] ?? 1,
     };
   }
+
+  Future<List<Map<String, dynamic>>> getTopRecipeByUserPreference() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    return [];
+  }
+
+  try {
+    // ดึงข้อมูลความชอบของผู้ใช้
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    if (!userDoc.exists || userDoc.data()?['preferences'] == null) {
+      print("⚠️ ไม่พบข้อมูลความชอบของผู้ใช้");
+      return await _getDefaultTopRecipes(5,user.uid);
+    }
+
+    Map<String, dynamic> userPrefs = userDoc.data()!;
+    List<String> cuisines = [];
+    List<String> mealTypes = [];
+    List<String> dietaryRestrictions = [];
+    
+    // ดึงข้อมูลประเภทอาหารที่ชอบ
+    if (userPrefs['preferences']?['favoriteCuisines'] != null) {
+      cuisines = List<String>.from(userPrefs['preferences']['favoriteCuisines']);
+    }
+    
+    // ดึงข้อมูลประเภทมื้ออาหารที่ชอบ
+    if (userPrefs['preferences']?['mealTypes'] != null) {
+      mealTypes = List<String>.from(userPrefs['preferences']['mealTypes']);
+    }
+    
+    // ดึงข้อมูลข้อจำกัดทางอาหาร
+    if (userPrefs['preferences']?['dietaryRestrictions'] != null) {
+      dietaryRestrictions = List<String>.from(userPrefs['preferences']['dietaryRestrictions']);
+    }
+
+    // ตรวจสอบแคชก่อน
+    final String cacheKey = 'top_recipes_${cuisines.join('_')}_${mealTypes.join('_')}';
+    
+     final cachedDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userCachedRecipes') 
+        .doc(cacheKey)
+        .get();
+        
+    if (cachedDoc.exists) {
+      final cacheData = cachedDoc.data();
+      final timestamp = cacheData?['timestamp'] ?? 0;
+      
+      // ถ้าแคชไม่เกิน 24 ชั่วโมง ให้ใช้ข้อมูลจากแคช
+      if (DateTime.now().millisecondsSinceEpoch - timestamp < cacheDuration) {
+        print("✅ ใช้แคชสำหรับอาหารยอดนิยมตามความชอบของผู้ใช้");
+        return List<Map<String, dynamic>>.from(cacheData?['recipes'] ?? []);
+      }
+    }
+
+    // ถ้าไม่มีแคชหรือแคชเก่าเกินไป ดึงข้อมูลใหม่
+    String cuisine = cuisines.isNotEmpty ? cuisines[0] : '';
+    String mealType = mealTypes.isNotEmpty ? mealTypes[0] : '';
+    String diet = dietaryRestrictions.isNotEmpty ? dietaryRestrictions[0] : '';
+    
+    Map<String, String> params = {
+      'apiKey': apiKey,
+      'number': '5', // เปลี่ยนเป็น 5 สูตร
+      'sort': 'popularity',
+      'addRecipeInformation': 'true',
+      'fillIngredients': 'true',
+      'addRecipeNutrition': 'true',
+      'instructionsRequired': 'true',
+    };
+    
+    if (cuisine.isNotEmpty) {
+      params['cuisine'] = cuisine;
+    }
+    
+    if (mealType.isNotEmpty) {
+      params['type'] = mealType;
+    }
+    
+    if (diet.isNotEmpty) {
+      params['diet'] = diet;
+    }
+    
+    final uri = Uri.https('api.spoonacular.com', '/recipes/complexSearch', params);
+    
+    final response = await http.get(uri);
+    
+    if (response.statusCode == 200) {
+      var responseData = json.decode(response.body);
+      var results = responseData['results'] as List;
+      
+      if (results.isEmpty) {
+        print("⚠️ ไม่พบสูตรอาหารตามความชอบของผู้ใช้");
+        return await _getDefaultTopRecipes(5, user.uid);
+      }
+      
+      List<Map<String, dynamic>> recipes = [];
+      
+      // แปลงข้อมูลจาก API เป็นรูปแบบที่ใช้ในแอป
+      for (int i = 0; i < results.length; i++) {
+        var recipe = results[i];
+        var formattedRecipe = _extractWeeklyRecipeData(recipe, i);
+        recipes.add(formattedRecipe);
+      }
+      
+      // บันทึกลงแคช
+      await FirebaseFirestore.instance
+       .collection('users')
+        .doc(user.uid)
+          .collection('userCachedRecipes')
+          .doc(cacheKey)
+          .set({
+            'recipes': recipes,
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+      
+      print("✅ พบ ${recipes.length} สูตรอาหารยอดนิยมตามความชอบของผู้ใช้");
+      return recipes;
+    } else {
+      print("❌ API Error: ${response.statusCode}");
+      return await _getDefaultTopRecipes(5, user.uid);
+    }
+  } catch (e) {
+    print("❌ เกิดข้อผิดพลาดในการดึงอาหารยอดนิยม: $e");
+    return await _getDefaultTopRecipes(5,user.uid);
+  }
+}
+
+
+Future<List<Map<String, dynamic>>> _getDefaultTopRecipes(int count , String userId) async {
+  print("🔍 ใช้สูตรอาหารยอดนิยมทั่วไปแทน");
+  
+  // ตรวจสอบแคชก่อน
+  final cachedDoc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(userId)
+      .collection('userCachedRecipes')
+      .doc('default_top_recipes')
+      .get();
+      
+  final int shortCacheDuration = 3600000; 
+
+   if (cachedDoc.exists) {
+    final cacheData = cachedDoc.data();
+    final timestamp = cacheData?['timestamp'] ?? 0;
+    
+    if (DateTime.now().millisecondsSinceEpoch - timestamp < shortCacheDuration) {
+      return List<Map<String, dynamic>>.from(cacheData?['recipes'] ?? []);
+    }
+  }
+  
+
+  try {
+    int randomOffset = DateTime.now().millisecondsSinceEpoch % 50;
+    Map<String, String> params = {
+      'apiKey': apiKey,
+      'number': count.toString(),
+      'sort': 'popularity',
+      'offset': randomOffset.toString(), 
+      'addRecipeInformation': 'true',
+      'fillIngredients': 'true',
+      'addRecipeNutrition': 'true',
+      'instructionsRequired': 'true',
+    };
+    
+    final uri = Uri.https('api.spoonacular.com', '/recipes/complexSearch', params);
+    final response = await http.get(uri);
+    
+    if (response.statusCode == 200) {
+      var responseData = json.decode(response.body);
+      var results = responseData['results'] as List;
+      
+      if (results.isEmpty) {
+        return [];
+      }
+      
+      List<Map<String, dynamic>> recipes = [];
+      
+      // แปลงข้อมูลจาก API เป็นรูปแบบที่ใช้ในแอป
+      for (int i = 0; i < results.length; i++) {
+        var recipe = results[i];
+        var formattedRecipe = _extractWeeklyRecipeData(recipe, i);
+        recipes.add(formattedRecipe);
+      }
+      
+      // บันทึกลงแคช
+      await FirebaseFirestore.instance
+           .collection('users')
+        .doc(userId)
+        .collection('userCachedRecipes')
+        .doc('default_top_recipes')
+          .set({
+            'recipes': recipes,
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+      
+      return recipes;
+    } else {
+      return [];
+    }
+  } catch (e) {
+    print("❌ เกิดข้อผิดพลาดในการดึงอาหารยอดนิยมทั่วไป: $e");
+    return [];
+  }
+}
+
+  
 
   Future<Map<String, dynamic>> getRecipeInformation(int recipeId) async {
     final user = FirebaseAuth.instance.currentUser;

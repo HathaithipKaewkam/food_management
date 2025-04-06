@@ -749,41 +749,43 @@ class _RecipeDetailState extends State<RecipeDetail> {
           ),
           // Recipe name
           const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  currentRecipe.recipeName,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.visible,
-                  softWrap: true,
-                  maxLines: 5,
-                ),
-                // Time cooking
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF78d454),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    "${currentRecipe.totalCookingTime()} mins",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+         Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 20),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Flexible(  // เพิ่ม Flexible เพื่อจำกัดพื้นที่
+        child: Text(
+          currentRecipe.recipeName,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
           ),
+          overflow: TextOverflow.ellipsis,
+          softWrap: true,
+          maxLines: 1,
+        ),
+      ),
+      const SizedBox(width: 10),  // เพิ่มระยะห่าง
+      // Time cooking
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFF78d454),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          "${currentRecipe.totalCookingTime()} mins",
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    ],
+  ),
+),
           const SizedBox(height: 10),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
@@ -807,47 +809,57 @@ class _RecipeDetailState extends State<RecipeDetail> {
           ),
           const SizedBox(height: 10),
           Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 20),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      // Protein Column
+      Column(
+        children: [
+          Image.asset('assets/images/protein.png', width: 20, height: 20),
+          const SizedBox(height: 4),
+          Text('${currentRecipe.Protein} g',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        ],
+      ),
+      
+      // Fat Column
+      Column(
+        children: [
+          Image.asset('assets/images/fat.png', width: 20, height: 20),
+          const SizedBox(height: 4),
+          Text('${currentRecipe.Fat} g',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        ],
+      ),
+      
+      // Carbo Column
+      Column(
+        children: [
+          Image.asset('assets/images/carbo.png', width: 23, height: 20),
+          const SizedBox(height: 4),
+          Text('${currentRecipe.Carbo} g',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        ],
+      ),
+      
+      // Calories Column
+      Column(
+        children: [
+          Image.asset('assets/images/kcal.png', width: 23, height: 17),
+          const SizedBox(height: 4),
+          Text('${currentRecipe.Kcal} Kcal',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    ],
+  ),
+),
+          Padding(
             padding: const EdgeInsets.only(left: 20, right: 5),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Image.asset('assets/images/protein.png',
-                            width: 20, height: 20),
-                        const SizedBox(width: 2),
-                        Text('${currentRecipe.Protein} g',
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 45),
-                        Image.asset('assets/images/fat.png',
-                            width: 20, height: 20),
-                        const SizedBox(width: 2),
-                        Text('${currentRecipe.Fat} g',
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 30),
-                        Image.asset('assets/images/carbo.png',
-                            width: 23, height: 20),
-                        const SizedBox(width: 2),
-                        Text('${currentRecipe.Carbo} g',
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 25),
-                        Image.asset('assets/images/kcal.png',
-                            width: 23, height: 17),
-                        const SizedBox(width: 1),
-                        Text('${currentRecipe.Kcal} Kcal',
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 15),
                 Container(
                   padding: const EdgeInsets.only(left: 20, right: 20),
                   height: 70,
