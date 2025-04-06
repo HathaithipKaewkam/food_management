@@ -338,7 +338,7 @@ ingredientsToAdd.add({
     }
   },
   child: const Text(
-    "Add All to Cart", 
+    "Add All to Shopping list", 
     style: TextStyle(
       color: Color(0xFF78d454),
       fontWeight: FontWeight.bold,

@@ -115,25 +115,42 @@ class _CompleteProfileState extends State<CompleteProfile> {
 
     return Scaffold(
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(top: 50, left: 10, right: 10),
+        padding: const EdgeInsets.only(top: 30, left: 5, right: 5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: const Text(
-                "Let's complete your profile",
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    icon: const FaIcon(FontAwesomeIcons.arrowLeft),
+                    color: Colors.black,
+                    iconSize: 20,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Let's complete your profile",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
-              "It will help us to know more about you!",
-              style: TextStyle(fontSize: 18),
+            Padding(
+              padding: const EdgeInsets.only(left: 15, right: 15),
+              child: const Text(
+                "It will help us to know more about you!",
+                style: TextStyle(fontSize: 18),
+              ),
             ),
             const SizedBox(height: 20),
             // Profile Picture
@@ -225,12 +242,12 @@ class _CompleteProfileState extends State<CompleteProfile> {
                               profileImage: selectedImage,
                             );
 
-                            // นำทางไปหน้า AcceptPolicyScreen
+                           
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) =>
-                                    AcceptPolicyScreen(), // ไปหน้า AcceptPolicyScreen
+                                    FoodPreferences(),
                               ),
                             );
                           } catch (e) {

@@ -672,7 +672,7 @@ class _AutoShoppingListState extends State<AutoShoppingList> {
                       icon: const Icon(Icons.shopping_cart_checkout,
                           color: Colors.white),
                       label: const Text(
-                        'Add Selected to Cart',
+                        'Add Selected to Shopping list',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,

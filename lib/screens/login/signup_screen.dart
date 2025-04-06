@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/constants.dart';
 import 'package:food_project/models/user_model.dart';
+import 'package:food_project/screens/login/accept_policy.dart';
 import 'package:food_project/screens/login/complete_profile.dart';
 import 'package:food_project/screens/login/signin_screen.dart';
 import 'package:food_project/widgets/custom_textfield.dart';
@@ -120,12 +121,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
         );
         Future.delayed(const Duration(seconds: 2), () {
           if (context.mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const CompleteProfile(),
-              ),
-            );
+           Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    AcceptPolicyScreen(), // ไปหน้า AcceptPolicyScreen
+                              ),
+                            );
           }
         });
       }
@@ -140,7 +142,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   bool isValidEmail(String email) {
-  final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+  email = email.trim();
+  final emailRegExp = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
   return emailRegExp.hasMatch(email);
 }
 
@@ -207,12 +210,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
         );
         Future.delayed(const Duration(seconds: 2), () {
         if (context.mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CompleteProfile(),
-            ),
-          );
+         Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    AcceptPolicyScreen(), // ไปหน้า AcceptPolicyScreen
+                              ),
+                            );
         }
       });
       }
@@ -256,6 +260,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 obscureText: false,
                 hintText: 'Enter Email',
                 icon: FaIcon(FontAwesomeIcons.at),
+                keyboardType: TextInputType.emailAddress, 
               ),
               CustomTextfield(
                 controller: usernameController,

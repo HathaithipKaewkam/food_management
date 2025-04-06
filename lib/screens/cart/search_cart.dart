@@ -324,7 +324,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
                                 mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Add Ingredient To Cart',
+                                    'Add Ingredient to Shopping List',
                                     style: TextStyle(
                                       color: Colors.black,
                                       fontSize: 18,
@@ -678,7 +678,7 @@ double calculateKcal(double qty, String unit) {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('Add to Cart',
+                      child: const Text('Add to Shopping list',
                           style: TextStyle(color: Colors.white)),
                     ),
                   ],

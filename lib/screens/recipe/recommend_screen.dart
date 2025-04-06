@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/models/recipe.dart';
@@ -18,7 +20,17 @@ class RecommendScreen extends StatefulWidget {
   State<RecommendScreen> createState() => _RecommendScreen();
 }
 
+
 class _RecommendScreen extends State<RecommendScreen> {
+
+
+
+@override
+void initState() {
+  super.initState();
+}
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -220,35 +232,7 @@ class _RecommendScreen extends State<RecommendScreen> {
                               ),
                             ],
                           ),
-                          // Favorite button
-                          Positioned(
-                            top: 1,
-                            right: 4,
-                            child: Container(
-                              height: 40,
-                              width: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(25),
-                                border: Border.all(
-                                    color: Colors.grey.shade300, width: 1),
-                              ),
-                              child: IconButton(
-                                onPressed: () {
-                                  // Add favorite functionality if needed
-                                },
-                                icon: Icon(
-                                  recipe['isFavorite'] == true
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  color: recipe['isFavorite'] == true
-                                      ? Colors.red
-                                      : Colors.black54,
-                                ),
-                                iconSize: 20,
-                              ),
-                            ),
-                          ),
+                       
                         ],
                       ),
                     ),
@@ -342,37 +326,7 @@ class _RecommendScreen extends State<RecommendScreen> {
                               ),
                             ],
                           ),
-                          Positioned(
-                            top: 1,
-                            right: 4,
-                            child: Container(
-                              height: 40,
-                              width: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(25),
-                                border: Border.all(
-                                    color: Colors.grey.shade300, width: 1),
-                              ),
-                              child: IconButton(
-                                onPressed: () {
-                                  setState(() {
-                                    widget.recipes[index].isFavorite =
-                                        !widget.recipes[index].isFavorite;
-                                  });
-                                },
-                                icon: Icon(
-                                  widget.recipes[index].isFavorite
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  color: widget.recipes[index].isFavorite
-                                      ? Colors.red
-                                      : Colors.black54,
-                                ),
-                                iconSize: 20,
-                              ),
-                            ),
-                          ),
+                        
                         ],
                       ),
                     ),

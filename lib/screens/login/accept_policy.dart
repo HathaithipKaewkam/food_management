@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:food_project/screens/login/complete_profile.dart';
 import 'package:food_project/screens/login/food_preferences.dart';
 
 class AcceptPolicyScreen extends StatefulWidget {
@@ -90,11 +91,11 @@ class _AcceptPolicyScreenState extends State<AcceptPolicyScreen> {
               child: ElevatedButton(
                 onPressed: _isChecked
                     ? () {
-                        // เมื่อกดยอมรับแล้ว ให้ไปหน้า FoodPreferences
+                        // เมื่อกดยอมรับแล้ว ให้ไปหน้า 
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => FoodPreferences(),
+                            builder: (context) => CompleteProfile(),
                           ),
                         );
                       }

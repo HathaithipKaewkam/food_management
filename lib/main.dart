@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:food_project/screens/login/accept_policy.dart';
 import 'package:food_project/screens/onboarding_screen.dart';
 
 

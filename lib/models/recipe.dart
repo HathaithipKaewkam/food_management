@@ -114,7 +114,7 @@ factory Recipe.fromFirestore(Map<String, dynamic> data, String docId) {
           final ingredient = Ingredient(
             ingredientsName: ingData['name'] ?? 'Unknown',
             unit: ingData['unit'] ?? '',
-            imageUrl: 'assets/images/ingredient_placeholder.png', // default image
+            imageUrl: 'assets/images/ingredient_placeholder.png',
             userId: FirebaseAuth.instance.currentUser?.uid ?? '',
             ingredientId: DateTime.now().millisecondsSinceEpoch.toString(),
             category: 'Other',

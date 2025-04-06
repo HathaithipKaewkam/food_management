@@ -7,30 +7,62 @@ import 'recipe_service.dart';
 class PopularRecipeService {
   final RecipeService _recipeService = RecipeService();
   final String apiKey = '36440b5c03cb475c993bed762cee0c75';
+  final int maxRecipes = 5; // จำกัดสูตรสูงสุดเหลือ 5 สูตร
+  final int cacheDuration = 86400000; // 24 ชั่วโมง
   
-  Future<List<Map<String, dynamic>>> getPopularRecipes({int limit = 10 }) async {
+  Future<List<Map<String, dynamic>>> getPopularRecipes({int limit = 5}) async {
+    // ตรวจสอบแคชก่อน
+    User? user = FirebaseAuth.instance.currentUser;
+    final String cacheKey = 'popular_recipes';
+    
+    if (user != null) {
+      try {
+        final cachedDoc = await FirebaseFirestore.instance
+            .collection('cachedRecipes')
+            .doc(cacheKey)
+            .get();
+            
+        if (cachedDoc.exists) {
+          final cacheData = cachedDoc.data();
+          final timestamp = cacheData?['timestamp'] ?? 0;
+          
+          // ถ้าแคชไม่เกิน 24 ชั่วโมง ให้ใช้ข้อมูลจากแคช
+          if (DateTime.now().millisecondsSinceEpoch - timestamp < cacheDuration) {
+            print("✅ Using cached popular recipes");
+            List<Map<String, dynamic>> recipes = List<Map<String, dynamic>>.from(cacheData?['recipes'] ?? []);
+            return recipes.take(limit).toList();
+          }
+        }
+      } catch (e) {
+        print("❌ Error reading popular recipes cache: $e");
+      }
+    }
+    
     final String apiUrl = 'https://api.spoonacular.com/recipes/complexSearch';
     
+    // กำหนดจำนวนที่ต้องการดึงเป็น 5 สูตร
     Map<String, String> params = {
       'apiKey': apiKey,
-      'number': limit.toString(),
+      'number': limit.toString(), // ปรับให้ตรงกับ limit ที่เปลี่ยนเป็น 5
       'sort': 'popularity',
       'addRecipeInformation': 'true',
       'fillIngredients': 'true',
       'addRecipeNutrition': 'true',
+      'instructionsRequired': 'true', // เพิ่มพารามิเตอร์เพื่อรับวิธีทำด้วย
     };
     
-    final uri = Uri.https('api.spoonacular.com', '/recipes/complexSearch', params); // แก้ไข URI ให้ถูกต้อง
+    final uri = Uri.https('api.spoonacular.com', '/recipes/complexSearch', params);
     
     try {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         var responseData = json.decode(response.body);
-        var data = responseData['results'] as List; // ใช้ 'results' แทน 'recipes'
+        var data = responseData['results'] as List;
         List<Map<String, dynamic>> recipes = [];
 
-        for (var recipe in data) {
+        // จำกัดจำนวนสูตรที่จะประมวลผลเป็น 5 สูตร
+        for (var recipe in data.take(limit)) {
           int recipeId = recipe['id'];
           String title = recipe['title'] ?? 'Unknown Recipe';
           String image = recipe['image'] ?? '';
@@ -108,8 +140,8 @@ class PopularRecipeService {
           recipes.add(formattedRecipe);
         }
 
-        // บันทึกข้อมูล popular recipes ลง Firestore สำหรับใช้งานแบบ offline หรือลดการเรียก API
-        _cachePopularRecipes(recipes);
+        // บันทึกข้อมูล popular recipes ลง Firestore แบบใหม่ที่มีข้อมูลครบถ้วน
+        _cacheDetailedPopularRecipes(recipes);
         
         print("🔥 Found ${recipes.length} hot recipes");
         return recipes;
@@ -121,6 +153,31 @@ class PopularRecipeService {
       print("❌ API Error: $e");
       return _getOfflinePopularRecipes(limit);
     }
+  }
+
+  // ปรับปรุงเมธอดให้บันทึกข้อมูลสูตรอาหารที่มีรายละเอียดครบถ้วน (ไม่เก็บเฉพาะ ID)
+  Future<void> _cacheDetailedPopularRecipes(List<Map<String, dynamic>> recipes) async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        // เก็บข้อมูลสูตรอาหารทั้งหมดลงแคชแทนที่จะเก็บแค่ ID
+        await FirebaseFirestore.instance
+            .collection('cachedRecipes')
+            .doc('popular_recipes')
+            .set({
+              'recipes': recipes,
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+        
+        print("✅ Cached ${recipes.length} detailed hot recipes to Firestore");
+      } catch (e) {
+        print("❌ Error caching hot recipes: $e");
+      }
+    }
+    
+    // ยังคงเก็บแบบเดิมไว้เพื่อความเข้ากันได้
+    _cachePopularRecipes(recipes);
   }
 
   Future<void> _cachePopularRecipes(List<Map<String, dynamic>> recipes) async {
@@ -142,7 +199,7 @@ class PopularRecipeService {
               'updatedAt': FieldValue.serverTimestamp(),
             });
         
-        print("✅ Cached ${recipeIds.length} hot recipes to Firestore");
+        print("✅ Cached ${recipeIds.length} hot recipe IDs to Firestore");
       } catch (e) {
         print("❌ Error caching hot recipes: $e");
       }
@@ -153,6 +210,21 @@ class PopularRecipeService {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
+        // ลองดึงข้อมูลจากแคชแบบใหม่ที่มีรายละเอียดครบถ้วนก่อน
+        final detailedCache = await FirebaseFirestore.instance
+            .collection('cachedRecipes')
+            .doc('popular_recipes')
+            .get();
+            
+        if (detailedCache.exists) {
+          Map<String, dynamic> cacheData = detailedCache.data() as Map<String, dynamic>;
+          List<Map<String, dynamic>> recipes = List<Map<String, dynamic>>.from(cacheData['recipes'] ?? []);
+          
+          print("📦 Retrieved ${recipes.length} detailed hot recipes from cache");
+          return recipes.take(limit).toList();
+        }
+        
+        // ถ้าไม่มีแคชแบบใหม่ ให้ใช้แคชแบบเดิม
         final cachedData = await FirebaseFirestore.instance
             .collection('hotRecipes')
             .doc('latest')
@@ -163,6 +235,7 @@ class PopularRecipeService {
           List<int> recipeIds = List<int>.from(data['recipeIds'] ?? []);
           List<Map<String, dynamic>> recipes = [];
           
+          // จำกัดจำนวนสูตรอาหารที่ดึงจากแคช
           for (int id in recipeIds.take(limit)) {
             var recipeData = await _recipeService.getRecipeInformation(id);
             if (recipeData.isNotEmpty) {
@@ -171,7 +244,7 @@ class PopularRecipeService {
             }
           }
           
-          print("📦 Retrieved ${recipes.length} hot recipes from cache");
+          print("📦 Retrieved ${recipes.length} hot recipes from ID cache");
           return recipes;
         }
       } catch (e) {

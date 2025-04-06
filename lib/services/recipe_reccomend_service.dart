@@ -118,31 +118,48 @@ class RecipeRecommendationService {
   }
 
   Future<List<String>> fetchNotRecommendedRecipes(String userId) async {
-  try {
-    final snapshot = await _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('notRecommendedRecipes')
-        .get();
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('notRecommendedRecipes')
+          .get();
 
-    List<String> notRecommendedIds = snapshot.docs
-        .map((doc) => doc['recipeId'].toString())
-        .toList();
+      List<String> notRecommendedIds = snapshot.docs
+          .map((doc) => doc['recipeId'].toString())
+          .toList();
 
-    print("✅ Fetched ${notRecommendedIds.length} not recommended recipes");
-    return notRecommendedIds;
-  } catch (e) {
-    print("❌ Error fetching not recommended recipes: $e");
-    return [];
+      print("✅ Fetched ${notRecommendedIds.length} not recommended recipes");
+      return notRecommendedIds;
+    } catch (e) {
+      print("❌ Error fetching not recommended recipes: $e");
+      return [];
+    }
   }
-}
 
   Future<List<Map<String, dynamic>>> getRecommendedRecipes(
       String userId) async {
     try {
       print('🔍 Starting getRecommendedRecipes for user: $userId');
-      // Fetch user data
+      
+      // ตรวจสอบแคชก่อน
+      String cacheKey = 'recommendations_${userId}_${DateTime.now().day}';
+      DocumentSnapshot cachedRecommendations = await _firestore
+          .collection('cachedRecommendations')
+          .doc(cacheKey)
+          .get();
 
+      // ถ้ามีแคชและไม่เกิน 12 ชั่วโมง ให้ใช้แคช
+      if (cachedRecommendations.exists) {
+        Map<String, dynamic> cachedData = cachedRecommendations.data() as Map<String, dynamic>;
+        int timestamp = cachedData['timestamp'] ?? 0;
+        if (DateTime.now().millisecondsSinceEpoch - timestamp < 43200000) { // 12 ชั่วโมง
+          print('✅ Using cached recommendations');
+          return List<Map<String, dynamic>>.from(cachedData['recipes'] ?? []);
+        }
+      }
+      
+      // Fetch user data
       List<String> userIngredients = await fetchUserIngredients(userId);
       List<String> userPreferences = await fetchUserPreferences(userId);
       List<String> userAllergies = await fetchUserAllergies(userId);
@@ -152,6 +169,7 @@ class RecipeRecommendationService {
       Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
       List<Map<String, dynamic>> ingredientsWithExpiry =
           await fetchIngredientsWithExpiry(userId);
+      List<String> notRecommendedIds = await fetchNotRecommendedRecipes(userId);
 
       DocumentSnapshot macroDoc = await _firestore
           .collection('usersCaloriesMacronutrient')
@@ -180,81 +198,71 @@ class RecipeRecommendationService {
       print('- Goal: $userGoals');
       print('- Macros: $userMacros');
 
-      List<Map<String, dynamic>> thaiRecipes = await _recipeService.getRecipesByCuisine(
-      primaryCuisine: 'Thai', 
-      fallbackCuisines: [], 
-      limit: 5 
-    );
-
-      // Get recipes from API
-      List<Map<String, dynamic>> ingredientBasedRecipes =
-        await _recipeService.getRecipesWithImages(userIngredients);
-        
-    List<Map<String, dynamic>> allRecipes = [];
-    
-   
-    Set<int> recipeIds = {};
-
-      List<String> notRecommendedIds = await fetchNotRecommendedRecipes(userId);
-    
-    
-
-    for (var recipe in thaiRecipes) {
-      int id = recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString());
-      if (!recipeIds.contains(id)) {
-        recipeIds.add(id);
-        recipe['isThaiCuisine'] = true; 
-        allRecipes.add(recipe);
+      // เรียกวัตถุดิบที่ใกล้หมดอายุก่อน
+      ingredientsWithExpiry.sort((a, b) {
+        DateTime aDate = a['expiryDate'] is DateTime ? a['expiryDate'] : DateTime.now();
+        DateTime bDate = b['expiryDate'] is DateTime ? b['expiryDate'] : DateTime.now();
+        return aDate.compareTo(bDate);
+      });
+      
+      // เลือกวัตถุดิบที่ใกล้หมดอายุ 3 อย่างแรก (หรือน้อยกว่าถ้ามีไม่ถึง)
+      List<String> priorityIngredients = [];
+      for (var ingredient in ingredientsWithExpiry) {
+        if (priorityIngredients.length < 3) {
+          priorityIngredients.add(ingredient['name']);
+        } else {
+          break;
+        }
       }
-    }
-    
-    // เพิ่มอาหารจากวัตถุดิบ
-    for (var recipe in ingredientBasedRecipes) {
-      int id = recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString());
-      if (!recipeIds.contains(id)) {
-        recipeIds.add(id);
-        recipe['isThaiCuisine'] = recipe['cuisine'] == 'Thai'; // ตรวจสอบว่าเป็นอาหารไทยหรือไม่
-        allRecipes.add(recipe);
+      
+      // เอาวัตถุดิบที่เหลือถ้ามีไม่ถึง 3 อย่าง
+      if (priorityIngredients.length < 3 && userIngredients.isNotEmpty) {
+        for (var ingredient in userIngredients) {
+          if (!priorityIngredients.contains(ingredient) && priorityIngredients.length < 3) {
+            priorityIngredients.add(ingredient);
+          }
+        }
       }
-    }
 
-    List<Map<String, dynamic>> filteredRecipes = allRecipes.where((recipe) {
-      int recipeId = recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString());
-      return !notRecommendedIds.contains(recipeId.toString());
-    }).toList();
+      // เรียก API เพียงครั้งเดียว โดยใช้ getRecipesByCuisine พร้อมระบุวัตถุดิบที่มีอยู่
+      List<Map<String, dynamic>> recipes = await _recipeService.getRecipesByCuisine(
+        primaryCuisine: 'Thai',
+        fallbackCuisines: ['Asian', 'Chinese', 'Japanese'],
+        limit: 5,
+        includeIngredients: priorityIngredients,
+      );
+      
+      // กรองรายการอาหารที่ไม่แนะนำออก
+      List<Map<String, dynamic>> filteredRecipes = recipes.where((recipe) {
+        int recipeId = recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString());
+        return !notRecommendedIds.contains(recipeId.toString());
+      }).toList();
 
       // Filter and score recipes
       List<Map<String, dynamic>> recommendedRecipes = [];
-      ingredientsWithExpiry.sort((a, b) {
-        DateTime aDate =
-            a['expiryDate'] is DateTime ? a['expiryDate'] : DateTime.now();
-        DateTime bDate =
-            b['expiryDate'] is DateTime ? b['expiryDate'] : DateTime.now();
-        return aDate.compareTo(bDate);
-      });
 
       for (var recipe in filteredRecipes) {
         try {
           int score = 0;
           bool isValid = true;
-
-          if (recipe['isThaiCuisine'] == true) {
-          score += 30; // เพิ่มคะแนนให้อาหารไทย
-        }
+          bool isThaiCuisine = recipe['cuisine'] == 'Thai';
+          
+          if (isThaiCuisine) {
+            score += 30; // เพิ่มคะแนนให้อาหารไทย
+          }
 
           // Check ingredients match (40 points max)
-          var usedIngredients =
-              recipe['usedIngredients'] as List<dynamic>? ?? [];
+          var usedIngredients = recipe['usedIngredients'] as List<dynamic>? ?? [];
           for (var ingredient in usedIngredients) {
             String ingredientName = ingredient['name'] ?? '';
-           Map<String, dynamic> defaultIngredient = {
-            'expiryDate': DateTime.now().add(const Duration(days: 365)),
-            'name': ingredientName
-          };
+            Map<String, dynamic> defaultIngredient = {
+              'expiryDate': DateTime.now().add(const Duration(days: 365)),
+              'name': ingredientName
+            };
 
-          var matchingIngredient = ingredientsWithExpiry.firstWhere(
-              (i) => i['name'].toLowerCase() == ingredientName.toLowerCase(),
-              orElse: () => defaultIngredient);
+            var matchingIngredient = ingredientsWithExpiry.firstWhere(
+                (i) => i['name'].toLowerCase() == ingredientName.toLowerCase(),
+                orElse: () => defaultIngredient);
 
             DateTime expiryDate = matchingIngredient['expiryDate'] is DateTime
                 ? matchingIngredient['expiryDate']
@@ -269,22 +277,20 @@ class RecipeRecommendationService {
               score += 10;
             }
           }
+          
           // Calculate match percentage
           int usedCount = recipe['usedIngredientCount'] is int
               ? recipe['usedIngredientCount']
-              : int.tryParse(
-                      recipe['usedIngredientCount']?.toString() ?? '0') ??
-                  0;
+              : int.tryParse(recipe['usedIngredientCount']?.toString() ?? '0') ?? 0;
           int missedCount = recipe['missedIngredientCount'] is int
               ? recipe['missedIngredientCount']
-              : int.tryParse(
-                      recipe['missedIngredientCount']?.toString() ?? '0') ??
-                  0;
+              : int.tryParse(recipe['missedIngredientCount']?.toString() ?? '0') ?? 0;
 
           double matchPercentage = (usedCount + missedCount) > 0
               ? (usedCount / (usedCount + missedCount)) * 100
               : 0;
           score += (matchPercentage * 0.4).round();
+          
           // Check allergies (mandatory) - with safe extraction
           List<String> recipeIngredients = [];
           try {
@@ -298,8 +304,7 @@ class RecipeRecommendationService {
             print('Warning: Error extracting ingredients: $e');
           }
 
-          if (userAllergies
-              .any((allergy) => recipeIngredients.contains(allergy))) {
+          if (userAllergies.any((allergy) => recipeIngredients.contains(allergy))) {
             continue;
           }
 
@@ -327,8 +332,7 @@ class RecipeRecommendationService {
             // Extract nutrition values with safe conversion
             double calories = nutrition['calories'] is num
                 ? nutrition['calories'].toDouble()
-                : double.tryParse(nutrition['calories']?.toString() ?? '0') ??
-                    0;
+                : double.tryParse(nutrition['calories']?.toString() ?? '0') ?? 0;
             double protein = nutrition['protein'] is num
                 ? nutrition['protein'].toDouble()
                 : double.tryParse(nutrition['protein']?.toString() ?? '0') ?? 0;
@@ -357,8 +361,7 @@ class RecipeRecommendationService {
               bool proteinMatch = isMacroInRange(protein, userMacros['protein'],
                   0.15 // 15% deviation allowed for macros
                   );
-              bool carbsMatch =
-                  isMacroInRange(carbs, userMacros['carbs'], 0.15);
+              bool carbsMatch = isMacroInRange(carbs, userMacros['carbs'], 0.15);
               bool fatMatch = isMacroInRange(fat, userMacros['fat'], 0.15);
 
               if (caloriesMatch) score += 10;
@@ -388,6 +391,7 @@ class RecipeRecommendationService {
               'recommendationScore': score,
               'matchPercentage': matchPercentage,
               'usesExpiringIngredients': score > 0,
+              'isThaiCuisine': isThaiCuisine,
             });
           }
         } catch (e) {
@@ -399,8 +403,8 @@ class RecipeRecommendationService {
       // Sort by score
       recommendedRecipes.sort((a, b) {
         if (a['isThaiCuisine'] != b['isThaiCuisine']) {
-        return a['isThaiCuisine'] == true ? -1 : 1;
-      }
+          return a['isThaiCuisine'] == true ? -1 : 1;
+        }
         if (a['usesExpiringIngredients'] != b['usesExpiringIngredients']) {
           return b['usesExpiringIngredients'] ? 1 : -1;
         }
@@ -408,25 +412,20 @@ class RecipeRecommendationService {
             .compareTo(a['recommendationScore'] ?? 0);
       });
 
-      print('✅ Successfully fetched recommendations');
-        List<Map<String, dynamic>> finalRecommendations = [];
-    List<Map<String, dynamic>> thaiRecommendations = [];
-    List<Map<String, dynamic>> otherRecommendations = [];
-    
-    for (var recipe in recommendedRecipes) {
-      if (recipe['isThaiCuisine'] == true) {
-        thaiRecommendations.add(recipe);
-      } else {
-        otherRecommendations.add(recipe);
+      // แคชผลลัพธ์
+      try {
+        await _firestore.collection('cachedRecommendations').doc(cacheKey).set({
+          'recipes': recommendedRecipes,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+      } catch (e) {
+        print('⚠️ Error caching recommendations: $e');
       }
-    }
-    
-    finalRecommendations.addAll(thaiRecommendations.take(5));
-    finalRecommendations.addAll(otherRecommendations.take(10 - finalRecommendations.length));
-    
-    print('✅ Final recommendations: ${finalRecommendations.length} recipes (Thai cuisine: ${thaiRecommendations.length})');
-    
-    return finalRecommendations;
+
+      print('✅ Successfully fetched recommendations: ${recommendedRecipes.length} recipes');
+      
+      // คืนค่าคำแนะนำสุดท้าย (จำกัด 5 รายการ)
+      return recommendedRecipes.take(5).toList();
     } catch (e) {
       print('Error getting recommended recipes: $e');
       return [];

@@ -13,6 +13,7 @@ class RecipeWidget extends StatefulWidget {
   final DateTime? preselectedDate;
   final String? preselectedMealType;
 
+
   const RecipeWidget({
     required this.index,
     this.recipeScreenList,
@@ -240,43 +241,22 @@ class _RecipeWidgetState extends State<RecipeWidget> {
         child: Row(
           children: [
             // รูปภาพที่มีปุ่มหัวใจ
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: _buildRecipeImage(currentRecipe.imageUrl),
-                ),
-                Positioned(
-                  top: 3,
-                  right: 4,
-                  child: Container(
-                    height: 40,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: Colors.grey.shade300, width: 1),
-                    ),
-                    child: IconButton(
-                      onPressed: () {
-                        setState(() {
-                          currentRecipe.isFavorite = !currentRecipe.isFavorite;
-                        });
-                      },
-                      icon: Icon(
-                        currentRecipe.isFavorite
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: currentRecipe.isFavorite
-                            ? Colors.red
-                            : Colors.black54,
-                      ),
-                      iconSize: 20,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+           Stack(
+  children: [
+    // รูปภาพ
+    Container(
+      width: 110,
+      height: 110,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: _buildRecipeImage(currentRecipe.imageUrl),
+      ),
+    ),
+  ],
+),
             const SizedBox(width: 12),
             // ข้อมูลสูตรอาหาร
             Expanded(

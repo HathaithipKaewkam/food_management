@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class PrivacyPolicyScreen extends StatefulWidget {
   @override
@@ -10,17 +11,27 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Privacy Policy',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leadingWidth: 40,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            Navigator.pop(context); // กลับไปหน้าก่อนหน้า
+            Navigator.pop(context);
           },
+          icon: const FaIcon(FontAwesomeIcons.arrowLeft),
+          color: Colors.black,
+          iconSize: 20,
+        ),
+        title: Text(
+          'Privacy Policy',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
         ),
       ),
+     
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView(

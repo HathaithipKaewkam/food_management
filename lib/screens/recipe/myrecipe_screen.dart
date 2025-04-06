@@ -25,66 +25,73 @@ class _MyrecipeScreen extends State<MyrecipeScreen> {
   }
 
  Future<void> fetchUserRecipes() async {
+  print("Starting fetchUserRecipes...");
   try {
     setState(() {
       isLoading = true;
     });
     
     User? user = FirebaseAuth.instance.currentUser;
-    
-    if (user != null) {
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('userRecipe')
-          .get();
-
-      print("Found ${querySnapshot.docs.length} recipes in Firebase");
-      
-      List<Recipe> recipes = [];
-      
-      for (var doc in querySnapshot.docs) {
-        try {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          
-          // ตรวจสอบและแสดง ingredients ในเอกสาร
-          if (data['ingredients'] != null) {
-            print("Ingredients in document ${doc.id}: ${data['ingredients']}");
-          } else {
-            print("No ingredients found in document ${doc.id}");
-          }
-          
-          Recipe recipe = Recipe.fromFirestore(data, doc.id);
-          print("Recipe ${recipe.recipeName} has ${recipe.ingredients.length} ingredients after parsing");
-          
-          // ตรวจสอบว่า ingredient ถูกแปลงได้ถูกต้องหรือไม่
-          for (var ing in recipe.ingredients) {
-            print("Parsed ingredient: ${ing.ingredient.ingredientsName}, Unit: ${ing.ingredient.unit}, Quantity: ${ing.quantityUsed}");
-          }
-          
-          recipes.add(recipe);
-        } catch (e) {
-          print('Error parsing recipe document ${doc.id}: $e');
-          // ข้ามข้อมูลที่มีปัญหาและทำงานต่อ
-        }
-      }
-      
-      setState(() {
-        userRecipes = recipes;
-        isLoading = false;
-      });
-    } else {
+    if (user == null) {
+      print("No user logged in");
       setState(() {
         isLoading = false;
       });
+      return;
     }
+    
+    // ดึงข้อมูลจาก Firestore
+    print("Fetching recipes for user: ${user.uid}");
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userRecipe')
+        .get();
+
+    print("Found ${querySnapshot.docs.length} recipes in Firestore");
+    
+    // ตรวจสอบว่าการโหลดสำเร็จหรือไม่
+    if (querySnapshot.docs.isEmpty) {
+      print("No recipes found, setting isLoading = false");
+      setState(() {
+        userRecipes = [];
+        isLoading = false;
+      });
+      return;
+    }
+    
+    List<Recipe> recipes = [];
+    
+    // แปลงข้อมูลจาก Firestore เป็น Recipe objects
+    for (var doc in querySnapshot.docs) {
+      try {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        print("Processing document ${doc.id}: ${data['recipeName']}");
+        
+        // เรียกใช้ Recipe.fromFirestore แทนการแปลงเอง
+        Recipe recipe = Recipe.fromFirestore(data, doc.id);
+        recipes.add(recipe);
+        print("Added recipe: ${recipe.recipeName}");
+      } catch (e) {
+        print('❌ Error parsing document ${doc.id}: $e');
+        // ข้ามข้อมูลที่มีปัญหา
+      }
+    }
+    
+    print("Successfully parsed ${recipes.length} recipes, setting isLoading = false");
+    setState(() {
+      userRecipes = recipes;
+      isLoading = false;
+    });
   } catch (e) {
-    print('เกิดข้อผิดพลาดในการดึงข้อมูล: $e');
+    print('❌ Error in fetchUserRecipes: $e');
+    // ที่สำคัญ: อย่าลืมเซ็ต isLoading = false เมื่อเกิดข้อผิดพลาด
     setState(() {
       isLoading = false;
     });
   }
 }
+
 
   @override
   Widget build(BuildContext context) {
@@ -270,38 +277,6 @@ class _MyrecipeScreen extends State<MyrecipeScreen> {
                                   ],
                                 ),
                               ],
-                            ),
-                            Positioned(
-                              top: 1,
-                              right: 4,
-                              child: Container(
-                                height: 40,
-                                width: 40,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(25),
-                                  border: Border.all(
-                                      color: Colors.grey.shade300,
-                                      width: 1),
-                                ),
-                                child: IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      userRecipes[index].isFavorite =
-                                          !userRecipes[index].isFavorite;
-                                    });
-                                  },
-                                  icon: Icon(
-                                    userRecipes[index].isFavorite
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    color: userRecipes[index].isFavorite
-                                        ? Colors.red
-                                        : Colors.black54,
-                                  ),
-                                  iconSize: 20,
-                                ),
-                              ),
                             ),
                           ],
                         ),

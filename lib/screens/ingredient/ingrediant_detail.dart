@@ -55,7 +55,7 @@ bool isLoadingRecipes = true;
   }
 }
 
- Future<void> fetchRecipe() async {
+Future<void> fetchRecipe() async {
   try {
     setState(() {
       isLoadingRecipes = true;
@@ -68,76 +68,107 @@ bool isLoadingRecipes = true;
         .replaceAll(RegExp(r'[^\w\s]'), '') 
         .trim();
     
-    print("🔍 ค้นหาสูตรอาหารสำหรับ: $formattedIngredient");
 
-    // ค้นหาสูตรอาหารไทย
+    List<String> userIngredientNames = userIngredientsMap.keys.toList();
+    
+
+    if (!userIngredientNames.contains(formattedIngredient)) {
+      userIngredientNames.add(formattedIngredient);
+    }
+
+    userIngredientNames = userIngredientNames.take(5).toList();
+
     List<Map<String, dynamic>> thaiRecipes = await _recipeService.getRecipesByCuisine(
       primaryCuisine: 'Thai',
       fallbackCuisines: [],
       limit: 5,
-      includeIngredients: [formattedIngredient]
+      includeIngredients: userIngredientNames
     );
-
-    // ค้นหาสูตรอาหารทั่วไป
-    List<Map<String, dynamic>> generalRecipes =
-      await _recipeService.getRecipesWithImages([formattedIngredient]);
     
-    print("📊 พบสูตรอาหารไทย ${thaiRecipes.length} สูตร และสูตรทั่วไป ${generalRecipes.length} สูตร");
+    List<Map<String, dynamic>> filteredThaiRecipes = [];
     
-    Set<int> recipeIds = {};
-    List<Map<String, dynamic>> allRecipes = [];
-
-    // กรองและเพิ่มสูตรอาหารไทยที่มีวัตถุดิบตรงกัน
     for (var recipe in thaiRecipes) {
-      int id = recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString());
+      var usedIngredients = recipe['usedIngredients'] as List<dynamic>? ?? [];
+      bool containsMainIngredient = false;
       
-      // ตรวจสอบว่ามีส่วนผสมตรงกันหรือไม่
-      bool hasMatchingIngredient = true;
-      
-      
-      if (hasMatchingIngredient && !recipeIds.contains(id)) {
-        recipeIds.add(id);
-        recipe['isThaiCuisine'] = true;
-        allRecipes.add(recipe);
-      }
-    }
-    
-    // กรองและเพิ่มสูตรอาหารทั่วไปที่มีวัตถุดิบตรงกัน
-    for (var recipe in generalRecipes) {
-      int id = recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString());
-      
-      if (!recipeIds.contains(id)) {
-        int usedIngredientCount = extractIngredientCount(recipe, 'usedIngredientCount');
-        if (usedIngredientCount > 0) {
-          recipeIds.add(id);
-          recipe['isThaiCuisine'] = recipe['cuisine'] == 'Thai';
-          allRecipes.add(recipe);
+      for (var ingredient in usedIngredients) {
+        String ingredientName = ingredient['name']?.toString().toLowerCase() ?? '';
+        if (ingredientName.contains(formattedIngredient)) {
+          containsMainIngredient = true;
+          break;
         }
       }
+      
+      if (containsMainIngredient) {
+        recipe['isThaiCuisine'] = true;
+        filteredThaiRecipes.add(recipe);
+      }
     }
     
-    // ถ้าไม่พบสูตรอาหารเลย แสดงข้อความหรือลองใช้การค้นหาอื่น
-    if (allRecipes.isEmpty) {
-      print("⚠️ ไม่พบสูตรอาหารที่มีส่วนผสมตรงกัน");
+    int remainingRecipes = 5 - filteredThaiRecipes.length;
+    
+    List<Map<String, dynamic>> otherRecipes = [];
+    
+    if (remainingRecipes > 0) {
+      otherRecipes = await _recipeService.getRecipesWithImages(
+        userIngredientNames,
+        number: remainingRecipes 
+      );
       
     
+      List<Map<String, dynamic>> filteredOtherRecipes = [];
+      
+      for (var recipe in otherRecipes) {
+        var usedIngredients = recipe['usedIngredients'] as List<dynamic>? ?? [];
+        bool containsMainIngredient = false;
+        
+        for (var ingredient in usedIngredients) {
+          String ingredientName = ingredient['name']?.toString().toLowerCase() ?? '';
+          if (ingredientName.contains(formattedIngredient)) {
+            containsMainIngredient = true;
+            break;
+          }
+        }
+        
+        if (containsMainIngredient) {
+          recipe['isThaiCuisine'] = (recipe['cuisine'] == 'Thai');
+          
+          bool isDuplicate = false;
+          for (var thaiRecipe in filteredThaiRecipes) {
+            if (thaiRecipe['id'] == recipe['id']) {
+              isDuplicate = true;
+              break;
+            }
+          }
+          
+          if (!isDuplicate) {
+            filteredOtherRecipes.add(recipe);
+          }
+        }
+      }
+      
+      filteredOtherRecipes = filteredOtherRecipes.take(remainingRecipes).toList();
+      
+      
     }
+
+    List<Map<String, dynamic>> allRecipes = [...filteredThaiRecipes, ...otherRecipes];
     
-    // เรียงลำดับ: อาหารไทยก่อน และเรียงตามจำนวนวัตถุดิบที่ตรงกัน
     allRecipes.sort((a, b) {
-      // เรียงตามประเภทอาหาร (อาหารไทยมาก่อน)
+    
       if (a['isThaiCuisine'] != b['isThaiCuisine']) {
         return a['isThaiCuisine'] == true ? -1 : 1;
       }
       
-      // ถ้าเป็นประเภทเดียวกัน เรียงตามจำนวนวัตถุดิบที่ตรงกัน
       int aMatch = extractIngredientCount(a, 'usedIngredientCount');
       int bMatch = extractIngredientCount(b, 'usedIngredientCount');
       
       return bMatch.compareTo(aMatch);
     });
     
-    print("📊 ค้นหาสูตรอาหารแล้ว: ${allRecipes.length} สูตร (อาหารไทย: ${allRecipes.where((r) => r['isThaiCuisine'] == true).length} สูตร)");
+    allRecipes = allRecipes.take(5).toList();
+    
+   
     
     if (mounted) {
       setState(() {
@@ -156,7 +187,7 @@ bool isLoadingRecipes = true;
   }
 }
 
-  Future<void> fetchPairingIngredients() async {
+Future<void> fetchPairingIngredients() async {
   try {
     setState(() {
       isLoadingPairing = true;
@@ -165,12 +196,16 @@ bool isLoadingRecipes = true;
     List<Map<String, String>> fetchedIngredients =
         await getRecipeAndPairings(widget.ingredient.ingredientsName);
     
+    List<Map<String, String>> limitedIngredients = fetchedIngredients.take(5).toList();
+    
     if (mounted) {
       setState(() {
-        pairingIngredients = fetchedIngredients;
+        pairingIngredients = limitedIngredients;
         isLoadingPairing = false;
       });
     }
+    
+   
   } catch (e) {
     print("Error fetching pairing ingredients: $e");
     if (mounted) {
@@ -1089,7 +1124,7 @@ void _showIngredientPopup(BuildContext context, Map<String, dynamic> ingredient,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Add to Cart',
+                    child: const Text('Add to Shoppping List',
                         style: TextStyle(color: Colors.white)),
                   ),
                 ],

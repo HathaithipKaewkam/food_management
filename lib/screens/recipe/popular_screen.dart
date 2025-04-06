@@ -18,73 +18,8 @@ class _PopularScreen extends State<PopularScreen> {
   @override
   void initState() {
     super.initState();
-    checkFavorites();
   }
 
-  Future<void> checkFavorites() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    
-    try {
-      final favorites = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('favoriteRecipes')
-          .get();
-      
-      Set<String> favoriteIds = favorites.docs
-          .map((doc) => doc.id)
-          .toSet();
-      
-      setState(() {
-        for (var recipe in widget.popularRecipes) {
-          String recipeId = recipe['id']?.toString() ?? '0';
-          recipe['isFavorite'] = favoriteIds.contains(recipeId);
-        }
-      });
-    } catch (e) {
-      print('Error checking favorites: $e');
-    }
-  }
-
-  Future<void> toggleFavorite(Map<String, dynamic> recipe) async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-      
-      final recipeId = recipe['id']?.toString() ?? '0';
-      final isFavorite = recipe['isFavorite'] ?? false;
-      
-      if (isFavorite) {
-        // ลบออกจาก favorites
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('favoriteRecipes')
-            .doc(recipeId)
-            .delete();
-      } else {
-        // เพิ่มเข้า favorites
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('favoriteRecipes')
-            .doc(recipeId)
-            .set({
-              'recipeId': recipeId,
-              'title': recipe['title'] ?? '',
-              'image': recipe['image'] ?? '',
-              'addedAt': FieldValue.serverTimestamp(),
-            });
-      }
-      
-      setState(() {
-        recipe['isFavorite'] = !isFavorite;
-      });
-    } catch (e) {
-      print('Error toggling favorite: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -279,34 +214,7 @@ class _PopularScreen extends State<PopularScreen> {
                                       ),
                                     ],
                                   ),
-                                  Positioned(
-                                    top: 1,
-                                    right: 4,
-                                    child: Container(
-                                      height: 40,
-                                      width: 40,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(25),
-                                        border: Border.all(
-                                          color: Colors.grey.shade300, 
-                                          width: 1
-                                        ),
-                                      ),
-                                      child: IconButton(
-                                        onPressed: () => toggleFavorite(recipe),
-                                        icon: Icon(
-                                          recipe['isFavorite'] == true
-                                              ? Icons.favorite
-                                              : Icons.favorite_border,
-                                          color: recipe['isFavorite'] == true
-                                              ? Colors.red
-                                              : Colors.black54,
-                                        ),
-                                        iconSize: 20,
-                                      ),
-                                    ),
-                                  ),
+
                                 ],
                               ),
                             ),
