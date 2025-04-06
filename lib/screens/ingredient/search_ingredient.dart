@@ -22,16 +22,27 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
   bool isLoading = true;
   DocumentSnapshot? lastDocument;
   final int pageSize = 15; 
+  Timer? _loadMoreDebounce;
+  bool _isLoadingMore = false;
+  Map<String, String> _imageUrlCache = {};
   
 
   Future<void> _fetchIngredients({bool refresh = false}) async {
-  if (refresh) {
-    setState(() {
+  
+  if ((isLoading || _isLoadingMore) && !refresh) {
+    return;
+  }
+  
+  setState(() {
+    if (refresh) {
+      isLoading = true;
+      _isLoadingMore = false;
       lastDocument = null;
       ingredientList = [];
-      isLoading = true;
-    });
-  }
+    } else {
+      _isLoadingMore = true;
+    }
+  });
   
   try {
     logImage("🔍 Fetching ingredients...");
@@ -66,7 +77,7 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
       tempList.add({
         'id': doc.id,
         'ingredientsName': data['ingredientsName'] ?? '',
-        'imageUrl': imageName,  // ไม่ต้องตรวจว่าว่างเปล่า
+        'imageUrl': imageName,
         'category': data['category'] ?? '',
         'unit': data['unit'] ?? '',
         'shelflife': data['shelflife'] ?? 0,
@@ -77,9 +88,26 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
     }
     
     setState(() {
-      ingredientList.addAll(tempList);
+      // ถ้าเป็นการรีเฟรช ให้แทนที่ทั้งหมด
+      if (refresh) {
+        ingredientList = tempList;
+      } else {
+        // ตรวจสอบความซ้ำซ้อนก่อนเพิ่มข้อมูล
+        Set<String> existingIds = ingredientList.map((e) => e['id'].toString()).toSet();
+        List<Map<String, dynamic>> uniqueItems = tempList.where((item) => 
+          !existingIds.contains(item['id'].toString())).toList();
+        
+        logImage("✅ Adding ${uniqueItems.length} new unique ingredients");
+        ingredientList.addAll(uniqueItems);
+      }
       isLoading = false;
+      _isLoadingMore = false;
     });
+    
+    // บันทึกลงแคชเฉพาะเมื่อรีเฟรชหรือเป็นการโหลดครั้งแรก
+    if (refresh || lastDocument == querySnapshot.docs.last) {
+      _saveIngredientsToCache(ingredientList);
+    }
   } catch (e) {
     logImage("❌ Error fetching ingredients: $e");
     setState(() {
@@ -128,14 +156,7 @@ double _parseDoubleValue(dynamic value) {
     });
   }
 
-  Future<void> _saveIngredientsToCache(List<Map<String, dynamic>> ingredients) async {
-  final prefs = await SharedPreferences.getInstance();
-  final jsonData = jsonEncode(ingredients);
-  await prefs.setString('cached_ingredients', jsonData);
-  await prefs.setInt('cache_timestamp', DateTime.now().millisecondsSinceEpoch);
-}
-
-Future<List<Map<String, dynamic>>> _getIngredientsFromCache() async {
+  Future<List<Map<String, dynamic>>> _getIngredientsFromCache() async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final jsonData = prefs.getString('cached_ingredients');
@@ -155,8 +176,28 @@ Future<List<Map<String, dynamic>>> _getIngredientsFromCache() async {
   return [];
 }
 
+ Future<void> _saveIngredientsToCache(List<Map<String, dynamic>> ingredients) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    // ตรวจสอบความซ้ำซ้อนก่อนบันทึก
+    final Set<String> uniqueIds = {};
+    final List<Map<String, dynamic>> uniqueIngredients = ingredients.where((ingredient) {
+      final id = ingredient['id'].toString();
+      final isUnique = !uniqueIds.contains(id);
+      if (isUnique) uniqueIds.add(id);
+      return isUnique;
+    }).toList();
+    
+    final jsonData = jsonEncode(uniqueIngredients);
+    await prefs.setString('cached_ingredients', jsonData);
+    await prefs.setInt('cache_timestamp', DateTime.now().millisecondsSinceEpoch);
+    logImage("✅ Saved ${uniqueIngredients.length} ingredients to cache");
+  } catch (e) {
+    logImage("❌ Error saving to cache: $e");
+  }
+}
+
 Future<void> _loadInitialData() async {
-  // ดึงข้อมูลจากแคชก่อน เพื่อแสดงผลทันที
   final cachedIngredients = await _getIngredientsFromCache();
   if (cachedIngredients.isNotEmpty) {
     setState(() {
@@ -188,6 +229,7 @@ void initState() {
   void dispose() {
     _searchController.dispose();
     _debounce?.cancel();
+    _loadMoreDebounce?.cancel();
     super.dispose();
   }
 
@@ -261,11 +303,17 @@ void initState() {
             )
           else
             Expanded(
-              child: NotificationListener<ScrollNotification>(
+              child:NotificationListener<ScrollNotification>(
                 onNotification: (ScrollNotification scrollInfo) {
-                  if (!isLoading && 
-                      scrollInfo.metrics.pixels == scrollInfo.metrics.maxScrollExtent) {
-                    _fetchIngredients();
+                  if (!isLoading && !_isLoadingMore && 
+                      scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+                    if (_loadMoreDebounce?.isActive ?? false) _loadMoreDebounce!.cancel();
+                    
+                    _loadMoreDebounce = Timer(Duration(milliseconds: 300), () {
+                      if (!isLoading && !_isLoadingMore) {
+                        _fetchIngredients();
+                      }
+                    });
                     return true;
                   }
                   return false;
@@ -376,22 +424,36 @@ void initState() {
   }
 
  Widget _buildIngredientImage(String imagePath) {
-  if (imagePath.startsWith('assets/')) {
+  if (imagePath.startsWith('assets/') || imagePath.isEmpty) {
     return Image.asset(
-      imagePath,
-      width: 40,
-      height: 40,
-      fit: BoxFit.cover,
-    );
-  } else if (imagePath.isEmpty) {
-    return Image.asset(
-      'assets/images/default_ing.png',
+      imagePath.isEmpty ? 'assets/images/default_ing.png' : imagePath,
       width: 40,
       height: 40,
       fit: BoxFit.cover,
     );
   } else {
-    // ใช้ FutureBuilder แทนการสร้าง URL โดยตรง
+    if (_imageUrlCache.containsKey(imagePath)) {
+      return CachedNetworkImage(
+        imageUrl: _imageUrlCache[imagePath]!,
+        width: 40,
+        height: 40,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          width: 40, height: 40,
+          color: Colors.grey[200],
+          child: Icon(Icons.image, color: Colors.grey[400]),
+        ),
+        errorWidget: (context, url, error) {
+          return Image.asset(
+            'assets/images/default_ing.png',
+            width: 40, height: 40,
+            fit: BoxFit.cover,
+          );
+        },
+      );
+    }
+    
+    // ใช้ FutureBuilder เฉพาะเมื่อไม่มีในแคช
     return FutureBuilder(
       future: _getDownloadUrl(imagePath),
       builder: (context, snapshot) {
@@ -444,6 +506,11 @@ void initState() {
 }
 
 Future<String> _getDownloadUrl(String imagePath) async {
+  // ตรวจสอบว่ามี URL ในแคชหรือไม่
+  if (_imageUrlCache.containsKey(imagePath)) {
+    return _imageUrlCache[imagePath]!;
+  }
+  
   try {
     if (!imagePath.toLowerCase().endsWith('.png') && !imagePath.toLowerCase().endsWith('.jpg')) {
       imagePath = '$imagePath.png';
@@ -454,28 +521,24 @@ Future<String> _getDownloadUrl(String imagePath) async {
     
     Reference ref = FirebaseStorage.instance.ref().child(storagePath);
     
-    // ลองดึงข้อมูลเมต้าเพื่อตรวจสอบว่าไฟล์มีอยู่จริง
-    try {
-      await ref.getMetadata();
-      print("✅ File exists at path: $storagePath");
-    } catch (e) {
-      print("⚠️ File metadata error (might not exist): $e");
-    }
-    
     String downloadUrl = await ref.getDownloadURL();
+    
+    _imageUrlCache[imagePath] = downloadUrl;
+    
     print("✅ Got download URL: $downloadUrl");
     return downloadUrl;
   } catch (e) {
-    // ถ้าเป็น .png แล้วไม่พบ ลองเปลี่ยนเป็น .jpg
     if (imagePath.toLowerCase().endsWith('.png')) {
       try {
         String jpgPath = imagePath.toLowerCase().replaceAll('.png', '.jpg');
         String storagePath = jpgPath.startsWith('ingredients/') ? jpgPath : 'ingredients/$jpgPath';
-        print("🔄 Trying jpg path: $storagePath");
         
         Reference ref = FirebaseStorage.instance.ref().child(storagePath);
         String downloadUrl = await ref.getDownloadURL();
-        print("✅ Got jpg download URL: $downloadUrl");
+        
+
+        _imageUrlCache[imagePath] = downloadUrl;
+        
         return downloadUrl;
       } catch (e2) {
         print("❌ Also failed with jpg: $e2");

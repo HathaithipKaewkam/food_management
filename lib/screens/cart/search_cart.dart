@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -11,6 +13,7 @@ import 'package:food_project/screens/ingredient/add_ingredient.dart';
 import 'package:food_project/screens/root_screen.dart';
 import 'package:quickalert/models/quickalert_type.dart';
 import 'package:quickalert/widgets/quickalert_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SearchCartScreen extends StatefulWidget {
   final List<Map<String, dynamic>> addedToCartIngredients;
@@ -28,65 +31,81 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
   Map<String, double> userIngredientsMap = {};
   List<Map<String, dynamic>> addedToCartIngredients = [];
   List<Ingredient> selectedItems = [];
+  bool _isUsingCache = false;
 
-  Future<void> _fetchIngredients() async {
-    try {
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('ingredients')
-          .orderBy('ingredientsName', descending: false)
-          .get();
+  Future<void> _fetchIngredients({bool useCache = false}) async {
+  try {
+    if (useCache && _isUsingCache) {
+      print("🔄 Already using cache, fetching fresh data in background");
+    }
+    
+    // โหลดข้อมูลใหม่จาก Firestore 
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('ingredients')
+        .orderBy('ingredientsName', descending: false)
+        .get();
 
-      List<Map<String, dynamic>> tempList = [];
+    print("✅ Fetched ${querySnapshot.docs.length} ingredients from Firestore");
 
-      for (var doc in querySnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        String imageName = data['imageUrl'] ?? '';
-        String? imageUrl =
-            imageName.isNotEmpty ? await getStorageImageUrl(imageName) : null;
-
-        tempList.add({
-          'ingredientsName': data['ingredientsName'] ?? '',
-          'imageUrl': imageUrl ?? 'assets/images/default_ing.png',
-          'category': data['category'] ?? '',
-          'unit': data['unit'] ?? '',
-          'shelflife': data['shelflife'] ?? 0,
-          'storage': data['storage'] ?? '',
-          'quantity': data['quantity'] ?? 1,
-          'minQuantity': data['minQuantity'] ?? 1,
-          'kcal': data['kcal'] ?? 0,
-        });
+    List<Map<String, dynamic>> tempList = [];
+    
+    for (var doc in querySnapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      // เก็บชื่อไฟล์ไว้โดยไม่ต้องแก้ไข
+      String imageUrl = data['imageUrl'] ?? '';
+      
+      // ตรวจสอบว่า imageUrl ไม่ใช่ URL เต็ม (อาจเป็นชื่อไฟล์)
+      if (imageUrl.isNotEmpty && !imageUrl.startsWith('http')) {
+        // ตรวจสอบว่ามีนามสกุลไฟล์หรือไม่
+        if (!imageUrl.toLowerCase().endsWith('.png') && 
+            !imageUrl.toLowerCase().endsWith('.jpg') && 
+            !imageUrl.toLowerCase().endsWith('.jpeg')) {
+          // ไม่ต้องเพิ่มนามสกุลไฟล์เอง - ให้ _getDownloadUrl จัดการ
+        }
       }
-
-      print("✅ Loaded ingredients: ${tempList.length}");
+      
+      tempList.add({
+        'ingredientsName': data['ingredientsName'] ?? '',
+        'imageUrl': imageUrl, // เก็บค่าเดิมโดยไม่ต้องแก้ไข
+        'category': data['category'] ?? '',
+        'unit': data['unit'] ?? '',
+        'shelflife': data['shelflife'] ?? 0,
+        'storage': data['storage'] ?? '',
+        'quantity': data['quantity'] ?? 1,
+        'minQuantity': data['minQuantity'] ?? 1,
+        'kcal': data['kcal'] ?? 0,
+      });
+    }
+    
+    // บันทึกข้อมูลลงแคช
+    await _saveIngredientsToCache(tempList);
+    
+    // อัปเดต state เฉพาะเมื่อจำเป็น
+    if (!useCache || !_isUsingCache) {
       setState(() {
         ingredientList = tempList;
       });
-    } catch (e) {
-      print("❌ Error fetching ingredients: $e");
+    } else {
+      // ถ้าใช้แคช ให้อัปเดตแบบเงียบๆ โดยไม่ setState
+      ingredientList = tempList;
     }
+  } catch (e) {
+    print("❌ Error fetching ingredients: $e");
   }
+}
 
   // ค้นหาวัตถุดิบ
   List<Map<String, dynamic>> _searchIngredients(String query) {
-    return ingredientList.where((ingredient) {
-      final ingredientName = ingredient['ingredientsName'];
-      return ingredientName.toLowerCase().contains(query.toLowerCase());
-    }).toList();
-  }
+  if (query.isEmpty) return [];
+  
+  final lowerQuery = query.toLowerCase();
+  // ค้นหาจากข้อมูลที่มีอยู่แล้ว ไม่ต้องดึงจาก Firebase ใหม่
+  return ingredientList.where((ingredient) {
+    final ingredientName = ingredient['ingredientsName'].toString().toLowerCase();
+    return ingredientName.contains(lowerQuery);
+  }).take(10).toList(); // จำกัดผลลัพธ์เพียง 10 รายการ
+}
 
-  Future<String?> getStorageImageUrl(String fileName) async {
-    try {
-      if (fileName.isEmpty) return null;
-
-      Reference ref =
-          FirebaseStorage.instance.ref().child('ingredients/$fileName');
-      String downloadUrl = await ref.getDownloadURL();
-      return downloadUrl;
-    } catch (e) {
-      print("❌ Error getting image URL: $e");
-      return null;
-    }
-  }
 
   void _setSelectedIngredient(String ingredientName) {
     setState(() {
@@ -95,11 +114,11 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
   }
 
   void _onSearchChanged(String value) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      setState(() {});
-    });
-  }
+  if (_debounce?.isActive ?? false) _debounce!.cancel();
+  _debounce = Timer(const Duration(milliseconds: 300), () {
+    setState(() {});
+  });
+}
 
   Future<void> _saveCart(Map<String, dynamic> ingredient) async {
   try {
@@ -176,6 +195,40 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
   }
 }
 
+Future<void> _saveIngredientsToCache(List<Map<String, dynamic>> ingredients) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonData = jsonEncode(ingredients);
+    await prefs.setString('cached_cart_ingredients', jsonData);
+    await prefs.setInt('cart_cache_timestamp', DateTime.now().millisecondsSinceEpoch);
+    print("✅ Saved ${ingredients.length} ingredients to cache");
+  } catch (e) {
+    print("❌ Error saving to cache: $e");
+  }
+}
+
+// เพิ่มเมธอดดึงข้อมูลจากแคช
+Future<List<Map<String, dynamic>>> _getIngredientsFromCache() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonData = prefs.getString('cached_cart_ingredients');
+    final timestamp = prefs.getInt('cart_cache_timestamp') ?? 0;
+    
+    // แคชมีอายุ 24 ชั่วโมง
+    final cacheValid = DateTime.now().millisecondsSinceEpoch - timestamp < 24 * 60 * 60 * 1000;
+    
+    if (jsonData != null && cacheValid) {
+      final List<dynamic> decoded = jsonDecode(jsonData);
+      print("✅ Loaded ${decoded.length} ingredients from cache");
+      return decoded.map((item) => Map<String, dynamic>.from(item)).toList();
+    }
+  } catch (e) {
+    print("❌ Error loading from cache: $e");
+  }
+  
+  return [];
+}
+
   Future<void> checkUserIngredients() async {
   String uid = FirebaseAuth.instance.currentUser!.uid;
   QuerySnapshot snapshot = await FirebaseFirestore.instance
@@ -239,6 +292,19 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
     }).toList();
   }
 
+  Future<void> _loadInitialData() async {
+  final cachedIngredients = await _getIngredientsFromCache();
+  if (cachedIngredients.isNotEmpty) {
+    setState(() {
+      ingredientList = cachedIngredients;
+      _isUsingCache = true;
+    });
+    print("✅ Using cached ingredients: ${cachedIngredients.length}");
+  }
+  
+  _fetchIngredients(useCache: true);
+}
+
 
   
 
@@ -247,11 +313,17 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
   
 
   @override
-  void initState() {
-    super.initState();
-    _fetchIngredients();
-    _fetchUserIngredients();
-  }
+void initState() {
+  super.initState();
+  _loadInitialData();
+  _fetchUserIngredients();
+  _searchController.addListener(() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() {});
+    });
+  });
+}
 
   @override
   void dispose() {
@@ -309,113 +381,189 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
           ),
           // แสดงรายการที่ค้นหา
           Expanded(
-            child: _searchController.text.isEmpty
-                ? const SizedBox()
-                : ListView(
+  child: _searchController.text.isEmpty
+    ? const SizedBox() // ถ้าไม่มีการค้นหา ไม่แสดงอะไร
+    : ListView.builder(
+        itemCount: _searchIngredients(_searchController.text).length + 
+                    (_searchController.text.isNotEmpty && 
+                     _searchIngredients(_searchController.text).isEmpty ? 1 : 0),
+        itemBuilder: (context, index) {
+          // กรณีไม่พบผลลัพธ์การค้นหา แสดงตัวเลือกเพิ่มใหม่
+          if (_searchController.text.isNotEmpty && 
+              _searchIngredients(_searchController.text).isEmpty && 
+              index == 0) {
+            return ListTile(
+              contentPadding: const EdgeInsets.only(left: 10),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      if (_searchController.text.isNotEmpty &&
-                          _searchIngredients(_searchController.text).isEmpty)
-                        ListTile(
-                          contentPadding: const EdgeInsets.only(left: 10),
-                          title: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Add Ingredient to Shopping List',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Padding(
-                                padding: const EdgeInsets.only(left: 0),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      width: 100,
-                                      height: 100,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFd7d8d8),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: ClipRRect(
-                                        child: SizedBox(
-                                          child: Image.asset(
-                                            'assets/images/default_ing.png',
-                                            fit: BoxFit.contain,
-                                            width: 50,
-                                            height: 50,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 30),
-                                    Expanded(
-                                      child: Text(
-                                        _searchController.text,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 20,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          onTap: () {
-                            _showIngredientPopup(
-                              context,
-                              {
-                                'ingredientsName': _searchController.text,
-                                'imageUrl': 'assets/images/default_ing.png',
-                                'category': 'Fruits',
-                                'unit': 'Kilograms (kg)',
-                                'storage': 'Fridge',
-                                'source': 'Supermarket',
-                              },
-                            );
-                          },
+                      Text(
+                        'Add Ingredient to Shopping List',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ..._searchIngredients(_searchController.text)
-                          .map((ingredient) {
-                        return ListTile(
-                          leading: Image.network(
-                            ingredient['imageUrl']!,
-                            width: 40,
-                            height: 40,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Image.asset(
-                                  'assets/images/default_ing.png',
-                                  width: 40,
-                                  height: 40);
-                            },
-                          ),
-                          title: Text(ingredient['ingredientsName']!),
-                          onTap: () {
-                            _showIngredientPopup(context, ingredient);
-                          },
-                        );
-                      }).toList(),
+                      ),
                     ],
                   ),
-          ),
+                  const SizedBox(height: 10),
+                  // แสดงตัวเลือกเพิ่มใหม่
+                  // ...โค้ดเดิม...
+                ],
+              ),
+              onTap: () {
+                _showIngredientPopup(
+                  context,
+                  {
+                    'ingredientsName': _searchController.text,
+                    'imageUrl': 'assets/images/default_ing.png',
+                    'category': 'Fruits',
+                    'unit': 'Kilograms (kg)',
+                    'storage': 'Fridge',
+                    'source': 'Supermarket',
+                  },
+                );
+              },
+            );
+          }
+          
+          // กรณีพบผลลัพธ์การค้นหา แสดงรายการวัตถุดิบ
+          final searchResults = _searchIngredients(_searchController.text);
+          final ingredient = searchResults[index - (_searchController.text.isNotEmpty && 
+                                                 searchResults.isEmpty ? 1 : 0)];
+          
+          return ListTile(
+            leading: _buildIngredientImage(ingredient['imageUrl']),
+            title: Text(ingredient['ingredientsName']!),
+            onTap: () {
+              _showIngredientPopup(context, ingredient);
+            },
+          );
+        },
+      ),
+),
         ],
       ),
     ));
   }
 
-  void _showIngredientPopup(
-      BuildContext context, Map<String, dynamic> ingredient) {
+  Widget _buildIngredientImage(String imagePath) {
+  if (imagePath.startsWith('assets/')) {
+    return Image.asset(
+      imagePath,
+      width: 40,
+      height: 40,
+      fit: BoxFit.cover,
+    );
+  } else if (imagePath.isEmpty) {
+    return Image.asset(
+      'assets/images/default_ing.png',
+      width: 40,
+      height: 40,
+      fit: BoxFit.cover,
+    );
+  } else {
+    // ใช้ FutureBuilder แทนการสร้าง URL โดยตรง
+    return FutureBuilder(
+      future: _getDownloadUrl(imagePath),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: 40, 
+            height: 40,
+            color: Colors.grey[200],
+            child: Icon(Icons.hourglass_empty, color: Colors.grey[400]),
+          );
+        }
+        
+        if (snapshot.hasError || !snapshot.hasData) {
+          print("❌ Cannot load image for $imagePath: ${snapshot.error}");
+          return Image.asset(
+            'assets/images/default_ing.png',
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+          );
+        }
+        
+        final imageUrl = snapshot.data as String;
+        print("✅ Image URL generated: $imageUrl");
+        
+        return CachedNetworkImage(
+          imageUrl: imageUrl,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            width: 40, 
+            height: 40,
+            color: Colors.grey[200],
+            child: Icon(Icons.image, color: Colors.grey[400]),
+          ),
+          errorWidget: (context, url, error) {
+            print("❌ CachedNetworkImage error: $error");
+            return Image.asset(
+              'assets/images/default_ing.png',
+              width: 40,
+              height: 40,
+              fit: BoxFit.cover,
+            );
+          },
+        );
+      }
+    );
+  }
+}
+
+Future<String> _getDownloadUrl(String imagePath) async {
+  try {
+    if (!imagePath.toLowerCase().endsWith('.png') && !imagePath.toLowerCase().endsWith('.jpg')) {
+      imagePath = '$imagePath.png';
+    }
+    
+    String storagePath = imagePath.startsWith('ingredients/') ? imagePath : 'ingredients/$imagePath';
+    print("🔍 Getting download URL for path: $storagePath");
+    
+    Reference ref = FirebaseStorage.instance.ref().child(storagePath);
+    
+    // ลองดึงข้อมูลเมต้าเพื่อตรวจสอบว่าไฟล์มีอยู่จริง
+    try {
+      await ref.getMetadata();
+      print("✅ File exists at path: $storagePath");
+    } catch (e) {
+      print("⚠️ File metadata error (might not exist): $e");
+    }
+    
+    String downloadUrl = await ref.getDownloadURL();
+    print("✅ Got download URL: $downloadUrl");
+    return downloadUrl;
+  } catch (e) {
+    // ถ้าเป็น .png แล้วไม่พบ ลองเปลี่ยนเป็น .jpg
+    if (imagePath.toLowerCase().endsWith('.png')) {
+      try {
+        String jpgPath = imagePath.toLowerCase().replaceAll('.png', '.jpg');
+        String storagePath = jpgPath.startsWith('ingredients/') ? jpgPath : 'ingredients/$jpgPath';
+        print("🔄 Trying jpg path: $storagePath");
+        
+        Reference ref = FirebaseStorage.instance.ref().child(storagePath);
+        String downloadUrl = await ref.getDownloadURL();
+        print("✅ Got jpg download URL: $downloadUrl");
+        return downloadUrl;
+      } catch (e2) {
+        print("❌ Also failed with jpg: $e2");
+      }
+    }
+    
+    throw e;
+  }
+}
+
+  void _showIngredientPopup(BuildContext context, Map<String, dynamic> ingredient) {
+    print("📸 Showing popup for: ${ingredient['ingredientsName']} with image: ${ingredient['imageUrl']}");
       
     double quantity = 1.0;
     TextEditingController priceController = TextEditingController();
@@ -554,13 +702,56 @@ double calculateKcal(double qty, String unit) {
   return ingredientKcal; // ไม่คูณกับปริมาณ
 }
 
+ Widget buildImage() {
+  if (ingredient['imageUrl'] == null || ingredient['imageUrl'].toString().isEmpty) {
+    return Image.asset('assets/images/default_ing.png', width: 100, height: 100);
+  } else if (ingredient['imageUrl'].toString().startsWith('assets/')) {
+    return Image.asset(ingredient['imageUrl'], width: 100, height: 100);
+  } else {
+    // ใช้ FutureBuilder เหมือนกับใน _buildIngredientImage
+    return FutureBuilder<String>(
+      future: _getDownloadUrl(ingredient['imageUrl']),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: 100, 
+            height: 100,
+            color: Colors.grey[200],
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        
+        if (snapshot.hasError || !snapshot.hasData) {
+          print("❌ Error loading popup image: ${snapshot.error}");
+          return Image.asset('assets/images/default_ing.png', width: 100, height: 100);
+        }
+        
+        return CachedNetworkImage(
+          imageUrl: snapshot.data!,
+          width: 100,
+          height: 100,
+          fit: BoxFit.contain,
+          placeholder: (context, url) => Container(
+            width: 100, 
+            height: 100, 
+            color: Colors.grey[200],
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          errorWidget: (context, url, error) {
+            print("❌ Error loading popup image: $error");
+            return Image.asset('assets/images/default_ing.png', width: 100, height: 100);
+          },
+        );
+      }
+    );
+  }
+}
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: StatefulBuilder(
             builder: (context, setDialogState) {
                double calculatedKcal = calculateKcal(quantity, selectedUnit);
@@ -578,17 +769,9 @@ double calculateKcal(double qty, String unit) {
                         },
                       ),
                     ),
-                    ClipRRect(
-                      child: Image.network(
-                        ingredient['imageUrl'],
-                        width: 100,
-                        height: 100,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Image.asset('assets/images/default_ing.png',
-                              width: 100, height: 100);
-                        },
-                      ),
-                    ),
+                  ClipRRect(
+              child: buildImage(),
+            ),
                     const SizedBox(height: 10),
                     Text(
                       ingredient['ingredientsName'],
