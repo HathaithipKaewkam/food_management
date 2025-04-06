@@ -132,7 +132,7 @@ class _CompleteProfileState extends State<CompleteProfile> {
                     color: Colors.black,
                     iconSize: 20,
                   ),
-                  const SizedBox(height: 10),
+                
                   Text(
                     "Let's complete your profile",
                     style: TextStyle(

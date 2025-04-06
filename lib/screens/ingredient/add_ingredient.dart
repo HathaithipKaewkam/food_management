@@ -68,12 +68,12 @@ class _AddIngredientScreenState extends State<AddIngredientScreen> {
     selectedIngredientImage = imageUrl.isNotEmpty ? imageUrl : 'assets/images/default_ing.png';
     originalImageUrl = selectedIngredientImage;
   
-    if (imageUrl != null && imageUrl!.startsWith('http')) {
-      selectedIngredientImage = imageUrl; // ใช้ URL ถ้า imageUrl เป็น URL
-    } else {
-      selectedIngredientImage =
-          'assets/images/default_ing.png'; // ใช้ asset ถ้าไม่ใช่ URL
-    }
+     if (imageUrl.isNotEmpty && !imageUrl.startsWith('http')) {
+    _loadImageUrl();
+  } else {
+    selectedIngredientImage = imageUrl.isNotEmpty ? imageUrl : 'assets/images/default_ing.png';
+    originalImageUrl = selectedIngredientImage;
+  }
 
     selectedIngredientName = widget.ingredient?['name'] ?? '';
     selectedCategory = widget.ingredient?['category'] ?? 'Fruits';
@@ -166,6 +166,38 @@ Future<void> _checkIngredientInDatabase() async {
       isIngredientInDatabase = false;
       ingredientKcal = 0.0;
     });
+  }
+}
+
+Future<void> _loadImageUrl() async {
+  try {
+    String imagePath = imageUrl;
+    if (!imagePath.toLowerCase().endsWith('.png') && !imagePath.toLowerCase().endsWith('.jpg')) {
+      imagePath = '$imagePath.png';
+    }
+    
+    String storagePath = imagePath.startsWith('ingredients/') ? imagePath : 'ingredients/$imagePath';
+    print("🔍 Loading image from path: $storagePath");
+    
+    Reference ref = FirebaseStorage.instance.ref().child(storagePath);
+    String downloadUrl = await ref.getDownloadURL();
+    
+    if (mounted) {
+      setState(() {
+        imageUrl = downloadUrl;
+        selectedIngredientImage = downloadUrl;
+        originalImageUrl = downloadUrl;
+      });
+    }
+  } catch (e) {
+    print("❌ Error loading image URL: $e");
+    if (mounted) {
+      setState(() {
+        imageUrl = '';
+        selectedIngredientImage = 'assets/images/default_ing.png';
+        originalImageUrl = 'assets/images/default_ing.png';
+      });
+    }
   }
 }
   
@@ -542,28 +574,29 @@ Future<void> _checkIngredientInDatabase() async {
                       child: Padding(
                         padding: const EdgeInsets.all(10.0),
                         child: _imageFile != null
-                            ? Image.file(_imageFile!, height: 100, width: 100, fit: BoxFit.contain)
-                             : imageUrl.isNotEmpty
-                             ? Image.network(
-                          imageUrl,
-                          height: 100,
-                          width: 100,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Image.asset(
-                              'assets/images/default_ing.png',
-                              height: 100,
-                              width: 100,
-                              fit: BoxFit.contain,
-                            );
-                          },
-                        )
-                      : Image.asset(
-                          'assets/images/default_ing.png',
-                          height: 100,
-                          width: 100,
-                          fit: BoxFit.contain,
-                        ),
+                          ? Image.file(_imageFile!, height: 100, width: 100, fit: BoxFit.contain)
+    : imageUrl.isNotEmpty && imageUrl.startsWith('http')
+        ? Image.network(
+            imageUrl,
+            height: 100,
+            width: 100,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              print("❌ Error loading image: $error");
+              return Image.asset(
+                'assets/images/default_ing.png',
+                height: 100,
+                width: 100,
+                fit: BoxFit.contain,
+              );
+            },
+          )
+        : Image.asset(
+            'assets/images/default_ing.png',
+            height: 100,
+            width: 100,
+            fit: BoxFit.contain,
+          ),
                       ),
                     ),
 
