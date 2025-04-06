@@ -843,15 +843,18 @@ class _RecipeDetailState extends State<RecipeDetail> {
         ],
       ),
       
+      
       // Calories Column
-      Column(
-        children: [
-          Image.asset('assets/images/kcal.png', width: 23, height: 17),
-          const SizedBox(height: 4),
-          Text('${currentRecipe.Kcal} Kcal',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-        ],
-      ),
+   Column(
+  children: [
+    Image.asset('assets/images/kcal.png', width: 23, height: 17),
+    const SizedBox(height: 4),
+    Text('${(currentRecipe.Kcal / currentRecipe.servings * currentNumber).round()} Kcal',
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+    Text('for $currentNumber ${currentNumber > 1 ? "servings" : "serving"}',
+        style:  TextStyle(fontSize: 12, color: Colors.grey[600])),
+  ],
+),
     ],
   ),
 ),

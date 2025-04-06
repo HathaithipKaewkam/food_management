@@ -38,7 +38,7 @@ double purchasedItemsValue = 0.0;
 bool isLoadingPurchases = true;
 int cookedMealsCount = 0;
 bool isLoadingCookedMeals = true;
-
+ String today = DateFormat('yyyy-MM-dd').format(DateTime.now()); 
   @override
   void initState() {
     super.initState();
@@ -270,7 +270,8 @@ Future<void> _fetchIngredientsData() async {
         }
       }
       
-      double percentage = total > 0 ? (usedCount / total) * 100 : 0;
+      double percentage = targetCalories > 0 ? 
+  (consumedCalories / targetCalories).clamp(0.0, 1.0) : 0.0;
       setState(() {
         totalIngredients = total;
         usedIngredients = usedCount;    
@@ -696,7 +697,8 @@ bool isSameDay(DateTime date1, DateTime date2) {
 }
 
 Widget _buildCircularCaloriesProgress() {
-  double percentage = targetCalories > 0 ? (consumedCalories / targetCalories).clamp(0.0, 1.0) : 0.0;
+  double percentage = targetCalories > 0 ? 
+  (consumedCalories / targetCalories).clamp(0.0, 1.0) : 0.0;
   
   Color progressColor;
   if (percentage < 0.5) {
@@ -884,11 +886,10 @@ Future<void> _refreshAllData() async {
     isLoadingPurchases = true;
     isLoadingCookedMeals = true;
   });
-  
+  await Future.delayed(Duration(milliseconds: 300));
   await Future.wait([
     _fetchUserName(),
     _fetchProfileImage(),
-    _fetchCaloriesData(),
     _fetchIngredientsData(),
     _fetchExpiredItems(),
     _fetchPurchaseHistory(),
@@ -898,6 +899,7 @@ Future<void> _refreshAllData() async {
 
   @override
   Widget build(BuildContext context) {
+     String today = DateFormat('yyyy-MM-dd').format(DateTime.now()); 
     Size size = MediaQuery.of(context).size;
     return Scaffold(
       body: RefreshIndicator(
@@ -918,12 +920,31 @@ Future<void> _refreshAllData() async {
               targetCalories = double.tryParse(data['caloriesPerDay']) ?? 0.0;
             }
           }
-
-           _fetchIngredientsData();
-            _fetchExpiredItems();
-            _fetchPurchaseHistory();
-            _fetchCookedMeals();
           }
+
+         return StreamBuilder<QuerySnapshot>(
+  stream: FirebaseFirestore.instance
+      .collection('users')
+      .doc(FirebaseAuth.instance.currentUser?.uid)
+      .collection('calorieConsumption')
+      .where('dateStr', isEqualTo: today)
+      .snapshots(),
+  builder: (context, consumptionSnapshot) {
+    // คำนวณ totalConsumed โดยไม่เรียก setState
+    double totalConsumed = 0.0;
+    if (consumptionSnapshot.hasData) {
+      for (var doc in consumptionSnapshot.data!.docs) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        if (data.containsKey('kcal')) {
+          if (data['kcal'] is num) {
+            totalConsumed += (data['kcal'] as num).toDouble();
+          } else if (data['kcal'] is String) {
+            totalConsumed += double.tryParse(data['kcal']) ?? 0.0;
+          }
+        }
+      }
+      consumedCalories = totalConsumed;
+    }
 
 
         
@@ -1157,6 +1178,8 @@ Future<void> _refreshAllData() async {
                               ),
                             );
                             
+  }
+  );
   })
   ));
                         }

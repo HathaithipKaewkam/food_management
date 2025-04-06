@@ -30,6 +30,134 @@ class RecipeService {
     }
   }
 
+  // เพิ่มเมธอดนี้ในคลาส RecipeService:
+
+Future<List<Map<String, dynamic>>> searchRecipes(String query, {
+  String? cuisine,
+  String? diet,
+  String? mealType,
+  int number = 10,
+  bool includeNutrition = true
+}) async {
+  try {
+    // ตรวจสอบ cache ก่อน
+    final user = FirebaseAuth.instance.currentUser;
+    final String cacheKey = 'search_${query.toLowerCase()}';
+    
+    if (user != null) {
+      try {
+        final cachedSearch = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('cachedSearches')
+            .doc(cacheKey)
+            .get();
+            
+        if (cachedSearch.exists) {
+          final cacheData = cachedSearch.data();
+          final timestamp = cacheData?['timestamp'] ?? 0;
+          
+          // ถ้าแคชยังไม่หมดอายุ (ไม่เกิน 3 ชั่วโมง)
+          if (DateTime.now().millisecondsSinceEpoch - timestamp < cacheDuration) {
+            print("✅ Using cached search results for '$query'");
+            return List<Map<String, dynamic>>.from(cacheData?['recipes'] ?? []);
+          }
+        }
+      } catch (e) {
+        print("❌ Error reading search cache: $e");
+      }
+    }
+    
+    final queryParams = {
+      'apiKey': apiKey,
+      'query': query,
+      'number': number.toString(),
+      'addRecipeInformation': 'true',
+      'fillIngredients': 'true',
+      'instructionsRequired': 'true',
+    };
+    
+    // เพิ่มพารามิเตอร์ตามที่กำหนด
+    if (cuisine != null && cuisine.isNotEmpty) {
+      queryParams['cuisine'] = cuisine;
+    }
+    
+    if (diet != null && diet.isNotEmpty) {
+      queryParams['diet'] = diet;
+    }
+    
+    if (mealType != null && mealType.isNotEmpty) {
+      queryParams['type'] = mealType;
+    }
+    
+    if (includeNutrition) {
+      queryParams['addRecipeNutrition'] = 'true';
+    }
+  
+    final uri = Uri.https('api.spoonacular.com', '/recipes/complexSearch', queryParams);
+    
+    final response = await http.get(uri);
+    
+    if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+  final results = jsonData['results'] as List<dynamic>;
+  final processedResults = results.map((item) {
+        Map<String, dynamic> recipe = item as Map<String, dynamic>;
+        
+        // แปลง analyzedInstructions เป็น instructions
+        List<String> instructions = [];
+        if (recipe['analyzedInstructions'] != null && recipe['analyzedInstructions'] is List) {
+          for (var instruction in recipe['analyzedInstructions']) {
+            if (instruction != null && instruction['steps'] != null && instruction['steps'] is List) {
+              for (var step in instruction['steps']) {
+                if (step != null && step['step'] != null) {
+                  instructions.add(step['step']);
+                }
+              }
+            }
+          }
+        }
+        recipe['instructions'] = instructions;
+        
+        // แปลง extendedIngredients เป็น ingredients ถ้าจำเป็น
+        if (recipe.containsKey('extendedIngredients') && !recipe.containsKey('ingredients')) {
+          recipe['ingredients'] = recipe['extendedIngredients'];
+        }
+        
+        return recipe;
+      }).toList();
+      
+      // บันทึกผลลัพธ์ลงแคช
+      if (user != null && processedResults.isNotEmpty) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('cachedSearches')
+              .doc(cacheKey)
+              .set({
+                'recipes': processedResults,
+                'timestamp': DateTime.now().millisecondsSinceEpoch,
+                'query': query
+              });
+          print("✅ Cached search results for '$query'");
+        } catch (e) {
+          print("❌ Error writing to search cache: $e");
+        }
+      }
+      
+      return processedResults;
+    } else {
+      throw Exception('Failed to search recipes: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error searching recipes: $e');
+    return [];
+  }
+}
+
+  
+
   Future<List<String>> _getUserPreferenceTags() async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) {
@@ -751,6 +879,8 @@ class RecipeService {
       'servings': recipe['servings'] ?? 1,
     };
   }
+
+  
 
   Future<List<Map<String, dynamic>>> getTopRecipeByUserPreference() async {
   final user = FirebaseAuth.instance.currentUser;

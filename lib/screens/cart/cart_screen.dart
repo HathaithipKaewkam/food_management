@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/screens/cart/auto_shoppinglist.dart';
@@ -226,6 +227,49 @@ Future<void> onMarkAllPurchased(bool isPurchased) async {
       .doc(uid)
       .collection('userIngredients');
 
+   String imageUrl = item['imageUrl'] ?? '';
+  String imageUrlToStore = '';
+ try {
+    // กรณีที่ URL เป็น URL แบบเต็ม (http)
+    if (imageUrl.startsWith('http')) {
+      // เก็บ URL เต็มเลย
+      imageUrlToStore = imageUrl;
+      print("🔍 Using existing full URL: $imageUrlToStore");
+    }
+    // กรณีที่ URL เป็น asset
+    else if (imageUrl.startsWith('assets/')) {
+      // เก็บ path ของ asset เลย
+      imageUrlToStore = imageUrl;
+      print("🔍 Using asset path: $imageUrlToStore");
+    }
+    // กรณีที่เป็น path แบบสัมพัทธ์
+    else if (imageUrl.isNotEmpty) {
+      // ใช้ฟังก์ชัน _getDownloadUrl เพื่อดึง URL จริงจาก Firebase Storage
+      try {
+        String fullUrl = await _getDownloadUrl(imageUrl);
+        if (fullUrl.startsWith('http')) {
+          // ถ้าดึง URL สำเร็จ ให้เก็บ URL เต็ม
+          imageUrlToStore = fullUrl;
+          print("✅ Fetched full download URL: $imageUrlToStore");
+        } else {
+          // ถ้าไม่สำเร็จ แต่ได้ default image กลับมา
+          imageUrlToStore = 'assets/images/default_ing.png';
+          print("⚠️ Using default image instead");
+        }
+      } catch (e) {
+        // กรณีมีข้อผิดพลาดในการดึง URL
+        print("❌ Error fetching download URL: $e");
+        imageUrlToStore = 'assets/images/default_ing.png';
+      }
+    } else {
+      // กรณีไม่มี URL
+      imageUrlToStore = 'assets/images/default_ing.png';
+    }
+  } catch (e) {
+    print("❌ General error processing image URL: $e");
+    imageUrlToStore = 'assets/images/default_ing.png';
+  }
+
   // Query for existing ingredient with same name AND storage
   var existingIngredientSnapshot = await userIngredientsRef
       .where('ingredientsName', isEqualTo: item['ingredientsName'])
@@ -262,7 +306,8 @@ Future<void> onMarkAllPurchased(bool isPurchased) async {
         'updateDate': now,
         'expirationDate': expirationDate,
         'price': item['price'],
-        'kcal': finalKcal, // ใช้ค่า kcal โดยตรง ไม่ผ่านการคำนวณ
+        'kcal': finalKcal,
+         'imageUrl': imageUrlToStore,
       });
       
       print("✅ Updated existing ingredient in ${item['storage']} with kcal: $finalKcal");
@@ -275,7 +320,7 @@ Future<void> onMarkAllPurchased(bool isPurchased) async {
         'minQuantity': 1,
         'allergenInfo': item['allergenInfo'] ?? [],
         'price': item['price'],
-        'imageUrl': item['imageUrl'],
+         'imageUrl': imageUrlToStore,
         'category': item['category'],
         'unit': item['unit'],
         'storage': item['storage'],
@@ -296,6 +341,76 @@ Future<void> onMarkAllPurchased(bool isPurchased) async {
   } catch (e) {
     print("❌ Error moving item to storage: $e");
     throw e;
+  }
+}
+
+
+Future<String> _getDownloadUrl(String imagePath) async {
+  try {
+    // ถ้าเป็น path เต็มแล้ว
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    
+    // ถ้าเป็น asset
+    if (imagePath.startsWith('assets/')) {
+      return imagePath;
+    }
+    
+    // เพิ่มนามสกุลไฟล์ถ้าไม่มี
+    if (!imagePath.toLowerCase().endsWith('.png') && 
+        !imagePath.toLowerCase().endsWith('.jpg') && 
+        !imagePath.toLowerCase().endsWith('.jpeg')) {
+      imagePath = '$imagePath.png';
+    }
+    
+    // ปรับ path ให้ถูกต้อง
+    String storagePath = imagePath.startsWith('ingredients/') ? imagePath : 'ingredients/$imagePath';
+    print("🔍 Getting download URL for path: $storagePath");
+    
+    // ทดสอบว่าไฟล์มีอยู่จริงหรือไม่
+    try {
+      Reference ref = FirebaseStorage.instance.ref().child(storagePath);
+      await ref.getMetadata(); // ถ้าไฟล์ไม่มีอยู่จะ throw error
+      String downloadUrl = await ref.getDownloadURL();
+      print("✅ Got download URL: $downloadUrl");
+      return downloadUrl;
+    } catch (e) {
+      print("⚠️ File might not exist, trying alternatives: $e");
+      
+      // ลองดูว่าถ้าเปลี่ยน .png เป็น .jpg จะได้หรือไม่
+      if (storagePath.toLowerCase().endsWith('.png')) {
+        try {
+          String jpgPath = storagePath.toLowerCase().replaceAll('.png', '.jpg');
+          Reference jpgRef = FirebaseStorage.instance.ref().child(jpgPath);
+          String jpgUrl = await jpgRef.getDownloadURL();
+          print("✅ Found JPG alternative: $jpgUrl");
+          return jpgUrl;
+        } catch (e2) {
+          print("❌ JPG alternative also failed: $e2");
+        }
+      }
+      
+      // ลองใช้ชื่อย่อ (ไม่มี path ingredients/)
+      try {
+        String baseFileName = imagePath.contains('/') 
+            ? imagePath.split('/').last 
+            : imagePath;
+            
+        Reference baseRef = FirebaseStorage.instance.ref().child(baseFileName);
+        String baseUrl = await baseRef.getDownloadURL();
+        print("✅ Found with base name: $baseUrl");
+        return baseUrl;
+      } catch (e3) {
+        print("❌ Base name search failed: $e3");
+      }
+      
+      // ถ้าไม่สำเร็จเลย ให้ใช้รูป default
+      return 'assets/images/default_ing.png';
+    }
+  } catch (e) {
+    print("❌ Error in _getDownloadUrl: $e");
+    return 'assets/images/default_ing.png';
   }
 }
 

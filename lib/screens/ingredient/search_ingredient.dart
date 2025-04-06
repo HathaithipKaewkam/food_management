@@ -45,7 +45,6 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
   });
   
   try {
-    logImage("🔍 Fetching ingredients...");
     Query query = FirebaseFirestore.instance
         .collection('ingredients')
         .orderBy('ingredientsName')
@@ -56,8 +55,6 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
     }
     
     QuerySnapshot querySnapshot = await query.get();
-    logImage("📋 Found ${querySnapshot.docs.length} ingredients");
-    
     if (querySnapshot.docs.isEmpty) {
       setState(() {
         isLoading = false;
@@ -72,8 +69,7 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
       final data = doc.data() as Map<String, dynamic>;
       String imageName = data['imageUrl'] ?? '';
       
-      logImage("🔹 Ingredient: ${data['ingredientsName']} - Image: $imageName");
-      
+     
       tempList.add({
         'id': doc.id,
         'ingredientsName': data['ingredientsName'] ?? '',
@@ -97,7 +93,6 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
         List<Map<String, dynamic>> uniqueItems = tempList.where((item) => 
           !existingIds.contains(item['id'].toString())).toList();
         
-        logImage("✅ Adding ${uniqueItems.length} new unique ingredients");
         ingredientList.addAll(uniqueItems);
       }
       isLoading = false;
@@ -109,17 +104,13 @@ class _SearchIngredientScreenState extends State<SearchIngredientScreen> {
       _saveIngredientsToCache(ingredientList);
     }
   } catch (e) {
-    logImage("❌ Error fetching ingredients: $e");
     setState(() {
       isLoading = false;
     });
   }
 }
 
-void logImage(String message) {
-  developer.log(message, name: 'ImageDebug');
-  print(message);
-}
+
 // Helper method to parse numeric values
 double _parseDoubleValue(dynamic value) {
   if (value == null) return 1.0;
@@ -191,9 +182,8 @@ double _parseDoubleValue(dynamic value) {
     final jsonData = jsonEncode(uniqueIngredients);
     await prefs.setString('cached_ingredients', jsonData);
     await prefs.setInt('cache_timestamp', DateTime.now().millisecondsSinceEpoch);
-    logImage("✅ Saved ${uniqueIngredients.length} ingredients to cache");
   } catch (e) {
-    logImage("❌ Error saving to cache: $e");
+
   }
 }
 
