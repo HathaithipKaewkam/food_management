@@ -373,6 +373,16 @@ class _RecipeDetailState extends State<RecipeDetail> {
 
                                       final bool isUserRecipe =
                                           user.uid == currentRecipe.createdBy;
+                                      
+                                       if (!isUserRecipe) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text("You can only edit recipes that you created"),
+                                            backgroundColor: Colors.redAccent
+                                          ),
+                                        );
+                                        return;
+                                      }
 
                                       final result = await Navigator.push(
                                         context,
@@ -445,122 +455,7 @@ class _RecipeDetailState extends State<RecipeDetail> {
                                       }
                                     },
                                   ),
-                                  ListTile(
-                                    leading: const Icon(Icons.no_meals,
-                                        color: Colors.redAccent),
-                                    title: const Text(
-                                        'Not recommended this recipe'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-
-                                      // แสดง Dialog ยืนยันการไม่แนะนำสูตรอาหาร
-                                      showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            title: const Text(
-                                                "Not Recommended this Recipe"),
-                                            content: const Text(
-                                                "Are you sure you want to not recommend this recipe?"),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () async {
-                                                  Navigator.pop(
-                                                      context); // ปิด Dialog
-
-                                                  // แสดง loading indicator
-                                                  showDialog(
-                                                    context: context,
-                                                    barrierDismissible: false,
-                                                    builder:
-                                                        (BuildContext context) {
-                                                      return const Center(
-                                                          child:
-                                                              CircularProgressIndicator());
-                                                    },
-                                                  );
-
-                                                  // บันทึกลง Firebase
-                                                  final user = FirebaseAuth
-                                                      .instance.currentUser;
-                                                  if (user != null) {
-                                                    try {
-                                                      // อัปเดตค่า recipeId ให้ถูกต้อง (ใช้ recipeId หรือ id ตามที่มีในข้อมูล)
-                                                      String recipeIdToStore =
-                                                          currentRecipe.recipeId
-                                                              .toString();
-
-                                                      await FirebaseFirestore
-                                                          .instance
-                                                          .collection('users')
-                                                          .doc(user.uid)
-                                                          .collection(
-                                                              'notRecommendedRecipes')
-                                                          .doc(recipeIdToStore)
-                                                          .set({
-                                                        'recipeId':
-                                                            currentRecipe
-                                                                .recipeId,
-                                                        'recipeName':
-                                                            currentRecipe
-                                                                .recipeName,
-                                                        'imageUrl':
-                                                            currentRecipe
-                                                                .imageUrl,
-                                                        'category':
-                                                            currentRecipe
-                                                                .category,
-                                                        'addedAt': FieldValue
-                                                            .serverTimestamp(),
-                                                      });
-
-                                                      // ปิด loading dialog
-                                                      if (context.mounted) {
-                                                        Navigator.pop(context);
-
-                                                        // แสดงข้อความยืนยัน
-                                                        ScaffoldMessenger.of(
-                                                                context)
-                                                            .showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text(
-                                                                "Added to not recommended list successfully!"),
-                                                            backgroundColor:
-                                                                Color(
-                                                                    0xFF78d454),
-                                                          ),
-                                                        );
-                                                      }
-                                                    } catch (e) {
-                                                      // ปิด loading dialog และแสดงข้อความเมื่อเกิดข้อผิดพลาด
-                                                      if (context.mounted) {
-                                                        Navigator.pop(context);
-                                                        ScaffoldMessenger.of(
-                                                                context)
-                                                            .showSnackBar(
-                                                          SnackBar(
-                                                            content: Text(
-                                                                "Error: $e"),
-                                                            backgroundColor:
-                                                                Colors
-                                                                    .redAccent,
-                                                          ),
-                                                        );
-                                                      }
-                                                    }
-                                                  }
-                                                },
-                                                child: const Text("Confirm",
-                                                    style: TextStyle(
-                                                        color:
-                                                            Colors.redAccent)),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                    },
-                                  ),
+                                 
                                   ListTile(
                                     leading: const Icon(Icons.delete_forever,
                                         color: Colors.redAccent),
@@ -693,7 +588,7 @@ class _RecipeDetailState extends State<RecipeDetail> {
                                             .showSnackBar(
                                           const SnackBar(
                                             content: Text(
-                                                "ํYou do not have permission to delete this recipe"),
+                                                "You do not have permission to delete this recipe"),
                                             backgroundColor: Colors.redAccent,
                                           ),
                                         );

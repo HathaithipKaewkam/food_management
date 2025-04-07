@@ -316,7 +316,7 @@ Future<Map<String, dynamic>?> _fetchUserIngredientData(String ingredientName) as
       // ใช้รูปภาพเดิมถ้ามี
       imageUrl = widget.initialData!['imageUrl'];
     }
-    _updateNutritionValues();
+
 
     // อ่านค่าโภชนาการ
     int kcal = int.tryParse(_caloriesController.text) ?? 0;
@@ -831,7 +831,7 @@ InputDecoration getCustomDecoration({String? hintText, IconData? prefixIcon}) {
                               ),
                             ],
                           ),
-                                                                              const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 // Nutritional Information Section Header
 Row(
   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -844,16 +844,39 @@ Row(
         fontWeight: FontWeight.bold,
       ),
     ),
-    TextButton(
-      onPressed: () {
-        setState(() {
-          _showNutritionFields = !_showNutritionFields;
-        });
-      },
-      child: Text(
-        _showNutritionFields ? 'Hide' : 'Show',
-        style: TextStyle(color: Color(0xFF78d454)),
-      ),
+    Row(
+      children: [
+        if (_showNutritionFields) 
+          ElevatedButton.icon(
+            onPressed: () {
+              _updateNutritionValues();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Nutrition values calculated from ingredients')),
+              );
+            },
+            icon: Icon(Icons.refresh, size: 16),
+            label: Text('Recalculate'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF78d454),
+              foregroundColor: Colors.white,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              textStyle: TextStyle(fontSize: 12),
+            ),
+          ),
+        SizedBox(width: 8),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _showNutritionFields = !_showNutritionFields;
+            });
+          },
+          child: Text(
+            _showNutritionFields ? 'Hide' : 'Show',
+            style: TextStyle(color: Color(0xFF78d454)),
+          ),
+        ),
+      ],
     ),
   ],
 ),
