@@ -339,13 +339,6 @@ Widget _buildSettings() {
             ),
           ),
         ),
-              _buildSettingsTile(
-                icon: Icons.notifications,
-                title: 'Notifications',
-                onTap: () {
-                 
-                },
-              ),
              
               _buildSettingsTile(
                 icon: Icons.password,
@@ -396,18 +389,9 @@ Widget _buildHelp() {
           ),
         ),
               _buildSettingsTile(
-                icon: Icons.contact_support_outlined,
-                title: 'Support and Feedback',
-                onTap: () {
-                 
-                },
-              ),
-             
-              _buildSettingsTile(
                   icon: Icons.privacy_tip_outlined,
                   title: 'Privacy Policy',
                   onTap: () {
-                    // เมื่อกดไปที่ Privacy Policy ให้ไปที่หน้า PrivacyPolicyScreen
                     Navigator.push(
                       context,
                       MaterialPageRoute(

@@ -56,6 +56,25 @@ bool isLoadingTopRecipe = true;
   List<Map<String, dynamic>> searchResults = [];
   bool isSearching = false;
   Timer? _debounce;
+   List<Map<String, dynamic>> _allRecommendedRecipes = [];
+  List<Recipe> _allUserRecipes = [];
+  List<Map<String, dynamic>> _allTopUserPreferenceRecipes = [];
+  List<Map<String, dynamic>> _allPopularRecipes = [];
+
+
+   List<String> recipeTypes = [
+      'All',
+      'Breakfast',
+      'Lunch',
+      'Dinner',
+      'Appetizers',
+      'Main Dishes',
+      'Side Dishes',
+      'Soups',
+      'Snacks',
+      'Desserts',
+      'Beverages',
+    ];
 
   @override
   void initState() {
@@ -176,6 +195,7 @@ bool isLoadingTopRecipe = true;
 
         setState(() {
           userRecipes = loadedRecipes;
+           _allUserRecipes = loadedRecipes;
           isLoadingUserRecipes = false;
         });
       } else {
@@ -232,6 +252,7 @@ bool isLoadingTopRecipe = true;
       if (mounted) {
         setState(() {
           topUserPreferenceRecipes = recipes; 
+           _allTopUserPreferenceRecipes = recipes;
           isLoadingTopRecipe = false;
         });
       }
@@ -256,15 +277,20 @@ bool isLoadingTopRecipe = true;
         final recipes =
             await _recommendationService.getRecommendedRecipes(user.uid);
 
+        
+
         if (recipes.isNotEmpty) {
           print('First recipe: ${recipes[0]['title']}');
         }
 
-        if (mounted) {
-          setState(() {
-            recommendedRecipes = recipes;
-            isLoading = false;
-          });
+          final convertedRecipes = _convertRecipeData(recipes);
+
+      if (mounted) {
+        setState(() {
+          recommendedRecipes = convertedRecipes;
+           _allRecommendedRecipes = convertedRecipes;
+          isLoading = false;
+        });
         }
       } else {
         print('⚠️ No user logged in');
@@ -299,6 +325,7 @@ bool isLoadingTopRecipe = true;
       if (mounted) {
         setState(() {
           popularRecipes = recipes;
+           _allPopularRecipes = recipes;
           isLoadingPopularRecipes = false;
         });
       }
@@ -311,6 +338,75 @@ bool isLoadingTopRecipe = true;
       }
     }
   }
+
+List<Map<String, dynamic>> _filterApiRecipesByCategory(List<Map<String, dynamic>> recipes) {
+  if (selectedCategoryIndex == 0) { // 'All' category
+    return recipes;
+  }
+  
+  String selectedCategory = recipeTypes[selectedCategoryIndex].toLowerCase();
+  
+  // เพิ่ม logging เพื่อตรวจสอบข้อมูล
+  print("🔍 Selected category: $selectedCategory");
+  
+  return recipes.where((recipe) {
+    bool matched = false;
+    
+    // ตรวจสอบ dishTypes
+    if (recipe['dishTypes'] != null && recipe['dishTypes'] is List && (recipe['dishTypes'] as List).isNotEmpty) {
+      for (var type in recipe['dishTypes']) {
+        String typeStr = type.toString().toLowerCase().trim();
+        print("📊 Comparing: '$typeStr' with '$selectedCategory'");
+        
+        // เปรียบเทียบแบบยืดหยุ่นมากขึ้น - ตรวจสอบว่ามีคำนี้อยู่ใน type หรือไม่
+        if (typeStr.contains(selectedCategory) || selectedCategory.contains(typeStr)) {
+          matched = true;
+          break;
+        }
+      }
+    }
+    
+    // ตรวจสอบ mealType ถ้ามี
+    if (!matched && recipe['mealType'] != null) {
+      String mealType = recipe['mealType'].toString().toLowerCase().trim();
+      if (mealType.contains(selectedCategory) || selectedCategory.contains(mealType)) {
+        matched = true;
+      }
+    }
+    
+    // ตรวจสอบ category ถ้ามี (บางครั้ง API อาจใช้ field นี้)
+    if (!matched && recipe['category'] != null) {
+      String category = recipe['category'].toString().toLowerCase().trim();
+      if (category.contains(selectedCategory) || selectedCategory.contains(category)) {
+        matched = true;
+      }
+    }
+    
+    return matched;
+  }).toList();
+}
+
+// ฟังก์ชันกรอง Recipe objects
+List<Recipe> _filterUserRecipesByCategory(List<Recipe> recipes) {
+  if (selectedCategoryIndex == 0) { // 'All' category
+    return recipes;
+  }
+  
+  String selectedCategory = recipeTypes[selectedCategoryIndex];
+  
+  return recipes.where((recipe) {
+    return recipe.category.toLowerCase() == selectedCategory.toLowerCase();
+  }).toList();
+}
+
+void _updateDisplayRecipesByCategory() {
+  setState(() {
+    recommendedRecipes = _filterApiRecipesByCategory(_allRecommendedRecipes);
+    userRecipes = _filterUserRecipesByCategory(_allUserRecipes);
+    topUserPreferenceRecipes = _filterApiRecipesByCategory(_allTopUserPreferenceRecipes);
+    popularRecipes = _filterApiRecipesByCategory(_allPopularRecipes);
+  });
+}
 
    void _searchRecipes(String query) {
   if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -397,19 +493,7 @@ bool isLoadingTopRecipe = true;
 
     List<Recipe> recipeList = [];
 
-    List<String> recipeTypes = [
-      'All',
-      'Breakfast',
-      'Lunch',
-      'Dinner',
-      'Appetizers',
-      'Main Dishes',
-      'Side Dishes',
-      'Soups',
-      'Snacks',
-      'Desserts',
-      'Beverages',
-    ];
+   
 
     
 
@@ -798,15 +882,15 @@ bool isLoadingTopRecipe = true;
               ],
             )
           else
-          SizedBox(height: 10),
+          SizedBox(height: 20),
           Column (
             children : [
 
               // Category Selector
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                padding: const EdgeInsets.symmetric(horizontal: 15.0),
                 child: SizedBox(
-                  height: 30,
+                  height: 40,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: recipeTypes.length,
@@ -815,6 +899,7 @@ bool isLoadingTopRecipe = true;
                         onTap: () {
                           setState(() {
                             selectedCategoryIndex = index;
+                            _updateDisplayRecipesByCategory();
                           });
                         },
                         child: Container(
@@ -931,12 +1016,7 @@ bool isLoadingTopRecipe = true;
                                               recipeName: recipe['title'] ?? '',
                                               description:
                                                   recipe['summary'] ?? '',
-                                              ingredients:
-                                                  (recipe['extendedIngredients']
-                                                              as List<
-                                                                  dynamic>? ??
-                                                          [])
-                                                      .map((ingredient) {
+                                             ingredients: ((recipe['ingredients'] ?? recipe['extendedIngredients']) as List<dynamic>).map((ingredient) {
                                                 return IngredientUsage(
                                                   ingredient:
                                                       Ingredient.fromAPI(
@@ -1306,8 +1386,13 @@ bool isLoadingTopRecipe = true;
                           : ListView.builder(
                               physics: const NeverScrollableScrollPhysics(),
                               shrinkWrap: true,
-                              itemCount: 5,
+                              itemCount: topUserPreferenceRecipes.length ,
+                                
+                              
                               itemBuilder: (context, index) {
+                                   if (index >= topUserPreferenceRecipes.length) {
+      return SizedBox(); 
+    }
                                 final recipe = topUserPreferenceRecipes[index]; 
                                 return GestureDetector(
                                   onTap: () {
@@ -1480,11 +1565,14 @@ bool isLoadingTopRecipe = true;
                           : ListView.builder(
                               physics: const NeverScrollableScrollPhysics(),
                               shrinkWrap: true,
-                              itemCount: popularRecipes.length > 3
-                                  ? 3
-                                  : popularRecipes.length,
-                              itemBuilder: (context, index) {
-                                final recipe = popularRecipes[index];
+                              itemCount: popularRecipes.length,
+  itemBuilder: (context, index) {
+    
+    if (index >= popularRecipes.length) {
+      return SizedBox(); 
+    }
+    
+    final recipe = popularRecipes[index];
                                 final ingredients = (recipe['ingredients'] as List<dynamic>? ?? []).map((ingredient) {
       return IngredientUsage(
         ingredient: Ingredient.fromAPI(

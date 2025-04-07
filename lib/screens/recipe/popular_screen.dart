@@ -98,7 +98,7 @@ class _PopularScreen extends State<PopularScreen> {
                         mainAxisSpacing: 20,
                         childAspectRatio: 0.85, 
                       ),
-                      itemCount: widget.popularRecipes.length,
+                      itemCount: widget.popularRecipes.length > 5 ? 5 : widget.popularRecipes.length,
                       itemBuilder: (context, index) {
                         final recipe = widget.popularRecipes[index];
                         return GestureDetector(

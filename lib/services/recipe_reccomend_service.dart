@@ -146,9 +146,17 @@ class RecipeRecommendationService {
       DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
   
   // สร้างคีย์แคชที่มีการเปลี่ยนแปลงเมื่อข้อมูลเปลี่ยน
-  Timestamp lastUpdated = userDoc['lastUpdated'] ?? Timestamp.now();
-
-   Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+  Timestamp lastUpdated;
+      if (userDoc.exists) {
+        Map<String, dynamic>? userData = userDoc.data() as Map<String, dynamic>?;
+        if (userData != null && userData.containsKey('lastUpdated')) {
+          lastUpdated = userData['lastUpdated'];
+        } else {
+          lastUpdated = Timestamp.now();
+        }
+      } else {
+        lastUpdated = Timestamp.now();
+      }
   
   // ดึงข้อมูลวัตถุดิบที่ใกล้หมดอายุเพื่อสร้าง signature
   List<Map<String, dynamic>> expiringIngredients = await fetchIngredientsWithExpiry(userId);
@@ -209,9 +217,23 @@ class RecipeRecommendationService {
           .doc(userId)
           .get();
 
-      if (!macroDoc.exists) {
-        print('⚠️ No macro data found');
-        return [];
+       if (!macroDoc.exists) {
+        print('⚠️ No macro data found, using default values');
+        userMacros = {
+          'calories': 2000.0,
+          'protein': 75.0,
+          'carbs': 250.0,
+          'fat': 65.0
+        };
+      } else {
+        Map<String, dynamic> userMacroData =
+            macroDoc.data() as Map<String, dynamic>;
+        userMacros = {
+          'calories': userMacroData['caloriesPerDay'] ?? 2000.0,
+          'protein': userMacroData['proteinGrams'] ?? 75.0,
+          'carbs': userMacroData['carbsGrams'] ?? 250.0,
+          'fat': userMacroData['fatGrams'] ?? 65.0
+        };
       }
 
       Map<String, dynamic> userMacroData =
