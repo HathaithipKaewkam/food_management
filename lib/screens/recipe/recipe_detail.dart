@@ -118,7 +118,6 @@ void initState() {
 
   @override
 void dispose() {
-  Navigator.pop(context, true);
   super.dispose();
 }
 
