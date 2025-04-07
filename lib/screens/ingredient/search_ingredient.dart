@@ -119,12 +119,76 @@ double _parseDoubleValue(dynamic value) {
   if (value is String) return double.tryParse(value) ?? 1.0;
   return 1.0;
 }
-  List<Map<String, dynamic>> _searchIngredients(String query) {
-    return ingredientList.where((ingredient) {
-      final ingredientName = ingredient['ingredientsName'];
-      return ingredientName.toLowerCase().contains(query.toLowerCase());
-    }).toList();
+ List<Map<String, dynamic>> _searchIngredients(String query) {
+  if (query.isEmpty) return [];
+  
+  final lowerQuery = query.toLowerCase().trim();
+  
+  // กรณีค้นหาด้วยตัวอักษรเดียว ให้ดึงข้อมูลเพิ่มเติมจาก Firebase โดยตรง
+  if (lowerQuery.length == 1) {
+    // ดึงข้อมูลเพิ่มเติมแบบเบื้องหลัง 
+    _searchFirebaseDirectly(lowerQuery);
   }
+  
+  // ค้นหาจากข้อมูลที่มีอยู่แล้ว
+  List<Map<String, dynamic>> results = [];
+  for (var ingredient in ingredientList) {
+    final ingredientName = (ingredient['ingredientsName'] ?? '').toString().toLowerCase().trim();
+    if (ingredientName.contains(lowerQuery)) {
+      results.add(ingredient);
+      print("✅ Found match: $ingredientName");
+    }
+  }
+  
+  print("📊 Search results: ${results.length} items found");
+  return results;
+}
+
+Future<void> _searchFirebaseDirectly(String query) async {
+  try {
+    print("🔄 Searching Firebase directly for: '$query'");
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('ingredients')
+        .orderBy('ingredientsName')
+        .where('ingredientsName', isGreaterThanOrEqualTo: query)
+        .where('ingredientsName', isLessThan: query + 'z')
+        .limit(50)  // เพิ่มจำนวนรายการที่ค้นหา
+        .get();
+        
+    print("✅ Firebase direct search found: ${querySnapshot.docs.length} items");
+    
+    // แปลงผลลัพธ์เป็นรูปแบบเดียวกับ ingredientList
+    List<Map<String, dynamic>> directResults = [];
+    for (var doc in querySnapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      directResults.add({
+        'id': doc.id,
+        'ingredientsName': data['ingredientsName'] ?? '',
+        'imageUrl': data['imageUrl'] ?? '',
+        'category': data['category'] ?? '',
+        'unit': data['unit'] ?? '',
+        'shelflife': data['shelflife'] ?? 0,
+        'storage': data['storage'] ?? '',
+        'quantity': _parseDoubleValue(data['quantity']),
+        'minQuantity': _parseDoubleValue(data['minQuantity']),
+      });
+    }
+    
+    // เพิ่มรายการที่ค้นพบเข้าไปใน ingredientList โดยไม่ให้ซ้ำกัน
+    if (directResults.isNotEmpty) {
+      setState(() {
+        Set<String> existingIds = ingredientList.map((e) => e['id'].toString()).toSet();
+        List<Map<String, dynamic>> uniqueItems = directResults.where((item) => 
+          !existingIds.contains(item['id'].toString())).toList();
+          
+        ingredientList.addAll(uniqueItems);
+        print("📦 Added ${uniqueItems.length} new items to ingredientList");
+      });
+    }
+  } catch (e) {
+    print("❌ Error searching Firebase directly: $e");
+  }
+}
 
   Future<String?> getStorageImageUrl(String fileName) async {
     try {
@@ -213,6 +277,23 @@ void initState() {
   });
   
   _loadInitialData();
+  
+  Future.delayed(Duration(seconds: 2), () {
+    _fetchMoreInitialData();
+  });
+}
+
+Future<void> _fetchMoreInitialData() async {
+  try {
+    print("🔄 Loading more initial data...");
+    for (int i = 0; i < 3; i++) {  
+      await _fetchIngredients();
+      await Future.delayed(Duration(milliseconds: 300));
+    }
+    print("✅ Loaded more initial data, total: ${ingredientList.length} items");
+  } catch (e) {
+    print("❌ Error loading more initial data: $e");
+  }
 }
 
   @override
@@ -228,6 +309,10 @@ void initState() {
      final searchResults = _searchController.text.isEmpty 
       ? ingredientList 
       : _searchIngredients(_searchController.text);
+      if (_searchController.text.isNotEmpty) {
+    print("🔎 Search term: '${_searchController.text}'");
+    print("📋 Results count: ${searchResults.length}");
+  }
 
     return Scaffold(
       body: Padding(
@@ -310,7 +395,8 @@ void initState() {
                 },
                 child: ListView(
                   children: [
-                    if (_searchController.text.isNotEmpty && searchResults.isEmpty)
+                    if (_searchController.text.isNotEmpty && searchResults.isEmpty  && 
+    !isLoading)
                       ListTile(
                         contentPadding: const EdgeInsets.only(left: 10),
                         title: const Text(
