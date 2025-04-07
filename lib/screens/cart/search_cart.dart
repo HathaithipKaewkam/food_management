@@ -135,6 +135,7 @@ class _SearchCartScreenState extends State<SearchCartScreen> {
 
     QuerySnapshot query = await userCart
         .where('ingredientsName', isEqualTo: ingredient['ingredientsName'])
+        .where('storage', isEqualTo: ingredient['storage'])
         .get();
 
     if (query.docs.isNotEmpty) {

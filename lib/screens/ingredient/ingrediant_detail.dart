@@ -809,44 +809,69 @@ double _extractNutritionValue(Map<String, dynamic> recipe, String nutrientName) 
   padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
   child: GestureDetector( // เพิ่ม GestureDetector ครอบ Row เดิม
     onTap: () {
-      print("⚙️ DEBUG - Navigating to recipe detail with ID: ${recipe['id']}");
+  print("⚙️ DEBUG - Navigating to recipe detail with ID: ${recipe['id']}");
   print("⚙️ DEBUG - Recipe structure: ${recipe.keys.toList()}");
-   if (recipe['extendedIngredients'] == null && 
-      recipe['usedIngredients'] != null) {
-    // สร้าง extendedIngredients จาก usedIngredients
-    recipe['extendedIngredients'] = recipe['usedIngredients'];
-    print("⚙️ DEBUG - Created extendedIngredients from usedIngredients: ${recipe['extendedIngredients'].length} items");
-  }
-  
-      // แปลงข้อมูลจาก API เป็น Recipe object
-      final ingredients = (recipe['extendedIngredients'] as List<dynamic>? ?? []).map((ingredient) {
-        return IngredientUsage(
-          ingredient: Ingredient.fromAPI(
-            id: ingredient['id']?.toString() ?? '',
-      name: ingredient['name'] ?? '',
-      amount: ingredient['amount'] is num ? ingredient['amount'].toDouble() : double.tryParse(ingredient['amount']?.toString() ?? '0') ?? 0.0,
-      unit: ingredient['unit'] ?? '',
-          ),
-           quantityUsed: ingredient['amount'] is num ? ingredient['amount'].toDouble() : double.tryParse(ingredient['amount']?.toString() ?? '0') ?? 0.0,
-        );
-      }).toList();
+  print("📦 usedIngredients: ${recipe['usedIngredients']?.length}");
+print("📦 missedIngredients: ${recipe['missedIngredients']?.length}");
+print("📦 extendedIngredients: ${recipe['extendedIngredients']?.length}");
+print("📦 analyzedInstructions: ${recipe['analyzedInstructions']}");
 
-      // แปลง instructions ให้เป็น List<String>
-      List<String> instructions = [];
-      if (recipe['analyzedInstructions'] != null && recipe['analyzedInstructions'] is List && recipe['analyzedInstructions'].isNotEmpty) {
-        for (var instruction in recipe['analyzedInstructions']) {
-          if (instruction != null && instruction.containsKey('steps')) {
-            for (var step in instruction['steps']) {
-              if (step != null && step.containsKey('step')) {
-                instructions.add(step['step'].toString());
-              }
-            }
+
+  // ✅ รวม ingredients ทั้งหมด (เน้น extendedIngredients ก่อน)
+  List<dynamic> allIngredients = [];
+
+  if (recipe['extendedIngredients'] != null && recipe['extendedIngredients'] is List) {
+    allIngredients = recipe['extendedIngredients'];
+    print("✅ ใช้ extendedIngredients (${allIngredients.length} items)");
+  } else {
+    // fallback เผื่อไม่มี extendedIngredients
+    if (recipe['usedIngredients'] != null) {
+      allIngredients.addAll(recipe['usedIngredients']);
+    }
+    if (recipe['missedIngredients'] != null) {
+      allIngredients.addAll(recipe['missedIngredients']);
+    }
+    print("⚠️ fallback - ใช้ used + missed (${allIngredients.length} items)");
+  }
+
+  final ingredients = allIngredients.map((ingredient) {
+    return IngredientUsage(
+      ingredient: Ingredient.fromAPI(
+        id: ingredient['id']?.toString() ?? '',
+        name: ingredient['name'] ?? '',
+        amount: ingredient['amount'] is num
+            ? ingredient['amount'].toDouble()
+            : double.tryParse(ingredient['amount']?.toString() ?? '0') ?? 0.0,
+        unit: ingredient['unit'] ?? '',
+      ),
+      quantityUsed: ingredient['amount'] is num
+          ? ingredient['amount'].toDouble()
+          : double.tryParse(ingredient['amount']?.toString() ?? '0') ?? 0.0,
+    );
+  }).toList();
+
+  // ✅ แปลง instructions
+  List<String> instructions = [];
+
+  if (recipe['analyzedInstructions'] != null &&
+      recipe['analyzedInstructions'] is List &&
+      recipe['analyzedInstructions'].isNotEmpty) {
+    
+    for (var instruction in recipe['analyzedInstructions']) {
+      if (instruction != null && instruction.containsKey('steps')) {
+        for (var step in instruction['steps']) {
+          if (step != null && step.containsKey('step')) {
+            instructions.add(step['step'].toString());
           }
         }
-      } else if (recipe['instructions'] != null) {
-        // กรณีที่ instructions เป็น String เดียว
-        instructions = [recipe['instructions'].toString()];
       }
+    }
+    print("✅ Loaded ${instructions.length} instructions from analyzedInstructions");
+
+  } else if (recipe['instructions'] != null) {
+    instructions = [recipe['instructions'].toString()];
+    print("✅ Loaded simple instructions");
+  }
 
       // สร้าง Recipe object
       Recipe recipeObj = Recipe(

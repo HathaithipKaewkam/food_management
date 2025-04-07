@@ -600,23 +600,41 @@ void dispose() {
                                     });
                                   }
                                 }
-                                else if (value == 'Move to storage') { 
-                                  for (var item in cartItems) {
-                                    if (item['purchased'] == true) {
-                                     
-                                      await _moveToStorage(item['docId'], item);
-                                    } else {
-                                      
-                                    }
-                                  }
-                                } else if (value == 'Move all items to storage') { 
-                                  for (var item in cartItems) {
-                                    if (item['purchased'] == true) {
-                                      // เรียกฟังก์ชันย้ายไป storage
-                                      await _moveToStorage(item['docId'], item);
-                                    }
-                                  }
-                                }
+                               else if (value == 'Move to storage') { 
+  List<Map<String, dynamic>> itemsToMove = [];
+  for (var item in cartItems) {
+    if (item['purchased'] == true) {
+      itemsToMove.add(Map<String, dynamic>.from(item));
+    }
+  }
+  
+  for (var item in itemsToMove) {
+    try {
+      await _moveToStorage(item['docId'], item);
+      print("✅ Moved ${item['ingredientsName']} from ${item['storage']} to storage successfully");
+    } catch (e) {
+      print("❌ Failed to move ${item['ingredientsName']} from ${item['storage']}: $e");
+    }
+  }
+} else if (value == 'Move all items to storage') { 
+  // ดึงรายการที่ถูกเลือกทั้งหมดออกมาก่อน
+  List<Map<String, dynamic>> itemsToMove = [];
+  for (var item in cartItems) {
+    if (item['purchased'] == true) {
+      itemsToMove.add(Map<String, dynamic>.from(item));
+    }
+  }
+  
+  // ทำการย้ายทีละรายการ
+  for (var item in itemsToMove) {
+    try {
+      await _moveToStorage(item['docId'], item);
+      print("✅ Moved ${item['ingredientsName']} from ${item['storage']} to storage successfully");
+    } catch (e) {
+      print("❌ Failed to move ${item['ingredientsName']} from ${item['storage']}: $e");
+    }
+  }
+}
                               },
                               icon: Icon(Icons.more_horiz,
                                   color: Colors.black, size: 25),

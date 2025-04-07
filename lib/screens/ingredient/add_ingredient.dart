@@ -254,6 +254,7 @@ Future<void> _loadImageUrl() async {
 
       QuerySnapshot existingIngredients = await userIngredients
           .where('ingredientsName', isEqualTo: newIngredient['ingredientsName'])
+           .where('storage', isEqualTo: newIngredient['storage'])
           .get();
 
        double calculatedKcal = isIngredientInDatabase ? calculateKcal() : 0.0;

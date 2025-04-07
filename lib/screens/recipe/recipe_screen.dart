@@ -692,6 +692,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                      ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text('Refreshing recommendations...')),
   );
+  
                   },
                 ),
               ),
@@ -1872,7 +1873,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          height: MediaQuery.of(context).size.height * 0.70,
+          height: MediaQuery.of(context).size.height * 0.55,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.only(
@@ -2116,24 +2117,18 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
                             Navigator.pop(context);
 
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CreateRecipeScreen(
-                                  initialData: initialRecipeData,
-                                  onRecipeCreated: () {
-                                    if (context.findAncestorStateOfType<
-                                            _RecipeScreenState>() !=
-                                        null) {
-                                      context
-                                          .findAncestorStateOfType<
-                                              _RecipeScreenState>()!
-                                          ._loadUserRecipes();
-                                    }
-                                  },
-                                ),
-                              ),
-                            );
+                          Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (context) => CreateRecipeScreen(
+      initialData: initialRecipeData,
+    ),
+  ),
+).then((value) {
+  if (value == true) {
+    _loadUserRecipes(); 
+  }
+});
                           }
                         },
                         style: ElevatedButton.styleFrom(
