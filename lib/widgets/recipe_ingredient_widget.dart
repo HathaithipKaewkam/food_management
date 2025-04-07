@@ -27,7 +27,7 @@ class _RecipeIngredientWidgetState extends State<RecipeIngredientWidget> {
 
   bool _hasIngredient(Ingredient recipeIngredient, double recipeQuantity) {
   try {
-    print("Checking if user has ingredient: ${recipeIngredient.ingredientsName}, need: $recipeQuantity");
+   
     if (widget.userIngredients.isEmpty || recipeIngredient.ingredientsName.isEmpty) {
       return false;
     }

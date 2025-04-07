@@ -1219,4 +1219,38 @@ Future<List<Map<String, dynamic>>> _getDefaultTopRecipes(int count , String user
       return {};
     }
   }
+
+  Future<Map<String, dynamic>?> getRecipeById(int recipeId) async {
+  try {
+    // เพิ่ม parameter includeInstructions=true
+    final response = await http.get(
+      Uri.parse('https://api.spoonacular.com/recipes/$recipeId/information?apiKey=$apiKey&includeNutrition=true&instructionsRequired=true')
+    );
+    
+    if (response.statusCode == 200) {
+      print("✅ Successfully fetched recipe details for ID: $recipeId");
+      var responseData = json.decode(response.body);
+      print("✅ Response data keys: ${responseData.keys.toList()}");
+      
+      // ตรวจสอบว่ามีข้อมูลขั้นตอนหรือไม่
+      if (responseData['analyzedInstructions'] == null || 
+          (responseData['analyzedInstructions'] is List && 
+          (responseData['analyzedInstructions'] as List).isEmpty)) {
+        print("⚠️ No analyzedInstructions found, checking for instructions...");
+      }
+      
+      if (responseData['instructions'] == null || responseData['instructions'].toString().isEmpty) {
+        print("⚠️ No instructions found either");
+      }
+      
+      return responseData;
+    } else {
+      print("❌ API Error: ${response.statusCode}");
+      return null;
+    }
+  } catch (e) {
+    print("❌ Error fetching recipe by ID: $e");
+    return null;
+  }
+}
 }

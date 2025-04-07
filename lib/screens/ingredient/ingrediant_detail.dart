@@ -870,7 +870,6 @@ print("📦 analyzedInstructions: ${recipe['analyzedInstructions']}");
 
   } else if (recipe['instructions'] != null) {
     instructions = [recipe['instructions'].toString()];
-    print("✅ Loaded simple instructions");
   }
 
       // สร้าง Recipe object
