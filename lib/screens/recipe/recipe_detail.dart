@@ -8,6 +8,7 @@ import 'package:food_project/models/ingredient.dart';
 import 'package:food_project/models/recipe.dart';
 import 'package:food_project/screens/recipe/edit.recipe.dart';
 import 'package:food_project/services/meal_plan_service.dart';
+import 'package:food_project/services/recipe_service.dart';
 import 'package:food_project/widgets/instruction_widget.dart';
 import 'package:food_project/widgets/recipe_ingredient_widget.dart';
 
@@ -30,6 +31,7 @@ class RecipeDetail extends StatefulWidget {
 }
 
 class _RecipeDetailState extends State<RecipeDetail> {
+  final RecipeService _recipeService = RecipeService();
   int currentNumber = 1;
   bool showIngredients = true;
   List<Map<String, dynamic>> userIngredients = [];
@@ -79,19 +81,47 @@ class _RecipeDetailState extends State<RecipeDetail> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    currentRecipe = widget.recipe;
-    currentRecipeDocId = widget.recipeDocId;
-    fetchUserIngredients();
-    if (widget.loadFullData) {
-      _loadFullRecipeData();
-    }
+void initState() {
+  super.initState();
+  currentRecipe = widget.recipe;
+  currentRecipeDocId = widget.recipeDocId;
+  
+  // เพิ่ม debug log
+  print("📊 Recipe Detail - Received recipe data:");
+  print("📊 Recipe Name: ${currentRecipe.recipeName}");
+  print("📊 Ingredients count: ${currentRecipe.ingredients.length}");
+  print("📊 Instructions count: ${currentRecipe.instructions.length}");
+  print("📊 Nutrition - Protein: ${currentRecipe.Protein}");
+  print("📊 Nutrition - Fat: ${currentRecipe.Fat}");
+  print("📊 Nutrition - Carbs: ${currentRecipe.Carbo}");
+  print("📊 Nutrition - Calories: ${currentRecipe.Kcal}");
+  
+  fetchUserIngredients();
+  
+  // แก้ไขเงื่อนไขให้ตรวจสอบค่าโภชนาการด้วย
+  if (widget.loadFullData && 
+      (currentRecipe.ingredients.isEmpty || 
+       currentRecipe.instructions.isEmpty ||
+       currentRecipe.Protein <= 0 || // เพิ่มการตรวจสอบค่าโภชนาการ
+       currentRecipe.Fat <= 0 ||
+       currentRecipe.Carbo <= 0 ||
+       currentRecipe.Kcal <= 0)) {
+    print("🔄 Loading full recipe data because data is incomplete");
+    _loadFullRecipeData();
+  } else {
+    print("✅ Recipe already has complete data, skipping API fetch");
   }
+}
 
-  Future<void> _loadFullRecipeData() async {
-  // ถ้ามีข้อมูลครบถ้วนแล้ว ไม่ต้องโหลดเพิ่ม
-  if (currentRecipe.ingredients.isNotEmpty && currentRecipe.instructions.isNotEmpty) {
+ 
+
+Future<void> _loadFullRecipeData() async {
+  if (currentRecipe.ingredients.isNotEmpty && 
+      currentRecipe.instructions.isNotEmpty &&
+      currentRecipe.Protein > 0 &&
+      currentRecipe.Fat > 0 &&
+      currentRecipe.Carbo > 0 &&
+      currentRecipe.Kcal > 0) {
     print("✅ Recipe already has complete data");
     return;
   }
@@ -132,8 +162,121 @@ class _RecipeDetailState extends State<RecipeDetail> {
       return;
     }
     
-    // 3. ลองค้นหาใน Firebase collections อื่นๆ...
-    // (โค้ดส่วนนี้เหมือนเดิม)
+    // 3. เพิ่มการเรียกใช้ API โดยตรงถ้าไม่พบใน Firestore
+    try {
+      print("🔄 Recipe not found in Firestore, fetching from API...");
+      
+      final recipeData = await _recipeService.getRecipeInformation(currentRecipe.recipeId);
+      
+      if (recipeData.isNotEmpty) {
+        print("✅ Successfully fetched recipe data from API");
+        
+        // แปลง API response เป็น Recipe object
+        List<IngredientUsage> ingredients = [];
+        
+       // แก้ไขในฟังก์ชัน _loadFullRecipeData ที่ประมาณบรรทัด 175-185
+if (recipeData['extendedIngredients'] != null) {
+  print("DEBUG: Found ${(recipeData['extendedIngredients'] as List).length} ingredients in API response");
+  
+  for (var ing in recipeData['extendedIngredients']) {
+    final ingredient = Ingredient.fromAPI(
+      id: ing['id']?.toString() ?? '',
+      name: ing['name'] ?? '',
+      amount: ing['amount']?.toDouble() ?? 0.0,
+      unit: ing['unit'] ?? '',
+
+    );
+    
+    ingredients.add(IngredientUsage(
+      ingredient: ingredient,
+      quantityUsed: ing['amount']?.toDouble() ?? 0.0,
+    ));
+  }
+} else if (recipeData['usedIngredients'] != null) {
+  // กรณีที่ไม่มี extendedIngredients แต่มี usedIngredients (ในกรณีของ ingrediant_detail.dart)
+  print("DEBUG: Using usedIngredients instead - Found ${(recipeData['usedIngredients'] as List).length} ingredients");
+  
+  for (var ing in recipeData['usedIngredients']) {
+    final ingredient = Ingredient.fromAPI(
+      id: ing['id']?.toString() ?? '',
+      name: ing['name'] ?? '',
+      amount: ing['amount']?.toDouble() ?? 0.0,
+      unit: ing['unit'] ?? '',
+     
+    );
+    
+    ingredients.add(IngredientUsage(
+      ingredient: ingredient,
+      quantityUsed: ing['amount']?.toDouble() ?? 0.0,
+    ));
+  }
+  
+  // เพิ่ม missedIngredients ด้วยถ้ามี
+  if (recipeData['missedIngredients'] != null) {
+    for (var ing in recipeData['missedIngredients']) {
+      final ingredient = Ingredient.fromAPI(
+        id: ing['id']?.toString() ?? '',
+        name: ing['name'] ?? '',
+        amount: ing['amount']?.toDouble() ?? 0.0,
+        unit: ing['unit'] ?? '',
+       
+      );
+      
+      ingredients.add(IngredientUsage(
+        ingredient: ingredient,
+        quantityUsed: ing['amount']?.toDouble() ?? 0.0,
+      ));
+    }
+  }
+}
+        
+       List<String> instructions = [];
+if (recipeData['analyzedInstructions'] != null) {
+  for (var instruction in recipeData['analyzedInstructions']) {
+    if (instruction['steps'] != null) {
+      for (var step in instruction['steps']) {
+        instructions.add(step['step'].toString());
+      }
+    }
+  }
+} else if (recipeData['instructions'] != null) {
+  // แก้ไขตรงนี้ เพื่อรองรับทั้งกรณีที่ instructions เป็น List หรือ String
+  if (recipeData['instructions'] is List) {
+    // กรณีที่เป็น List
+    instructions = (recipeData['instructions'] as List)
+      .map((instruction) => instruction.toString())
+      .toList();
+  } else {
+    // กรณีที่เป็น String
+    instructions = [recipeData['instructions'].toString()];
+  }
+}
+        
+        setState(() {
+          currentRecipe = Recipe(
+            recipeId: currentRecipe.recipeId,
+            recipeName: recipeData['title'] ?? currentRecipe.recipeName,
+            description: recipeData['summary'] ?? currentRecipe.description,
+            ingredients: ingredients.isEmpty ? currentRecipe.ingredients : ingredients,
+            instructions: instructions.isEmpty ? currentRecipe.instructions : instructions,
+            preparationTime: recipeData['preparationMinutes'] ?? currentRecipe.preparationTime,
+            cookingTime: recipeData['cookingMinutes'] ?? currentRecipe.cookingTime,
+            servings: recipeData['servings'] ?? currentRecipe.servings,
+            category: currentRecipe.category,
+            imageUrl: recipeData['image'] ?? currentRecipe.imageUrl,
+            Protein: recipeData['nutrition']?['protein']?.toDouble() ?? currentRecipe.Protein,
+            Fat: recipeData['nutrition']?['fat']?.toDouble() ?? currentRecipe.Fat,
+            Carbo: recipeData['nutrition']?['carbs']?.toDouble() ?? currentRecipe.Carbo,
+            Kcal: recipeData['nutrition']?['calories']?.toInt() ?? currentRecipe.Kcal,
+            isFavorite: currentRecipe.isFavorite,
+            recipeDocId: currentRecipeDocId,
+          );
+        });
+        return;
+      }
+    } catch (e) {
+      print("⚠️ Error fetching recipe data from API: $e");
+    }
     
     print("❌ Could not find full recipe data for id: ${currentRecipe.recipeId}");
   } catch (e) {

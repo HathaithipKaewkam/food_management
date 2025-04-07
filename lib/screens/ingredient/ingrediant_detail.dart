@@ -3,8 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:food_project/models/ingredient.dart';
+import 'package:food_project/models/recipe.dart';
 import 'package:food_project/screens/ingredient/add_ingredient.dart';
 import 'package:food_project/screens/ingredient/edit_ingredient.dart';
+import 'package:food_project/screens/recipe/recipe_detail.dart';
 import 'package:food_project/screens/root_screen.dart';
 import 'package:food_project/services/pairing_service.dart';
 import 'package:food_project/services/recipe_service.dart';
@@ -273,6 +275,58 @@ Future<void> fetchPairingIngredients() async {
     }).toList();
   }
 
+
+// แก้ไขฟังก์ชัน _extractNutritionValue
+double _extractNutritionValue(Map<String, dynamic> recipe, String nutrientName) {
+  if (recipe['nutrition'] == null) return 0.0;
+  
+  // กรณีที่ nutrition มาในรูปแบบ nutrition: {protein: 10, fat: 5, ...}
+  if (recipe['nutrition'] is Map && recipe['nutrition'][nutrientName] != null) {
+    var value = recipe['nutrition'][nutrientName];
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+  
+  // กรณีที่ nutrition มาในรูปแบบ nutrition: {nutrients: [{name: "Protein", amount: 10}, ...]}
+  if (recipe['nutrition'] is Map && recipe['nutrition']['nutrients'] is List) {
+    List nutrients = recipe['nutrition']['nutrients'];
+    for (var nutrient in nutrients) {
+      if (nutrient is Map && 
+          nutrient['name'] != null && 
+          nutrient['name'].toString().toLowerCase() == nutrientName.toLowerCase()) {
+        var amount = nutrient['amount'];
+        if (amount is num) return amount.toDouble();
+        if (amount is String) return double.tryParse(amount) ?? 0.0;
+        return 0.0;
+      }
+    }
+  }
+  
+  // ถ้าไม่พบข้อมูลในทั้งสองรูปแบบ ลองดึงจาก usedIngredients
+  if (recipe['usedIngredients'] is List) {
+    double total = 0.0;
+    for (var ingredient in recipe['usedIngredients']) {
+      if (ingredient is Map && ingredient['nutrition'] != null) {
+        if (ingredient['nutrition'][nutrientName] != null) {
+          var value = ingredient['nutrition'][nutrientName];
+          if (value is num) total += value.toDouble();
+          if (value is String) total += double.tryParse(value) ?? 0.0;
+        }
+      }
+    }
+    if (total > 0) return total;
+  }
+  
+  // ค่าเริ่มต้นถ้าไม่พบข้อมูล - ใช้ค่าที่มีความเป็นไปได้มากกว่า 0
+  switch (nutrientName.toLowerCase()) {
+    case 'protein': return 10.0;
+    case 'fat': return 5.0;
+    case 'carbs': return 20.0;
+    case 'calories': return 200.0;
+    default: return 0.0;
+  }
+}
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
@@ -751,9 +805,85 @@ Future<void> fetchPairingIngredients() async {
                         }
 
                         int totalIngredients = matchedIngredients + missedIngredients;
-                        return Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5.0, vertical: 10.0),
+                       return Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
+  child: GestureDetector( // เพิ่ม GestureDetector ครอบ Row เดิม
+    onTap: () {
+      print("⚙️ DEBUG - Navigating to recipe detail with ID: ${recipe['id']}");
+  print("⚙️ DEBUG - Recipe structure: ${recipe.keys.toList()}");
+   if (recipe['extendedIngredients'] == null && 
+      recipe['usedIngredients'] != null) {
+    // สร้าง extendedIngredients จาก usedIngredients
+    recipe['extendedIngredients'] = recipe['usedIngredients'];
+    print("⚙️ DEBUG - Created extendedIngredients from usedIngredients: ${recipe['extendedIngredients'].length} items");
+  }
+  
+      // แปลงข้อมูลจาก API เป็น Recipe object
+      final ingredients = (recipe['extendedIngredients'] as List<dynamic>? ?? []).map((ingredient) {
+        return IngredientUsage(
+          ingredient: Ingredient.fromAPI(
+            id: ingredient['id']?.toString() ?? '',
+      name: ingredient['name'] ?? '',
+      amount: ingredient['amount'] is num ? ingredient['amount'].toDouble() : double.tryParse(ingredient['amount']?.toString() ?? '0') ?? 0.0,
+      unit: ingredient['unit'] ?? '',
+          ),
+           quantityUsed: ingredient['amount'] is num ? ingredient['amount'].toDouble() : double.tryParse(ingredient['amount']?.toString() ?? '0') ?? 0.0,
+        );
+      }).toList();
+
+      // แปลง instructions ให้เป็น List<String>
+      List<String> instructions = [];
+      if (recipe['analyzedInstructions'] != null && recipe['analyzedInstructions'] is List && recipe['analyzedInstructions'].isNotEmpty) {
+        for (var instruction in recipe['analyzedInstructions']) {
+          if (instruction != null && instruction.containsKey('steps')) {
+            for (var step in instruction['steps']) {
+              if (step != null && step.containsKey('step')) {
+                instructions.add(step['step'].toString());
+              }
+            }
+          }
+        }
+      } else if (recipe['instructions'] != null) {
+        // กรณีที่ instructions เป็น String เดียว
+        instructions = [recipe['instructions'].toString()];
+      }
+
+      // สร้าง Recipe object
+      Recipe recipeObj = Recipe(
+        
+        recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
+        recipeName: recipe['title'] ?? '',
+        description: recipe['summary'] ?? '',
+        ingredients: ingredients,
+        instructions: instructions,
+        preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
+        cookingTime: int.tryParse(recipe['cookingMinutes']?.toString() ?? '0') ?? 0,
+        servings: int.tryParse(recipe['servings']?.toString() ?? '1') ?? 1,
+        category: (recipe['dishTypes'] as List<dynamic>? ?? []).isNotEmpty 
+            ? recipe['dishTypes'][0].toString() 
+            : 'Main Course',
+        imageUrl: recipe['image'] ?? '',
+         Protein: _extractNutritionValue(recipe, 'protein'),
+  Fat: _extractNutritionValue(recipe, 'fat'),
+  Carbo: _extractNutritionValue(recipe, 'carbs'),
+  Kcal: _extractNutritionValue(recipe, 'calories').toInt(),
+  
+        isFavorite: recipe['isFavorite'] == 'true',
+      
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => RecipeDetail(
+            recipe: recipeObj,
+            recipeId: recipeObj.recipeId,
+            recipeDocId: recipe['id'].toString(),
+            loadFullData: true,
+          ),
+        ),
+      );
+    },
                             child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -788,48 +918,7 @@ Future<void> fetchPairingIngredients() async {
                                           );
                                         }),
                                       ),
-                                      Positioned(
-                                        top: 3,
-                                        right: 4,
-                                        child: Container(
-                                          height: 40,
-                                          width: 40,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(25),
-                                            border: Border.all(
-                                                color: Colors.grey.shade300,
-                                                width: 1),
-                                          ),
-                                          child: IconButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                String currentFavorite =
-                                                    recipes[index]
-                                                            ['isFavorite'] ??
-                                                        'false';
-                                                recipes[index]['isFavorite'] =
-                                                    (currentFavorite == 'true')
-                                                        ? 'false'
-                                                        : 'true';
-                                              });
-                                            },
-                                            icon: Icon(
-                                              recipes[index]['isFavorite'] ==
-                                                      'true'
-                                                  ? Icons.favorite
-                                                  : Icons.favorite_border,
-                                              color: recipes[index]
-                                                          ['isFavorite'] ==
-                                                      'true'
-                                                  ? Colors.red
-                                                  : Colors.black54,
-                                            ),
-                                            iconSize: 20,
-                                          ),
-                                        ),
-                                      ),
+                                     
                                     ],
                                   ),
                                   const SizedBox(width: 12),
@@ -875,7 +964,8 @@ Future<void> fetchPairingIngredients() async {
                                       ],
                                     ),
                                   )
-                                ]));
+                                ]))
+                       );
                       }).toList(),
                     )
                  
