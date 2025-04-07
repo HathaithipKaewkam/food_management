@@ -37,10 +37,7 @@ class _RecipeDetailState extends State<RecipeDetail> {
   late Recipe currentRecipe;
   late String currentRecipeDocId;
 
-  // Toggle Favorite button
-  bool toggleIsFavorated(bool isFavorited) {
-    return !isFavorited;
-  }
+ 
 
   Widget _buildMealChip(
       String meal, String selectedMeal, Function(String) onSelected) {
@@ -275,6 +272,8 @@ class _RecipeDetailState extends State<RecipeDetail> {
       print("❌ Error refreshing recipe data: $e");
     }
   }
+
+  
 
   @override
   Widget build(BuildContext context) {

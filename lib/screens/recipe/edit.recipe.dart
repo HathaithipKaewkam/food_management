@@ -837,7 +837,7 @@ Row(
   mainAxisAlignment: MainAxisAlignment.spaceBetween,
   children: [
     Text(
-      'Nutritional Information (Optional)',
+      'Nutritional Information',
       style: TextStyle(
         color: Color(0xFF094507),
         fontSize: 18,

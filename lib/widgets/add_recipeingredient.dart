@@ -196,7 +196,7 @@ TextFormField(
                           
                           // Unit Column with Dropdown
                           Expanded(
-                            flex: 1,
+                            flex: 2,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
