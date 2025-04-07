@@ -277,13 +277,13 @@ Future<List<Map<String, String>>> getRecipeAndPairings(String ingredientName) as
     return [];
   }
 }
-
 Future<Map<String, dynamic>> getComprehensiveRecipeData(List<String> ingredients) async {
   if (ingredients.isEmpty) {
     return {'recipes': [], 'pairings': []};
   }
 
   List<String> sortedIngredients = [...ingredients]..sort();
+  // ลบ _thai ออกจาก cacheKey เพื่อไม่ให้มีการแยกแคชระหว่างอาหารไทยกับไม่ใช่
   String cacheKey = sortedIngredients.join(',');
   
   if (_comprehensiveCache.containsKey(cacheKey)) {
@@ -324,25 +324,125 @@ Future<Map<String, dynamic>> getComprehensiveRecipeData(List<String> ingredients
   String ingredientString = ingredients.join(',');
   
   try {
-    // เรียก API เพียงครั้งเดียว
-    final response = await http.get(
+    final generalResponse = await http.get(
       Uri.parse(
-        'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientString&number=10&apiKey=$_apiKey',
+         'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientString&number=10&apiKey=$_apiKey&ranking=2',
       ),
     );
 
-    if (response.statusCode == 200) {
-      var data = json.decode(response.body);
+    List<dynamic> allRecipes = [];
+    List<dynamic> thaiRecipes = [];
+    
+    if (generalResponse.statusCode == 200) {
+      var generalData = json.decode(generalResponse.body);
       
-      if (data is List && data.isNotEmpty) {
-        // ประมวลผลสูตรอาหาร
-        List<String> recipes = data.map<String>((recipe) => recipe['title'].toString()).toList();
+      if (generalData is List && generalData.isNotEmpty) {
+        allRecipes = generalData;
         
-        // ประมวลผลวัตถุดิบที่เข้ากัน
+        try {
+          final thaiResponse = await http.get(
+            Uri.parse(
+               'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientString&number=10&apiKey=$_apiKey&cuisine=thai',
+            ),
+          );
+          
+          if (thaiResponse.statusCode == 200) {
+            var thaiData = json.decode(thaiResponse.body);
+            if (thaiData is List && thaiData.isNotEmpty) {
+              thaiRecipes = thaiData;
+            }
+          }
+        } catch (e) {
+          print('Error getting Thai recipes: $e');
+        }
+        
+        
+        // 1. เรียงลำดับสูตรอาหารทั่วไปตามจำนวนวัตถุดิบที่ user มี
+        allRecipes.sort((a, b) {
+          int usedIngredientsA = a['usedIngredientCount'] ?? 0;
+          int usedIngredientsB = b['usedIngredientCount'] ?? 0;
+          
+          if (usedIngredientsA == usedIngredientsB) {
+            int missedIngredientsA = a['missedIngredientCount'] ?? 0;
+            int missedIngredientsB = b['missedIngredientCount'] ?? 0;
+            return missedIngredientsA - missedIngredientsB;
+          }
+          
+          return usedIngredientsB - usedIngredientsA;
+        });
+        
+        Set<int> existingIds = allRecipes.map<int>((r) => r['id'] as int).toSet();
+        List<dynamic> uniqueThaiRecipes = thaiRecipes.where((recipe) => !existingIds.contains(recipe['id'])).toList();
+        
+        // เรียงลำดับอาหารไทยเช่นเดียวกัน
+        uniqueThaiRecipes.sort((a, b) {
+          int usedIngredientsA = a['usedIngredientCount'] ?? 0;
+          int usedIngredientsB = b['usedIngredientCount'] ?? 0;
+          
+          if (usedIngredientsA == usedIngredientsB) {
+            int missedIngredientsA = a['missedIngredientCount'] ?? 0;
+            int missedIngredientsB = b['missedIngredientCount'] ?? 0;
+            return missedIngredientsA - missedIngredientsB;
+          }
+          
+          return usedIngredientsB - usedIngredientsA;
+        });
+        
+        // เพิ่มแท็ก isThai ให้กับสูตรอาหารไทย
+        for (var recipe in uniqueThaiRecipes) {
+          recipe['isThai'] = true;
+        }
+        
+        // รวมสูตรอาหารทั้งหมด แทรกอาหารไทยเข้าไปในอันดับต้นๆ ที่เหมาะสม (แต่ยังคงเน้นจำนวนวัตถุดิบเป็นหลัก)
+        List<dynamic> combinedRecipes = [...allRecipes];
+        
+        for (var thaiRecipe in uniqueThaiRecipes) {
+          int thaiUsedCount = thaiRecipe['usedIngredientCount'] ?? 0;
+          int thaiMissedCount = thaiRecipe['missedIngredientCount'] ?? 0;
+          
+          // หาตำแหน่งที่เหมาะสมสำหรับแทรกอาหารไทย
+          int insertIndex = 0;
+          for (int i = 0; i < combinedRecipes.length; i++) {
+            int recipeUsedCount = combinedRecipes[i]['usedIngredientCount'] ?? 0;
+            
+            // ถ้าจำนวนวัตถุดิบที่ใช้น้อยกว่าอาหารไทย ให้แทรกก่อนตำแหน่งนี้
+            if (recipeUsedCount < thaiUsedCount) {
+              insertIndex = i;
+              break;
+            } 
+            // ถ้าจำนวนวัตถุดิบที่ใช้เท่ากัน ให้ดูจำนวนวัตถุดิบที่ขาด
+            else if (recipeUsedCount == thaiUsedCount) {
+              int recipeMissedCount = combinedRecipes[i]['missedIngredientCount'] ?? 0;
+              if (recipeMissedCount > thaiMissedCount) {
+                insertIndex = i;
+                break;
+              }
+            }
+            
+            insertIndex = i + 1;
+          }
+          
+          // แทรกอาหารไทยในตำแหน่งที่เหมาะสม
+          if (insertIndex < combinedRecipes.length) {
+            combinedRecipes.insert(insertIndex, thaiRecipe);
+          } else {
+            combinedRecipes.add(thaiRecipe);
+          }
+        }
+        
+        // จำกัดจำนวนสูตรอาหารที่จะส่งกลับ
+        if (combinedRecipes.length > 15) {
+          combinedRecipes = combinedRecipes.sublist(0, 15);
+        }
+        
+        // ประมวลผลสูตรอาหาร
+        List<String> recipes = combinedRecipes.map<String>((recipe) => recipe['title'].toString()).toList();
+        
+        // ประมวลผลวัตถุดิบที่เข้ากัน (วัตถุดิบที่ขาด)
         List<Map<String, String>> pairingIngredients = [];
         Set<String> uniqueNames = {};
         
-        for (var recipe in data) {
+        for (var recipe in combinedRecipes) {
           List<dynamic> missedIngredients = recipe['missedIngredients'];
           for (var ingredient in missedIngredients) {
             String image = ingredient['image'] ?? "";
@@ -370,7 +470,8 @@ Future<Map<String, dynamic>> getComprehensiveRecipeData(List<String> ingredients
         
         Map<String, dynamic> result = {
           'recipes': recipes,
-          'pairings': pairingIngredients
+          'pairings': pairingIngredients,
+          'fullRecipes': combinedRecipes, // เพิ่ม fullRecipes เพื่อให้แอพสามารถใช้ข้อมูลเพิ่มเติม
         };
         
         // บันทึกใน memory cache
@@ -389,6 +490,7 @@ Future<Map<String, dynamic>> getComprehensiveRecipeData(List<String> ingredients
                   'ingredients': ingredients,
                   'recipes': recipes,
                   'pairings': pairingIngredients,
+                  'fullRecipes': combinedRecipes,
                   'timestamp': FieldValue.serverTimestamp()
                 });
           }
@@ -397,43 +499,15 @@ Future<Map<String, dynamic>> getComprehensiveRecipeData(List<String> ingredients
         }
         
         return result;
-      } else {
-        return {'recipes': [], 'pairings': []};
       }
-    } else {
-      print('API error: ${response.statusCode}, ${response.body}');
-      return {'recipes': [], 'pairings': []};
     }
+    
+    return {'recipes': [], 'pairings': []};
   } catch (e) {
     print('Error getting comprehensive recipe data: $e');
     return {'recipes': [], 'pairings': []};
   }
 }
-
-/// ดึงข้อมูลวัตถุดิบที่เข้ากันสำหรับหลายวัตถุดิบในครั้งเดียว
-Future<Map<String, List<Map<String, String>>>> getPairingsForMultipleIngredients(List<String> ingredients) async {
-  Map<String, List<Map<String, String>>> results = {};
-  List<String> ingredientsToFetch = [];
-  
-  // ตรวจสอบแคช
-  for (String ingredient in ingredients) {
-    if (_pairingCache.containsKey(ingredient)) {
-      results[ingredient] = _pairingCache[ingredient]!;
-    } else {
-      ingredientsToFetch.add(ingredient);
-    }
-  }
-  
-  // ถ้ายังมีวัตถุดิบที่ต้องดึงจาก API
-  if (ingredientsToFetch.isNotEmpty) {
-    for (String ingredient in ingredientsToFetch) {
-      results[ingredient] = await getRecipeAndPairings(ingredient);
-    }
-  }
-  
-  return results;
-}
-
 
 Future<void> clearAllCaches() async {
   _pairingCache.clear();
