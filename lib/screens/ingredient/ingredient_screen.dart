@@ -228,7 +228,8 @@ class _IngredientScreenState extends State<IngredientScreen> {
         setState(() {
           ingredientList = snapshot.docs.map((doc) {
             Map<String, dynamic> data = doc.data();
-            data['id'] = doc.id;
+            data['ingredientId'] = doc.id;
+          print("DEBUG: Setting ingredientId=${doc.id} for ${data['ingredientsName']}");
             return Ingredient.fromJson(data);
           }).toList();
           ingredientList = ingredientList
@@ -705,32 +706,54 @@ class _IngredientScreenState extends State<IngredientScreen> {
                                             ),
                                           );
                                         },
-                                        onLongPress: () {
-                                          print(
-                                              "🔍 Debug - Long Pressed on Ingredient: ${ingredient.ingredientsName}");
-                                          print(
-                                              "🔍 Debug - Ingredient ID: ${ingredient.ingredientId}");
+                                        // แก้ไขส่วน onLongPress ในไฟล์ ingredient_screen.dart
+onLongPress: () {
+  print("🔍 Debug - Long Pressed on Ingredient: ${ingredient.ingredientsName}");
+  print("🔍 Debug - Ingredient ID: ${ingredient.ingredientId}");
 
-                                          if (ingredient.quantity == 0) {
-                                            return;
-                                          }
-                                          if (ingredient
-                                              .ingredientId.isNotEmpty) {
-                                            final ingredientMap = {
-                                              'id': ingredient.ingredientId,
-                                              'ingredientsName':
-                                                  ingredient.ingredientsName,
-                                              'quantity': ingredient.quantity,
-                                              'unit': ingredient.unit,
-                                              'usageHistory': [],
-                                            };
-                                            showUsedDialog(
-                                              context,
-                                              ingredientMap,
-                                              index,
-                                            );
-                                          }
-                                        },
+  if (ingredient.quantity == 0) {
+    return;
+  }
+  
+  // แก้ไขตรงนี้ - ค้นหา document ID จาก Firestore โดยตรง
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    FirebaseFirestore.instance
+      .collection('users')
+      .doc(user.uid)
+      .collection('userIngredients')
+      .where('ingredientsName', isEqualTo: ingredient.ingredientsName)
+      .limit(1)
+      .get()
+      .then((snapshot) {
+        if (snapshot.docs.isNotEmpty) {
+          final docId = snapshot.docs[0].id;
+          print("✅ Found document ID: $docId for ${ingredient.ingredientsName}");
+          
+          final ingredientMap = {
+            'id': docId, // ใช้ document ID ที่ค้นหาได้
+            'ingredientsName': ingredient.ingredientsName,
+            'quantity': ingredient.quantity,
+            'unit': ingredient.unit,
+            'usageHistory': [],
+          };
+          
+          showUsedDialog(
+            context,
+            ingredientMap,
+            index,
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cannot find ingredient in database'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      });
+  }
+},
                                         child: IngredientNoexp(
                                             ingredient: ingredient),
                                       ),

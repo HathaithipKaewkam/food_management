@@ -8,25 +8,25 @@ class RecipeRecommendationService {
   late Map<String, dynamic> userMacros;
 
   Future<List<String>> fetchUserIngredients(String userId) async {
-    try {
-      
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('userIngredients')
-          .get();
+  try {
+    final snapshot = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('userIngredients')
+        .get();
+    Set<String> uniqueIngredients = snapshot.docs
+        .map((doc) => doc['ingredientsName'].toString().toLowerCase().trim())
+        .toSet();
 
-      List<String> ingredients = snapshot.docs
-          .map((doc) => doc['ingredientsName'].toString())
-          .toList();
+    List<String> ingredients = uniqueIngredients.toList();
 
-      print("✅ Fetched ${ingredients.length} ingredients: $ingredients");
-      return ingredients;
-    } catch (e) {
-      print("❌ Error fetching ingredients: $e");
-      return [];
-    }
+    print("✅ Fetched ${ingredients.length} unique ingredients: $ingredients");
+    return ingredients;
+  } catch (e) {
+    print("❌ Error fetching ingredients: $e");
+    return [];
   }
+}
 
   Future<List<String>> fetchUserPreferences(String userId) async {
     try {
@@ -118,132 +118,87 @@ class RecipeRecommendationService {
     }
   }
 
-  Future<List<String>> fetchNotRecommendedRecipes(String userId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('notRecommendedRecipes')
-          .get();
-
-      List<String> notRecommendedIds = snapshot.docs
-          .map((doc) => doc['recipeId'].toString())
-          .toList();
-
-      print("✅ Fetched ${notRecommendedIds.length} not recommended recipes");
-      return notRecommendedIds;
-    } catch (e) {
-      print("❌ Error fetching not recommended recipes: $e");
-      return [];
-    }
-  }
+ 
 
   Future<List<Map<String, dynamic>>> getRecommendedRecipes(
-      String userId) async {
+    String userId, {bool forceRefresh = false}) async {
     try {
       print('🔍 Starting getRecommendedRecipes for user: $userId');
 
+      List<String> userIngredients = await fetchUserIngredients(userId);
+    List<String> userPreferences = await fetchUserPreferences(userId);
+    List<String> userAllergies = await fetchUserAllergies(userId);
+    String userGoals = await fetchUserGoals(userId);
+    List<Map<String, dynamic>> ingredientsWithExpiry = await fetchIngredientsWithExpiry(userId);
+   
+
+    DocumentSnapshot macroDoc = await _firestore
+        .collection('usersCaloriesMacronutrient')
+        .doc(userId)
+        .get();
+
+    if (!macroDoc.exists) {
+      userMacros = {
+        'calories': 2000.0,
+        'protein': 75.0,
+        'carbs': 250.0,
+        'fat': 65.0
+      };
+    } else {
+      Map<String, dynamic> userMacroData = macroDoc.data() as Map<String, dynamic>;
+      userMacros = {
+        'calories': userMacroData['caloriesPerDay'] ?? 2000.0,
+        'protein': userMacroData['proteinGrams'] ?? 75.0,
+        'carbs': userMacroData['carbsGrams'] ?? 250.0,
+        'fat': userMacroData['fatGrams'] ?? 65.0
+      };
+    }
+
+     List<String> expiringSoon = [];
+    for (var ingredient in ingredientsWithExpiry) {
+      DateTime expiryDate = ingredient['expiryDate'] is DateTime 
+          ? ingredient['expiryDate'] 
+          : DateTime.now().add(Duration(days: 30));
+          
+      int daysUntilExpiry = expiryDate.difference(DateTime.now()).inDays;
+      
+      if (daysUntilExpiry <= 3) {
+        expiringSoon.add(ingredient['name']);
+        print("🔴 HIGH PRIORITY - $daysUntilExpiry days: ${ingredient['name']}");
+      } else if (daysUntilExpiry <= 7) {
+        expiringSoon.add(ingredient['name']);
+        print("🟠 MEDIUM PRIORITY - $daysUntilExpiry days: ${ingredient['name']}");
+      }
+    }
+
+     String cacheKey = 'user_${userId}_ing_${userIngredients.hashCode}_exp_${expiringSoon.join('_')}_pref_${userPreferences.hashCode}_alg_${userAllergies.hashCode}_goal_${userGoals}_cal_${userMacros['calories'].toString()}_${DateTime.now().day}';
+
+      final int shortCacheDuration = 600000; 
+
+       if (forceRefresh) {
+      print('⚡ Force refresh requested - skipping cache check');
+    } else {
+      DocumentSnapshot cachedRecommendations = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('userCachedRecommendations')
+        .doc(cacheKey)
+        .get();
+      
+      if (cachedRecommendations.exists) {
+        Map<String, dynamic> cachedData = cachedRecommendations.data() as Map<String, dynamic>;
+        int timestamp = cachedData['timestamp'] ?? 0;
+        if (DateTime.now().millisecondsSinceEpoch - timestamp < shortCacheDuration) {
+          print('✅ Using cached recommendations');
+          return List<Map<String, dynamic>>.from(cachedData['recipes'] ?? []);
+        }
+      }
+    }
+      
+
       DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
   
-  // สร้างคีย์แคชที่มีการเปลี่ยนแปลงเมื่อข้อมูลเปลี่ยน
-  Timestamp lastUpdated;
-      if (userDoc.exists) {
-        Map<String, dynamic>? userData = userDoc.data() as Map<String, dynamic>?;
-        if (userData != null && userData.containsKey('lastUpdated')) {
-          lastUpdated = userData['lastUpdated'];
-        } else {
-          lastUpdated = Timestamp.now();
-        }
-      } else {
-        lastUpdated = Timestamp.now();
-      }
-  
-  // ดึงข้อมูลวัตถุดิบที่ใกล้หมดอายุเพื่อสร้าง signature
-  List<Map<String, dynamic>> expiringIngredients = await fetchIngredientsWithExpiry(userId);
-  expiringIngredients.sort((a, b) {
-    DateTime aDate = a['expiryDate'] is DateTime ? a['expiryDate'] : DateTime.now();
-    DateTime bDate = b['expiryDate'] is DateTime ? b['expiryDate'] : DateTime.now();
-    return aDate.compareTo(bDate);
-  });
-  
-  // สร้าง signature จากวัตถุดิบที่ใกล้หมดอายุใน 7 วัน
-  List<String> expiringSoon = [];
-  for (var ingredient in expiringIngredients) {
-    DateTime expiryDate = ingredient['expiryDate'] is DateTime 
-        ? ingredient['expiryDate'] 
-        : DateTime.now().add(Duration(days: 30));
-        
-    if (expiryDate.difference(DateTime.now()).inDays <= 7) {
-      expiringSoon.add(ingredient['name']);
-    }
-  }
-  String ingredientSignature = expiringSoon.join(',');
-  
-  // สร้างคีย์แคชใหม่ที่เปลี่ยนเมื่อข้อมูลเปลี่ยน
-  String cacheKey = 'user_${userId}_${lastUpdated.millisecondsSinceEpoch}_${ingredientSignature.hashCode}';
-  
-  // ลดอายุแคชลงเหลือ 1 ชั่วโมง
-  final int shortCacheDuration = 3600000; // 1 ชั่วโมง
-      
-      // ตรวจสอบแคชก่อน
-        DocumentSnapshot cachedRecommendations = await _firestore
-      .collection('users')
-      .doc(userId)
-      .collection('userCachedRecommendations') // แยกแคชตามผู้ใช้
-      .doc(cacheKey)
-          .get();
-
-         
-  if (cachedRecommendations.exists) {
-    Map<String, dynamic> cachedData = cachedRecommendations.data() as Map<String, dynamic>;
-    int timestamp = cachedData['timestamp'] ?? 0;
-    if (DateTime.now().millisecondsSinceEpoch - timestamp < shortCacheDuration) {
-      print('✅ Using cached recommendations');
-      return List<Map<String, dynamic>>.from(cachedData['recipes'] ?? []);
-    }
-  }
-      
-      // Fetch user data
-      List<String> userIngredients = await fetchUserIngredients(userId);
-      List<String> userPreferences = await fetchUserPreferences(userId);
-      List<String> userAllergies = await fetchUserAllergies(userId);
-      String userGoals = await fetchUserGoals(userId);
-      List<Map<String, dynamic>> ingredientsWithExpiry =
-          await fetchIngredientsWithExpiry(userId);
-      List<String> notRecommendedIds = await fetchNotRecommendedRecipes(userId);
-
-      DocumentSnapshot macroDoc = await _firestore
-          .collection('usersCaloriesMacronutrient')
-          .doc(userId)
-          .get();
-
-       if (!macroDoc.exists) {
-        print('⚠️ No macro data found, using default values');
-        userMacros = {
-          'calories': 2000.0,
-          'protein': 75.0,
-          'carbs': 250.0,
-          'fat': 65.0
-        };
-      } else {
-        Map<String, dynamic> userMacroData =
-            macroDoc.data() as Map<String, dynamic>;
-        userMacros = {
-          'calories': userMacroData['caloriesPerDay'] ?? 2000.0,
-          'protein': userMacroData['proteinGrams'] ?? 75.0,
-          'carbs': userMacroData['carbsGrams'] ?? 250.0,
-          'fat': userMacroData['fatGrams'] ?? 65.0
-        };
-      }
-
-      Map<String, dynamic> userMacroData =
-          macroDoc.data() as Map<String, dynamic>;
-      userMacros = {
-        'calories': userMacroData['caloriesPerDay'] ?? 0.0,
-        'protein': userMacroData['proteinGrams'] ?? 0.0,
-        'carbs': userMacroData['carbsGrams'] ?? 0.0,
-        'fat': userMacroData['fatGrams'] ?? 0.0
-      };
+ 
 
       // Log all fetched data
       print('📊 User Data Summary:');
@@ -263,12 +218,21 @@ class RecipeRecommendationService {
       // เลือกวัตถุดิบที่ใกล้หมดอายุ 3 อย่างแรก (หรือน้อยกว่าถ้ามีไม่ถึง)
       List<String> priorityIngredients = [];
       for (var ingredient in ingredientsWithExpiry) {
-        if (priorityIngredients.length < 3) {
-          priorityIngredients.add(ingredient['name']);
-        } else {
-          break;
-        }
-      }
+  DateTime expiryDate = ingredient['expiryDate'] is DateTime 
+      ? ingredient['expiryDate'] 
+      : DateTime.now().add(Duration(days: 30));
+      
+  int daysUntilExpiry = expiryDate.difference(DateTime.now()).inDays;
+  
+  // บังคับให้ใช้วัตถุดิบที่ใกล้หมดอายุภายใน 3 วัน
+  if (daysUntilExpiry <= 3) {
+    priorityIngredients.add(ingredient['name']);
+    print("🔥 HIGH PRIORITY ingredient expiring in $daysUntilExpiry days: ${ingredient['name']}");
+  } else if (daysUntilExpiry <= 7 && priorityIngredients.length < 3) {
+    priorityIngredients.add(ingredient['name']);
+    print("⚠️ MEDIUM PRIORITY ingredient expiring in $daysUntilExpiry days: ${ingredient['name']}");
+  }
+}
       
       // เอาวัตถุดิบที่เหลือถ้ามีไม่ถึง 3 อย่าง
       if (priorityIngredients.length < 3 && userIngredients.isNotEmpty) {
@@ -279,31 +243,58 @@ class RecipeRecommendationService {
         }
       }
 
-      // เรียก API เพียงครั้งเดียว โดยใช้ getRecipesByCuisine พร้อมระบุวัตถุดิบที่มีอยู่
-      List<Map<String, dynamic>> recipes = await _recipeService.getRecipesByCuisine(
-        primaryCuisine: 'Thai',
-        fallbackCuisines: ['Asian', 'Chinese', 'Japanese'],
-        limit: 5,
-        includeIngredients: priorityIngredients,
-      );
-      
-      // กรองรายการอาหารที่ไม่แนะนำออก
-      List<Map<String, dynamic>> filteredRecipes = recipes.where((recipe) {
-        int recipeId = recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString());
-        return !notRecommendedIds.contains(recipeId.toString());
-      }).toList();
+     print('🍎 Searching recipes with ingredients: $priorityIngredients');
 
+List<Map<String, dynamic>> thaiRecipes = await _recipeService.getRecipesByCuisine(
+  primaryCuisine: 'Thai',
+  forceRefresh: true, 
+  includeIngredients: priorityIngredients,
+  limit: 5
+);
+
+
+List<Map<String, dynamic>> generalRecipes = await _recipeService.getRecipesByCuisine(
+  primaryCuisine: '', // ไม่ระบุวัฒนธรรมอาหาร
+  forceRefresh: forceRefresh,
+  includeIngredients: priorityIngredients,
+  limit: 5
+);
+
+// รวมผลลัพธ์และกำจัดรายการที่ซ้ำกัน
+Set<int> uniqueIds = {};
+List<Map<String, dynamic>> allRecipes = [];
+
+for (var recipe in thaiRecipes) {
+  int id = recipe['id'];
+  if (!uniqueIds.contains(id)) {
+    uniqueIds.add(id);
+    allRecipes.add(recipe);
+  }
+}
+
+// เพิ่มอาหารทั่วไปถ้ายังไม่ครบจำนวน
+for (var recipe in generalRecipes) {
+  int id = recipe['id'];
+  if (!uniqueIds.contains(id) && allRecipes.length < 10) {
+    uniqueIds.add(id);
+    allRecipes.add(recipe);
+  }
+}
+      
+     
       // Filter and score recipes
       List<Map<String, dynamic>> recommendedRecipes = [];
 
-      for (var recipe in filteredRecipes) {
+      
+
+      for (var recipe in allRecipes) {
         try {
           int score = 0;
           bool isValid = true;
           bool isThaiCuisine = recipe['cuisine'] == 'Thai';
           
           if (isThaiCuisine) {
-            score += 30; // เพิ่มคะแนนให้อาหารไทย
+            score += 20; // เพิ่มคะแนนให้อาหารไทย
           }
 
           // Check ingredients match (40 points max)
@@ -457,11 +448,11 @@ class RecipeRecommendationService {
 
       // Sort by score
       recommendedRecipes.sort((a, b) {
+         if (a['usesExpiringIngredients'] != b['usesExpiringIngredients']) {
+    return b['usesExpiringIngredients'] ? 1 : -1; 
+  }
         if (a['isThaiCuisine'] != b['isThaiCuisine']) {
           return a['isThaiCuisine'] == true ? -1 : 1;
-        }
-        if (a['usesExpiringIngredients'] != b['usesExpiringIngredients']) {
-          return b['usesExpiringIngredients'] ? 1 : -1;
         }
         return (b['recommendationScore'] ?? 0)
             .compareTo(a['recommendationScore'] ?? 0);
@@ -571,4 +562,20 @@ class RecipeRecommendationService {
       return false;
     }
   }
+Future<void> updateLastDataChange(String userId, String dataType) async {
+  try {
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('metaData')
+        .doc('lastUpdated')
+        .set({
+          dataType: FieldValue.serverTimestamp(),
+          'anyChange': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+  } catch (e) {
+    print('Error updating last data change: $e');
+  }
+}
+
 }

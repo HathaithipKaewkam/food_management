@@ -50,44 +50,64 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool isLoadingPopularRecipes = true;
   final PopularRecipeService _popularRecipeService = PopularRecipeService();
   List<Map<String, dynamic>> topUserPreferenceRecipes = [];
-bool isLoadingTopRecipe = true;
- final TextEditingController searchController = TextEditingController();
+  bool isLoadingTopRecipe = true;
+  final TextEditingController searchController = TextEditingController();
   String searchQuery = '';
   List<Map<String, dynamic>> searchResults = [];
   bool isSearching = false;
   Timer? _debounce;
-   List<Map<String, dynamic>> _allRecommendedRecipes = [];
+  List<Map<String, dynamic>> _allRecommendedRecipes = [];
   List<Recipe> _allUserRecipes = [];
   List<Map<String, dynamic>> _allTopUserPreferenceRecipes = [];
   List<Map<String, dynamic>> _allPopularRecipes = [];
+  StreamSubscription? _userDataSubscription;
 
-
-   List<String> recipeTypes = [
-      'All',
-      'Breakfast',
-      'Lunch',
-      'Dinner',
-      'Appetizers',
-      'Main Dishes',
-      'Side Dishes',
-      'Soups',
-      'Snacks',
-      'Desserts',
-      'Beverages',
-    ];
+  List<String> recipeTypes = [
+    'All',
+    'Breakfast',
+    'Lunch',
+    'Dinner',
+    'Appetizers',
+    'Main Dishes',
+    'Side Dishes',
+    'Soups',
+    'Snacks',
+    'Desserts',
+    'Beverages',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _loadRecommendations();
+    _forceRefreshRecommendations();
     _loadUserRecipes();
     _loadPopularRecipes();
     _loadTopUserPreferenceRecipe();
+     _setupUserDataListener();
   }
 
-   @override
+  void _setupUserDataListener() {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    _userDataSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('metaData')
+        .doc('lastUpdated')
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists && mounted) {
+        print('🔔 User data changed, refreshing recommendations');
+        _forceRefreshRecommendations();
+      }
+    });
+  }
+}
+
+  @override
   void dispose() {
     searchController.dispose();
+    _userDataSubscription?.cancel();
     _debounce?.cancel();
     super.dispose();
   }
@@ -195,7 +215,7 @@ bool isLoadingTopRecipe = true;
 
         setState(() {
           userRecipes = loadedRecipes;
-           _allUserRecipes = loadedRecipes;
+          _allUserRecipes = loadedRecipes;
           isLoadingUserRecipes = false;
         });
       } else {
@@ -251,8 +271,8 @@ bool isLoadingTopRecipe = true;
 
       if (mounted) {
         setState(() {
-          topUserPreferenceRecipes = recipes; 
-           _allTopUserPreferenceRecipes = recipes;
+          topUserPreferenceRecipes = recipes;
+          _allTopUserPreferenceRecipes = recipes;
           isLoadingTopRecipe = false;
         });
       }
@@ -263,6 +283,40 @@ bool isLoadingTopRecipe = true;
           isLoadingTopRecipe = false;
         });
       }
+    }
+  }
+
+  Future<void> _forceRefreshRecommendations() async {
+    try {
+      setState(() {
+        isLoading = true;
+      });
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final recipes = await _recommendationService
+            .getRecommendedRecipes(user.uid, forceRefresh: true);
+
+        final convertedRecipes = _convertRecipeData(recipes);
+
+        if (mounted) {
+          setState(() {
+            recommendedRecipes = convertedRecipes;
+            _allRecommendedRecipes = convertedRecipes;
+            isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading recommendations: $e');
+      setState(() {
+        recommendedRecipes = [];
+        isLoading = false;
+      });
     }
   }
 
@@ -277,20 +331,18 @@ bool isLoadingTopRecipe = true;
         final recipes =
             await _recommendationService.getRecommendedRecipes(user.uid);
 
-        
-
         if (recipes.isNotEmpty) {
           print('First recipe: ${recipes[0]['title']}');
         }
 
-          final convertedRecipes = _convertRecipeData(recipes);
+        final convertedRecipes = _convertRecipeData(recipes);
 
-      if (mounted) {
-        setState(() {
-          recommendedRecipes = convertedRecipes;
-           _allRecommendedRecipes = convertedRecipes;
-          isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            recommendedRecipes = convertedRecipes;
+            _allRecommendedRecipes = convertedRecipes;
+            isLoading = false;
+          });
         }
       } else {
         print('⚠️ No user logged in');
@@ -318,14 +370,14 @@ bool isLoadingTopRecipe = true;
 
       print("🔍 Starting to load popular Thai recipes");
       final recipes = await _popularRecipeService.getPopularRecipes(
-          limit: 10, cuisine: 'Thai');
+          limit: 5, cuisine: 'Thai');
 
       print("📊 Found ${recipes.length} popular Thai recipes");
 
       if (mounted) {
         setState(() {
           popularRecipes = recipes;
-           _allPopularRecipes = recipes;
+          _allPopularRecipes = recipes;
           isLoadingPopularRecipes = false;
         });
       }
@@ -339,152 +391,163 @@ bool isLoadingTopRecipe = true;
     }
   }
 
-List<Map<String, dynamic>> _filterApiRecipesByCategory(List<Map<String, dynamic>> recipes) {
-  if (selectedCategoryIndex == 0) { // 'All' category
-    return recipes;
-  }
-  
-  String selectedCategory = recipeTypes[selectedCategoryIndex].toLowerCase();
-  
-  // เพิ่ม logging เพื่อตรวจสอบข้อมูล
-  print("🔍 Selected category: $selectedCategory");
-  
-  return recipes.where((recipe) {
-    bool matched = false;
-    
-    // ตรวจสอบ dishTypes
-    if (recipe['dishTypes'] != null && recipe['dishTypes'] is List && (recipe['dishTypes'] as List).isNotEmpty) {
-      for (var type in recipe['dishTypes']) {
-        String typeStr = type.toString().toLowerCase().trim();
-        print("📊 Comparing: '$typeStr' with '$selectedCategory'");
-        
-        // เปรียบเทียบแบบยืดหยุ่นมากขึ้น - ตรวจสอบว่ามีคำนี้อยู่ใน type หรือไม่
-        if (typeStr.contains(selectedCategory) || selectedCategory.contains(typeStr)) {
-          matched = true;
-          break;
+  List<Map<String, dynamic>> _filterApiRecipesByCategory(
+      List<Map<String, dynamic>> recipes) {
+    if (selectedCategoryIndex == 0) {
+      // 'All' category
+      return recipes;
+    }
+
+    String selectedCategory = recipeTypes[selectedCategoryIndex].toLowerCase();
+
+    // เพิ่ม logging เพื่อตรวจสอบข้อมูล
+    print("🔍 Selected category: $selectedCategory");
+
+    return recipes.where((recipe) {
+      bool matched = false;
+
+      // ตรวจสอบ dishTypes
+      if (recipe['dishTypes'] != null &&
+          recipe['dishTypes'] is List &&
+          (recipe['dishTypes'] as List).isNotEmpty) {
+        for (var type in recipe['dishTypes']) {
+          String typeStr = type.toString().toLowerCase().trim();
+          print("📊 Comparing: '$typeStr' with '$selectedCategory'");
+
+          // เปรียบเทียบแบบยืดหยุ่นมากขึ้น - ตรวจสอบว่ามีคำนี้อยู่ใน type หรือไม่
+          if (typeStr.contains(selectedCategory) ||
+              selectedCategory.contains(typeStr)) {
+            matched = true;
+            break;
+          }
         }
       }
-    }
-    
-    // ตรวจสอบ mealType ถ้ามี
-    if (!matched && recipe['mealType'] != null) {
-      String mealType = recipe['mealType'].toString().toLowerCase().trim();
-      if (mealType.contains(selectedCategory) || selectedCategory.contains(mealType)) {
-        matched = true;
+
+      // ตรวจสอบ mealType ถ้ามี
+      if (!matched && recipe['mealType'] != null) {
+        String mealType = recipe['mealType'].toString().toLowerCase().trim();
+        if (mealType.contains(selectedCategory) ||
+            selectedCategory.contains(mealType)) {
+          matched = true;
+        }
       }
-    }
-    
-    // ตรวจสอบ category ถ้ามี (บางครั้ง API อาจใช้ field นี้)
-    if (!matched && recipe['category'] != null) {
-      String category = recipe['category'].toString().toLowerCase().trim();
-      if (category.contains(selectedCategory) || selectedCategory.contains(category)) {
-        matched = true;
+
+      // ตรวจสอบ category ถ้ามี (บางครั้ง API อาจใช้ field นี้)
+      if (!matched && recipe['category'] != null) {
+        String category = recipe['category'].toString().toLowerCase().trim();
+        if (category.contains(selectedCategory) ||
+            selectedCategory.contains(category)) {
+          matched = true;
+        }
       }
-    }
-    
-    return matched;
-  }).toList();
-}
+
+      return matched;
+    }).toList();
+  }
 
 // ฟังก์ชันกรอง Recipe objects
-List<Recipe> _filterUserRecipesByCategory(List<Recipe> recipes) {
-  if (selectedCategoryIndex == 0) { // 'All' category
-    return recipes;
+  List<Recipe> _filterUserRecipesByCategory(List<Recipe> recipes) {
+    if (selectedCategoryIndex == 0) {
+      // 'All' category
+      return recipes;
+    }
+
+    String selectedCategory = recipeTypes[selectedCategoryIndex];
+
+    return recipes.where((recipe) {
+      return recipe.category.toLowerCase() == selectedCategory.toLowerCase();
+    }).toList();
   }
-  
-  String selectedCategory = recipeTypes[selectedCategoryIndex];
-  
-  return recipes.where((recipe) {
-    return recipe.category.toLowerCase() == selectedCategory.toLowerCase();
-  }).toList();
-}
 
-void _updateDisplayRecipesByCategory() {
-  setState(() {
-    recommendedRecipes = _filterApiRecipesByCategory(_allRecommendedRecipes);
-    userRecipes = _filterUserRecipesByCategory(_allUserRecipes);
-    topUserPreferenceRecipes = _filterApiRecipesByCategory(_allTopUserPreferenceRecipes);
-    popularRecipes = _filterApiRecipesByCategory(_allPopularRecipes);
-  });
-}
-
-   void _searchRecipes(String query) {
-  if (_debounce?.isActive ?? false) _debounce!.cancel();
-  
-  _debounce = Timer(const Duration(milliseconds: 500), () async {
-    if (query.trim().isEmpty) {
-      setState(() {
-        searchQuery = '';
-        isSearching = false;
-        searchResults = [];
-      });
-      return;
-    }
-    
+  void _updateDisplayRecipesByCategory() {
     setState(() {
-      isSearching = true;
-      searchQuery = query.trim().toLowerCase();
+      recommendedRecipes = _filterApiRecipesByCategory(_allRecommendedRecipes);
+      userRecipes = _filterUserRecipesByCategory(_allUserRecipes);
+      topUserPreferenceRecipes =
+          _filterApiRecipesByCategory(_allTopUserPreferenceRecipes);
+      popularRecipes = _filterApiRecipesByCategory(_allPopularRecipes);
     });
-    
-    try {
-      // ค้นหาแบบ Server-side จาก API
-      final apiResults = await _recipeService.searchRecipes(searchQuery);
-      
-      // ค้นหาจาก user recipes เพิ่มเติม (เนื่องจาก API ไม่มีข้อมูลนี้)
-      final userRecipeResults = userRecipes.where((recipe) {
-        return recipe.recipeName.toLowerCase().contains(searchQuery);
-      }).map((recipe) {
-        return {
-          'id': recipe.recipeId,
-          'title': recipe.recipeName,
-          'image': recipe.imageUrl,
-          'readyInMinutes': recipe.preparationTime + recipe.cookingTime,
-          'servings': recipe.servings,
-          'summary': recipe.description,
-          'ingredients': recipe.ingredients.map((ing) => {
-            'id': ing.ingredient.ingredientId,
-            'name': ing.ingredient.ingredientsName,
-            'amount': ing.quantityUsed,
-            'unit': ing.ingredient.unit,
-          }).toList(),
-          'instructions': recipe.instructions,
-          'dishTypes': [recipe.category],
-          'nutrition': {
-            'protein': recipe.Protein,
-            'fat': recipe.Fat,
-            'carbs': recipe.Carbo,
-            'calories': recipe.Kcal,
-          },
-          'isUserRecipe': true,
-          'recipeDocId': recipe.recipeDocId,
-        };
-      }).toList();
-      
-      // รวมผลลัพธ์ทั้งหมด
-      List<Map<String, dynamic>> allResults = [];
-      allResults.addAll(apiResults);
-      allResults.addAll(userRecipeResults);
-      
-      // ตัดข้อมูลซ้ำออกตาม ID
-      final Map<dynamic, Map<String, dynamic>> uniqueResults = {};
-      for (var recipe in allResults) {
-        if (!uniqueResults.containsKey(recipe['id'])) {
-          uniqueResults[recipe['id']] = recipe;
-        }
+  }
+
+  void _searchRecipes(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      if (query.trim().isEmpty) {
+        setState(() {
+          searchQuery = '';
+          isSearching = false;
+          searchResults = [];
+        });
+        return;
       }
-      
+
       setState(() {
-        searchResults = uniqueResults.values.toList();
-        isSearching = false;
+        isSearching = true;
+        searchQuery = query.trim().toLowerCase();
       });
-    } catch (e) {
-      print("Error searching recipes: $e");
-      setState(() {
-        isSearching = false;
-      });
-    }
-  });
-}
+
+      try {
+        // ค้นหาแบบ Server-side จาก API
+        final apiResults = await _recipeService.searchRecipes(searchQuery);
+
+        // ค้นหาจาก user recipes เพิ่มเติม (เนื่องจาก API ไม่มีข้อมูลนี้)
+        final userRecipeResults = userRecipes.where((recipe) {
+          return recipe.recipeName.toLowerCase().contains(searchQuery);
+        }).map((recipe) {
+          return {
+            'id': recipe.recipeId,
+            'title': recipe.recipeName,
+            'image': recipe.imageUrl,
+            'readyInMinutes': recipe.preparationTime + recipe.cookingTime,
+            'servings': recipe.servings,
+            'summary': recipe.description,
+            'ingredients': recipe.ingredients
+                .map((ing) => {
+                      'id': ing.ingredient.ingredientId,
+                      'name': ing.ingredient.ingredientsName,
+                      'amount': ing.quantityUsed,
+                      'unit': ing.ingredient.unit,
+                    })
+                .toList(),
+            'instructions': recipe.instructions,
+            'dishTypes': [recipe.category],
+            'nutrition': {
+              'protein': recipe.Protein,
+              'fat': recipe.Fat,
+              'carbs': recipe.Carbo,
+              'calories': recipe.Kcal,
+            },
+            'isUserRecipe': true,
+            'recipeDocId': recipe.recipeDocId,
+          };
+        }).toList();
+
+        // รวมผลลัพธ์ทั้งหมด
+        List<Map<String, dynamic>> allResults = [];
+        allResults.addAll(apiResults);
+        allResults.addAll(userRecipeResults);
+
+        // ตัดข้อมูลซ้ำออกตาม ID
+        final Map<dynamic, Map<String, dynamic>> uniqueResults = {};
+        for (var recipe in allResults) {
+          if (!uniqueResults.containsKey(recipe['id'])) {
+            uniqueResults[recipe['id']] = recipe;
+          }
+        }
+
+        setState(() {
+          searchResults = uniqueResults.values.toList();
+          isSearching = false;
+        });
+      } catch (e) {
+        print("Error searching recipes: $e");
+        setState(() {
+          isSearching = false;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -492,10 +555,6 @@ void _updateDisplayRecipesByCategory() {
     Size size = MediaQuery.of(context).size;
 
     List<Recipe> recipeList = [];
-
-   
-
-    
 
     List<String> _extractInstructionsFromAnalyzed(
         List<dynamic> analyzedInstructions) {
@@ -514,162 +573,187 @@ void _updateDisplayRecipesByCategory() {
 
     return Scaffold(
         body: Padding(
-            padding: const EdgeInsets.only(left: 0),
-            child: ListView(
-              children: [
+      padding: const EdgeInsets.only(left: 0),
+      child: ListView(children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Text(
+                'Best Recipe For You',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Constants.blackColor,
+                ),
+              ),
+              const Spacer(),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.all(6),
+                  child: Container(
+                      padding: const EdgeInsets.all(6),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.calendar_month,
+                          size: 30,
+                          color: Constants.blackColor,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ScheduleScreen(),
+                            ),
+                          );
+                        },
+                      )))
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 5),
+
+        // Search Bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              // Search Bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                width: size.width * .65,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.search,
+                      color: Colors.black54.withOpacity(.6),
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: searchController,
+                        onChanged: _searchRecipes,
+                        showCursor: true,
+                        decoration: InputDecoration(
+                          hintText: 'Search Recipe',
+                          hintStyle: TextStyle(color: Colors.grey.shade400),
+                          border: InputBorder.none,
+                          suffixIcon: searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(Icons.clear),
+                                  onPressed: () {
+                                    searchController.clear();
+                                    _searchRecipes('');
+                                  },
+                                )
+                              : null,
+                        ),
+                        style: const TextStyle(color: Colors.black),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 5),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.refresh,
+                    color: Constants.blackColor,
+                    size: 25,
+                  ),
+                  onPressed: () {
+                    _forceRefreshRecommendations();
+                     ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('Refreshing recommendations...')),
+  );
+                  },
+                ),
+              ),
+
+              // Add button
+              const SizedBox(width: 5),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.add,
+                    color: Constants.blackColor,
+                    size: 25,
+                  ),
+                  onPressed: () {
+                    _showCreateRecipeModal(context);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (searchQuery.isNotEmpty)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12.0, vertical: 16.0),
                 child: Row(
                   children: [
                     Text(
-                      'Best Recipe For You',
+                      'Results for "${searchQuery}"',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Constants.blackColor,
+                        color: Colors.black,
                       ),
                     ),
-                    const Spacer(),
-                    Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Container(
-                            padding: const EdgeInsets.all(6),
-                            child: IconButton(
-                              icon: Icon(
-                                Icons.calendar_month,
-                                size: 30,
-                                color: Constants.blackColor,
-                              ),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const ScheduleScreen(),
-                                  ),
-                                );
-                              },
-                            )))
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 5),
-
-              // Search Bar 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    // Search Bar
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      width: size.width * .80,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border:
-                            Border.all(color: Colors.grey.shade300, width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.search,
-                            color: Colors.black54.withOpacity(.6),
-                          ),
-                          Expanded(
-                            child: TextField(
-  controller: searchController,
-  onChanged: _searchRecipes,
-  showCursor: true,
-  decoration: InputDecoration(
-    hintText: 'Search Recipe',
-    hintStyle: TextStyle(color: Colors.grey.shade400),
-    border: InputBorder.none,
-    suffixIcon: searchController.text.isNotEmpty 
-      ? IconButton(
-          icon: Icon(Icons.clear),
-          onPressed: () {
-            searchController.clear();
-            _searchRecipes('');
-          },
-        )
-      : null,
-  ),
-  style: const TextStyle(color: Colors.black),
-),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Add button
-                    const SizedBox(width: 5),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border:
-                            Border.all(color: Colors.grey.shade300, width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.add,
-                          color: Constants.blackColor,
-                          size: 25,
-                        ),
-                        onPressed: () {
-                          _showCreateRecipeModal(context);
-                        },
+                    Spacer(),
+                    Text(
+                      '${searchResults.length} found',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
                       ),
                     ),
                   ],
                 ),
               ),
-               if (searchQuery.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Results for "${searchQuery}"',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                      Spacer(),
-                      Text(
-                        '${searchResults.length} found',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                  isSearching
+              isSearching
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 40.0),
@@ -690,258 +774,546 @@ void _updateDisplayRecipesByCategory() {
                         ),
                       ),
                     )
-                     : searchResults.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 40.0),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.search_off,
-                                size: 60,
-                                color: Colors.grey[400],
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'No recipes found for "${searchQuery}"',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                  : searchResults.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 40.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.search_off,
+                                  size: 60,
+                                  color: Colors.grey[400],
                                 ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Try different keywords or ingredients',
-                                style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                        : ListView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        shrinkWrap: true,
-                        itemCount: searchResults.length,
-                        itemBuilder: (context, index) {
-                          final recipe = searchResults[index];
-                          final bool isUserRecipe = recipe['isUserRecipe'] == true;
-                          
-                          final ingredients = (recipe['ingredients'] as List<dynamic>? ?? []).map((ingredient) {
-                            return IngredientUsage(
-                              ingredient: Ingredient.fromAPI(
-                                id: ingredient['id']?.toString() ?? '',
-                                name: ingredient['name'] ?? '',
-                                amount: ingredient['amount']?.toDouble() ?? 0.0,
-                                unit: ingredient['unit'] ?? '',
-                              ),
-                              quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
-                            );
-                          }).toList();
-                          
-                          final instructions = (recipe['instructions'] as List<dynamic>? ?? [])
-                              .map((step) => step.toString())
-                              .toList();
-                               return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                PageTransition(
-                                  child: RecipeDetail(
-                                    recipeId: _safeParseInt(recipe['id']),
-                                    recipeDocId: recipe['recipeDocId'] ?? recipe['id'].toString(),
-                                    recipe: Recipe(
-                                      recipeId: _safeParseInt(recipe['id']),
-                                      recipeName: recipe['title'] ?? '',
-                                      description: recipe['summary'] ?? '',
-                                      ingredients: ingredients,
-                                      instructions: instructions,
-                                      preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
-                                      cookingTime: 0,
-                                      servings: recipe['servings'] ?? 1,
-                                      category: recipe['dishTypes'] != null && recipe['dishTypes'] is List && (recipe['dishTypes'] as List).isNotEmpty
-                                          ? (recipe['dishTypes'] as List)[0]
-                                          : 'Main Course',
-                                      imageUrl: recipe['image'] ?? '',
-                                      Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
-                                      Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
-                                      Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
-                                      Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
-                                      isFavorite: false,
-                                    ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'No recipes found for "${searchQuery}"',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  type: PageTransitionType.bottomToTop,
                                 ),
-                              );
-                            },
-                               child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              margin: EdgeInsets.only(bottom: 16),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // รูปภาพอาหาร
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.network(
-                                      recipe['image'] ?? '',
-                                      width: 100,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Container(
-                                          width: 100, 
-                                          height: 80,
-                                          color: Colors.grey[200],
-                                          child: Icon(Icons.image_not_supported, color: Colors.grey),
-                                        );
-                                      },
-                                    ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Try different keywords or ingredients',
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                    fontSize: 14,
                                   ),
-                                  SizedBox(width: 16),
-                                   Expanded(
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      // สัญลักษณ์แสดงว่าเป็น user recipe
-      if (isUserRecipe)
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          margin: EdgeInsets.only(bottom: 4),
-          decoration: BoxDecoration(
-            color: Colors.green[100],
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            'My Recipe',
-            style: TextStyle(
-              color: Colors.green[800],
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      // ชื่อสูตรอาหาร
-      Text(
-        recipe['title'] ?? '',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      SizedBox(height: 4),
-      // ประเภทอาหาร
-      Text(
-        recipe['dishTypes'] != null && recipe['dishTypes'] is List && (recipe['dishTypes'] as List).isNotEmpty
-            ? (recipe['dishTypes'] as List)[0]
-            : 'Main Course',
-        style: TextStyle(
-          color: Colors.grey[600],
-          fontSize: 13,
-        ),
-      ),
-      SizedBox(height: 4),
-      // เวลาและแคลอรี่
-      Row(
-        children: [
-          Icon(Icons.timer, size: 16, color: Colors.grey[600]),
-          SizedBox(width: 4),
-          Text(
-            '${recipe['readyInMinutes'] ?? 0} min',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 13,
-            ),
-          ),
-          SizedBox(width: 8),
-          Icon(Icons.local_fire_department, size: 16, color: Colors.red[400]),
-          SizedBox(width: 4),
-          Text(
-            '${recipe['nutrition']?['calories']?.toInt() ?? 0} kcal',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    ],
-  ),
-),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          );
-                        },
-                      ),
-              ],
-            )
-          else
-          SizedBox(height: 20),
-          Column (
-            children : [
+                          ),
+                        )
+                      : ListView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          itemCount: searchResults.length,
+                          itemBuilder: (context, index) {
+                            final recipe = searchResults[index];
+                            final bool isUserRecipe =
+                                recipe['isUserRecipe'] == true;
 
-              // Category Selector
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 15.0),
-                child: SizedBox(
-                  height: 40,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: recipeTypes.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            selectedCategoryIndex = index;
-                            _updateDisplayRecipesByCategory();
-                          });
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 10),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: selectedCategoryIndex == index
-                                ? Color(0xFF78d454)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(
-                                color: Colors.grey.shade300, width: 1),
-                          ),
-                          child: Center(
-                            child: Text(
-                              recipeTypes[index],
-                              style: TextStyle(
-                                color: selectedCategoryIndex == index
-                                    ? Colors.white
-                                    : Colors.black,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                            final ingredients =
+                                (recipe['ingredients'] as List<dynamic>? ?? [])
+                                    .map((ingredient) {
+                              return IngredientUsage(
+                                ingredient: Ingredient.fromAPI(
+                                  id: ingredient['id']?.toString() ?? '',
+                                  name: ingredient['name'] ?? '',
+                                  amount:
+                                      ingredient['amount']?.toDouble() ?? 0.0,
+                                  unit: ingredient['unit'] ?? '',
+                                ),
+                                quantityUsed:
+                                    ingredient['amount']?.toDouble() ?? 0.0,
+                              );
+                            }).toList();
+
+                            final instructions =
+                                (recipe['instructions'] as List<dynamic>? ?? [])
+                                    .map((step) => step.toString())
+                                    .toList();
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  PageTransition(
+                                    child: RecipeDetail(
+                                      recipeId: _safeParseInt(recipe['id']),
+                                      recipeDocId: recipe['recipeDocId'] ??
+                                          recipe['id'].toString(),
+                                      recipe: Recipe(
+                                        recipeId: _safeParseInt(recipe['id']),
+                                        recipeName: recipe['title'] ?? '',
+                                        description: recipe['summary'] ?? '',
+                                        ingredients: ingredients,
+                                        instructions: instructions,
+                                        preparationTime: int.tryParse(
+                                                recipe['readyInMinutes']
+                                                        ?.toString() ??
+                                                    '0') ??
+                                            0,
+                                        cookingTime: 0,
+                                        servings: recipe['servings'] ?? 1,
+                                        category: recipe['dishTypes'] != null &&
+                                                recipe['dishTypes'] is List &&
+                                                (recipe['dishTypes'] as List)
+                                                    .isNotEmpty
+                                            ? (recipe['dishTypes'] as List)[0]
+                                            : 'Main Course',
+                                        imageUrl: recipe['image'] ?? '',
+                                        Protein: recipe['nutrition']?['protein']
+                                                ?.toDouble() ??
+                                            0.0,
+                                        Fat: recipe['nutrition']?['fat']
+                                                ?.toDouble() ??
+                                            0.0,
+                                        Carbo: recipe['nutrition']?['carbs']
+                                                ?.toDouble() ??
+                                            0.0,
+                                        Kcal: recipe['nutrition']?['calories']
+                                                ?.toInt() ??
+                                            0,
+                                        isFavorite: false,
+                                      ),
+                                    ),
+                                    type: PageTransitionType.bottomToTop,
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                margin: EdgeInsets.only(bottom: 16),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // รูปภาพอาหาร
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        recipe['image'] ?? '',
+                                        width: 100,
+                                        height: 80,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                          return Container(
+                                            width: 100,
+                                            height: 80,
+                                            color: Colors.grey[200],
+                                            child: Icon(
+                                                Icons.image_not_supported,
+                                                color: Colors.grey),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // สัญลักษณ์แสดงว่าเป็น user recipe
+                                          if (isUserRecipe)
+                                            Container(
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 2),
+                                              margin:
+                                                  EdgeInsets.only(bottom: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green[100],
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                'My Recipe',
+                                                style: TextStyle(
+                                                  color: Colors.green[800],
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          // ชื่อสูตรอาหาร
+                                          Text(
+                                            recipe['title'] ?? '',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          SizedBox(height: 4),
+                                          // ประเภทอาหาร
+                                          Text(
+                                            recipe['dishTypes'] != null &&
+                                                    recipe['dishTypes']
+                                                        is List &&
+                                                    (recipe['dishTypes']
+                                                            as List)
+                                                        .isNotEmpty
+                                                ? (recipe['dishTypes']
+                                                    as List)[0]
+                                                : 'Main Course',
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          SizedBox(height: 4),
+                                          // เวลาและแคลอรี่
+                                          Row(
+                                            children: [
+                                              Icon(Icons.timer,
+                                                  size: 16,
+                                                  color: Colors.grey[600]),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                '${recipe['readyInMinutes'] ?? 0} min',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              SizedBox(width: 8),
+                                              Icon(Icons.local_fire_department,
+                                                  size: 16,
+                                                  color: Colors.red[400]),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                '${recipe['nutrition']?['calories']?.toInt() ?? 0} kcal',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
+                            );
+                          },
+                        ),
+            ],
+          )
+        else
+          SizedBox(height: 20),
+        Column(children: [
+          // Category Selector
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15.0),
+            child: SizedBox(
+              height: 40,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: recipeTypes.length,
+                itemBuilder: (BuildContext context, int index) {
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        selectedCategoryIndex = index;
+                        _updateDisplayRecipesByCategory();
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: selectedCategoryIndex == index
+                            ? Color(0xFF78d454)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        border:
+                            Border.all(color: Colors.grey.shade300, width: 1),
+                      ),
+                      child: Center(
+                        child: Text(
+                          recipeTypes[index],
+                          style: TextStyle(
+                            color: selectedCategoryIndex == index
+                                ? Colors.white
+                                : Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
                           ),
                         ),
-                      );
-                    },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Recommendation',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
                   ),
                 ),
-              ),
+                TextButton(
+                  onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RecommendScreen(
+                          recipes: recipeList,
+                          recommendedRecipes: recommendedRecipes,
+                        ),
+                      )),
+                  child: const Text(
+                    "See All",
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              ],
+            ),
+          ),
 
-              const SizedBox(height: 20),
+          const SizedBox(height: 10),
 
+          // Recipes Recommendation
+
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF5CB77E),
+                    ),
+                  )
+                : Row(
+                    children: recommendedRecipes.isEmpty
+                        ? [
+                            const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text('No recommendations available'),
+                            )
+                          ]
+                        : recommendedRecipes.map((recipe) {
+                            return Padding(
+                              padding: const EdgeInsets.only(left: 12),
+                              child: Container(
+                                width: 200,
+                                height: 240,
+                                margin: const EdgeInsets.only(right: 10),
+                                child: GestureDetector(
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => RecipeDetail(
+                                        recipeId: recipe['id'] is int
+                                            ? recipe['id']
+                                            : int.parse(
+                                                recipe['id'].toString()),
+                                        recipeDocId: recipe['id'].toString(),
+                                        recipe: Recipe(
+                                          recipeId: recipe['id'] is int
+                                              ? recipe['id']
+                                              : int.parse(
+                                                  recipe['id'].toString()),
+                                          recipeName: recipe['title'] ?? '',
+                                          description: recipe['summary'] ?? '',
+                                          ingredients: ((recipe[
+                                                          'ingredients'] ??
+                                                      recipe[
+                                                          'extendedIngredients'])
+                                                  as List<dynamic>)
+                                              .map((ingredient) {
+                                            return IngredientUsage(
+                                              ingredient: Ingredient.fromAPI(
+                                                id: ingredient['id']
+                                                        ?.toString() ??
+                                                    '',
+                                                name: ingredient['name'] ?? '',
+                                                amount: ingredient['amount']
+                                                        ?.toDouble() ??
+                                                    0.0,
+                                                unit: ingredient['unit'] ?? '',
+                                              ),
+                                              quantityUsed: ingredient['amount']
+                                                      ?.toDouble() ??
+                                                  0.0,
+                                            );
+                                          }).toList(),
+                                          instructions: (recipe['instructions']
+                                                      as List<dynamic>? ??
+                                                  [])
+                                              .map((step) => step.toString())
+                                              .toList(),
+                                          preparationTime: int.tryParse(
+                                                  recipe['readyInMinutes']
+                                                          ?.toString() ??
+                                                      '0') ??
+                                              0,
+                                          cookingTime: 0,
+                                          servings: recipe['servings'] ?? 1,
+                                          category: (recipe['dishTypes']
+                                                          as List<dynamic>? ??
+                                                      [])
+                                                  .isNotEmpty
+                                              ? recipe['dishTypes'][0]
+                                              : 'Main Course',
+                                          imageUrl: recipe['image'] ?? '',
+                                          Protein: recipe['nutrition']
+                                                      ?['protein']
+                                                  ?.toDouble() ??
+                                              0.0,
+                                          Fat: recipe['nutrition']?['fat']
+                                                  ?.toDouble() ??
+                                              0.0,
+                                          Carbo: recipe['nutrition']?['carbs']
+                                                  ?.toDouble() ??
+                                              0.0,
+                                          Kcal: recipe['nutrition']?['calories']
+                                                  ?.toInt() ??
+                                              0,
+                                          isFavorite:
+                                              recipe['isFavorite'] ?? false,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Container(
+                                            width: 200,
+                                            height: 130,
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(15),
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(15),
+                                              child: Image.network(
+                                                recipe['image'] ?? '',
+                                                fit: BoxFit.cover,
+                                                width: double.infinity,
+                                                height: 130,
+                                                errorBuilder: (context, error,
+                                                    stackTrace) {
+                                                  return Container(
+                                                    color: Colors.grey[200],
+                                                    alignment: Alignment.center,
+                                                    child: const Icon(
+                                                        Icons.broken_image,
+                                                        size: 50,
+                                                        color: Colors.grey),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            recipe['dishTypes']?.first ??
+                                                'Recipe',
+                                            style: const TextStyle(
+                                              color: Color.fromARGB(
+                                                  179, 65, 64, 64),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 7),
+                                          Text(
+                                            recipe['title'] ??
+                                                'Untitled Recipe',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.black,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 7),
+                                          Row(
+                                            children: [
+                                              const Icon(
+                                                Icons
+                                                    .access_time_filled_outlined,
+                                                size: 18.0,
+                                                color: Color(0xFF5CB77E),
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                '${recipe['readyInMinutes'] ?? 0} min',
+                                                style: const TextStyle(
+                                                  fontSize: 12.0,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                              const Text(
+                                                " · ",
+                                                style: TextStyle(
+                                                    color: Colors.grey),
+                                              ),
+                                              const Icon(
+                                                Icons
+                                                    .local_fire_department_sharp,
+                                                size: 18.0,
+                                                color: Colors.red,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                '${recipe['nutrition']?['calories'] ?? 0} Kcal',
+                                                style: const TextStyle(
+                                                  fontSize: 12.0,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                  ),
+          ),
+
+          // My Recipe
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Recommendation',
+                      'My Recipe',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -950,13 +1322,15 @@ void _updateDisplayRecipesByCategory() {
                     ),
                     TextButton(
                       onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => RecommendScreen(
-                              recipes: recipeList,
-                              recommendedRecipes: recommendedRecipes,
-                            ),
-                          )),
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              MyrecipeScreen(recipes: recipeList),
+                        ),
+                      ).then((_) {
+                        // รีโหลดข้อมูลเมื่อกลับมา
+                        _loadUserRecipes();
+                      }),
                       child: const Text(
                         "See All",
                         style: TextStyle(
@@ -969,1002 +1343,821 @@ void _updateDisplayRecipesByCategory() {
                   ],
                 ),
               ),
-
-              const SizedBox(height: 10),
-
-              // Recipes Recommendation
-
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: isLoading
-                    ? const Center(
+              // แสดง UI ตามสถานะของ userRecipes (ไม่ใช้ StreamBuilder)
+              isLoadingUserRecipes
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 30.0),
                         child: CircularProgressIndicator(
                           color: Color(0xFF5CB77E),
                         ),
-                      )
-                    : Row(
-                        children: recommendedRecipes.isEmpty
-                            ? [
-                                const Padding(
-                                  padding: EdgeInsets.all(16.0),
-                                  child: Text('No recommendations available'),
-                                )
-                              ]
-                            : recommendedRecipes.map((recipe) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(left: 12),
-                                  child: Container(
-                                    width: 200,
-                                    height: 240,
-                                    margin: const EdgeInsets.only(right: 10),
-                                    child: GestureDetector(
-                                      onTap: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => RecipeDetail(
-                                            recipeId: recipe['id'] is int
-                                                ? recipe['id']
-                                                : int.parse(
-                                                    recipe['id'].toString()),
-                                            recipeDocId:
-                                                recipe['id'].toString(),
-                                            recipe: Recipe(
-                                              recipeId: recipe['id'] is int
-                                                  ? recipe['id']
-                                                  : int.parse(
-                                                      recipe['id'].toString()),
-                                              recipeName: recipe['title'] ?? '',
-                                              description:
-                                                  recipe['summary'] ?? '',
-                                             ingredients: ((recipe['ingredients'] ?? recipe['extendedIngredients']) as List<dynamic>).map((ingredient) {
-                                                return IngredientUsage(
-                                                  ingredient:
-                                                      Ingredient.fromAPI(
-                                                    id: ingredient['id']
-                                                            ?.toString() ??
-                                                        '',
-                                                    name: ingredient['name'] ??
-                                                        '',
-                                                    amount: ingredient['amount']
-                                                            ?.toDouble() ??
-                                                        0.0,
-                                                    unit: ingredient['unit'] ??
-                                                        '',
-                                                  ),
-                                                  quantityUsed:
-                                                      ingredient['amount']
-                                                              ?.toDouble() ??
-                                                          0.0,
-                                                );
-                                              }).toList(),
-                                              instructions: (recipe[
-                                                              'instructions']
-                                                          as List<dynamic>? ??
-                                                      [])
-                                                  .map(
-                                                      (step) => step.toString())
-                                                  .toList(),
-                                              preparationTime: int.tryParse(
-                                                      recipe['readyInMinutes']
-                                                              ?.toString() ??
-                                                          '0') ??
-                                                  0,
-                                              cookingTime: 0,
-                                              servings: recipe['servings'] ?? 1,
-                                              category: (recipe['dishTypes']
-                                                              as List<
-                                                                  dynamic>? ??
-                                                          [])
-                                                      .isNotEmpty
-                                                  ? recipe['dishTypes'][0]
-                                                  : 'Main Course',
-                                              imageUrl: recipe['image'] ?? '',
-                                              Protein: recipe['nutrition']
-                                                          ?['protein']
-                                                      ?.toDouble() ??
-                                                  0.0,
-                                              Fat: recipe['nutrition']?['fat']
-                                                      ?.toDouble() ??
-                                                  0.0,
-                                              Carbo: recipe['nutrition']
-                                                          ?['carbs']
-                                                      ?.toDouble() ??
-                                                  0.0,
-                                              Kcal: recipe['nutrition']
-                                                          ?['calories']
-                                                      ?.toInt() ??
-                                                  0,
-                                              isFavorite:
-                                                  recipe['isFavorite'] ?? false,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      child: Stack(
-                                        children: [
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                width: 200,
-                                                height: 130,
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(15),
-                                                ),
-                                                child: ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(15),
-                                                  child: Image.network(
-                                                    recipe['image'] ?? '',
-                                                    fit: BoxFit.cover,
-                                                    width: double.infinity,
-                                                    height: 130,
-                                                    errorBuilder: (context,
-                                                        error, stackTrace) {
-                                                      return Container(
-                                                        color: Colors.grey[200],
-                                                        alignment:
-                                                            Alignment.center,
-                                                        child: const Icon(
-                                                            Icons.broken_image,
-                                                            size: 50,
-                                                            color: Colors.grey),
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 10),
-                                              Text(
-                                                recipe['dishTypes']?.first ??
-                                                    'Recipe',
-                                                style: const TextStyle(
-                                                  color: Color.fromARGB(
-                                                      179, 65, 64, 64),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 7),
-                                              Text(
-                                                recipe['title'] ??
-                                                    'Untitled Recipe',
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 7),
-                                              Row(
-                                                children: [
-                                                  const Icon(
-                                                    Icons
-                                                        .access_time_filled_outlined,
-                                                    size: 18.0,
-                                                    color: Color(0xFF5CB77E),
-                                                  ),
-                                                  const SizedBox(width: 5),
-                                                  Text(
-                                                    '${recipe['readyInMinutes'] ?? 0} min',
-                                                    style: const TextStyle(
-                                                      fontSize: 12.0,
-                                                      color: Colors.grey,
-                                                    ),
-                                                  ),
-                                                  const Text(
-                                                    " · ",
-                                                    style: TextStyle(
-                                                        color: Colors.grey),
-                                                  ),
-                                                  const Icon(
-                                                    Icons
-                                                        .local_fire_department_sharp,
-                                                    size: 18.0,
-                                                    color: Colors.red,
-                                                  ),
-                                                  const SizedBox(width: 5),
-                                                  Text(
-                                                    '${recipe['nutrition']?['calories'] ?? 0} Kcal',
-                                                    style: const TextStyle(
-                                                      fontSize: 12.0,
-                                                      color: Colors.grey,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
                       ),
-              ),
-
-              // My Recipe
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'My Recipe',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  MyrecipeScreen(recipes: recipeList),
-                            ),
-                          ).then((_) {
-                            // รีโหลดข้อมูลเมื่อกลับมา
-                            _loadUserRecipes();
-                          }),
-                          child: const Text(
-                            "See All",
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                  // แสดง UI ตามสถานะของ userRecipes (ไม่ใช้ StreamBuilder)
-                  isLoadingUserRecipes
+                    )
+                  : userRecipes.isEmpty
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 30.0),
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF5CB77E),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.restaurant_menu,
+                                  size: 50,
+                                  color: Colors.grey[400],
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'You haven\'t created any recipes yet',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _showCreateRecipeModal(context);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Color(0xFF78d454),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: Text('Create Recipe'),
+                                ),
+                              ],
                             ),
                           ),
                         )
-                      : userRecipes.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 30.0),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.restaurant_menu,
-                                      size: 50,
-                                      color: Colors.grey[400],
-                                    ),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'You haven\'t created any recipes yet',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    SizedBox(height: 8),
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        _showCreateRecipeModal(context);
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Color(0xFF78d454),
-                                        foregroundColor: Colors.white,
-                                      ),
-                                      child: Text('Create Recipe'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              physics: const NeverScrollableScrollPhysics(),
-                              shrinkWrap: true,
-                              itemCount: userRecipes.length > 5
-                                  ? 5
-                                  : userRecipes.length,
-                              itemBuilder: (context, index) {
-                                return GestureDetector(
-                                  onTap: () {
-                                    if (widget.isSelecting) {
-                                      Navigator.pop(
-                                          context, userRecipes[index]);
-                                    } else {
-                                      Navigator.push(
-                                        context,
-                                        PageTransition(
-                                          child: RecipeDetail(
-                                            recipe: userRecipes[index],
-                                            recipeId:
-                                                userRecipes[index].recipeId,
-                                            recipeDocId: userRecipes[index]
-                                                    .recipeDocId ??
+                      : ListView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          itemCount:
+                              userRecipes.length > 5 ? 5 : userRecipes.length,
+                          itemBuilder: (context, index) {
+                            return GestureDetector(
+                              onTap: () {
+                                if (widget.isSelecting) {
+                                  Navigator.pop(context, userRecipes[index]);
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    PageTransition(
+                                      child: RecipeDetail(
+                                        recipe: userRecipes[index],
+                                        recipeId: userRecipes[index].recipeId,
+                                        recipeDocId:
+                                            userRecipes[index].recipeDocId ??
                                                 userRecipes[index]
                                                     .recipeId
                                                     .toString(),
-                                          ),
-                                          type: PageTransitionType.bottomToTop,
-                                        ),
-                                      ).then((_) {
-                                        // รีโหลดข้อมูลเมื่อกลับมา
-                                        _loadUserRecipes();
-                                      });
-                                    }
-                                  },
-                                  child: RecipeWidget(
-                                    index: index,
-                                    recipeScreenList: userRecipes,
-                                    recipe: null,
-                                    isSelecting: widget.isSelecting,
-                                    preselectedDate: widget.preselectedDate,
-                                    preselectedMealType:
-                                        widget.preselectedMealType,
-                                  ),
-                                );
+                                      ),
+                                      type: PageTransitionType.bottomToTop,
+                                    ),
+                                  ).then((_) {
+                                    // รีโหลดข้อมูลเมื่อกลับมา
+                                    _loadUserRecipes();
+                                  });
+                                }
                               },
-                            ),
-                ],
-              ),
-              // Recipe of The Week
-              const SizedBox(height: 20),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Recipe of The Week',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => WeekScreen(
-                                  weeklyRecipes: topUserPreferenceRecipes,
+                              child: RecipeWidget(
+                                index: index,
+                                recipeScreenList: userRecipes,
+                                recipe: null,
+                                isSelecting: widget.isSelecting,
+                                preselectedDate: widget.preselectedDate,
+                                preselectedMealType: widget.preselectedMealType,
                               ),
-                            ),
-                          ),
-                          child: const Text(
-                            "See All",
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  isLoadingTopRecipe
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 30.0),
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF5CB77E),
-                            ),
-                          ),
-                        )
-                      : topUserPreferenceRecipes.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 30.0),
-                                child: Text(
-                                  'No weekly recipes available',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              physics: const NeverScrollableScrollPhysics(),
-                              shrinkWrap: true,
-                              itemCount: topUserPreferenceRecipes.length ,
-                                
-                              
-                              itemBuilder: (context, index) {
-                                   if (index >= topUserPreferenceRecipes.length) {
-      return SizedBox(); 
-    }
-                                final recipe = topUserPreferenceRecipes[index]; 
-                                return GestureDetector(
-                                  onTap: () {
-                                    if (widget.isSelecting) {
-                                    Navigator.pop(context, recipe);
-                                    } else {
-                                        Navigator.push(
-                    context,
-                    PageTransition(
-                      child: RecipeDetail(
-                        recipeId: recipe['id'] is int
-                            ? recipe['id']
-                            : int.parse(recipe['id'].toString()),
-                        recipeDocId: recipe['id'].toString(),
-                        recipe: Recipe(
-                          recipeId: recipe['id'] is int
-                              ? recipe['id']
-                              : int.parse(recipe['id'].toString()),
-                          recipeName: recipe['title'] ?? '',
-                          description: recipe['summary'] ?? '',
-                          ingredients: (recipe['ingredients'] as List<dynamic>? ?? [])
-                              .map((ingredient) {
-                            return IngredientUsage(
-                              ingredient: Ingredient.fromAPI(
-                                id: ingredient['id']?.toString() ?? '',
-                                name: ingredient['name'] ?? '',
-                                amount: ingredient['amount']?.toDouble() ?? 0.0,
-                                unit: ingredient['unit'] ?? '',
-                              ),
-                              quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
                             );
-                          }).toList(),
-                          instructions: (recipe['instructions'] as List<dynamic>? ?? [])
-                              .map((step) => step.toString())
-                              .toList(),
-                                              preparationTime: int.tryParse(
-                                  recipe['readyInMinutes']?.toString() ?? '0') ??
-                              0,
-                          cookingTime: 0,
-                          servings: recipe['servings'] ?? 1,
-                          category: recipe['dishTypes'] != null &&
-                                  recipe['dishTypes'] is List &&
-                                  (recipe['dishTypes'] as List).isNotEmpty
-                              ? (recipe['dishTypes'] as List)[0]
-                              : 'Main Course',
-                          imageUrl: recipe['image'] ?? '',
-                          Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
-                          Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
-                          Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
-                          Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
-                          isFavorite: false,
-                                            ),
-                                          ),
-                                          type: PageTransitionType.bottomToTop,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  child: RecipeWidget(
-                                    index: index,
-                                    recipeScreenList: null,
-                                    isSelecting: widget.isSelecting,
-                                    preselectedDate: widget.preselectedDate,
-                                    preselectedMealType:
-                                        widget.preselectedMealType,
-                                    recipe: Recipe(
-                                       recipeId: _safeParseInt(recipe['id']),
-                  recipeName: recipe['title'] ?? '',
-                  description: recipe['summary'] ?? '',
-                  ingredients: (recipe['ingredients'] as List<dynamic>? ?? [])
-                      .map((ingredient) {
-                        return IngredientUsage(
-                          ingredient: Ingredient.fromAPI(
-                            id: ingredient['id']?.toString() ?? '',
-                            name: ingredient['name'] ?? '',
-                            amount: ingredient['amount']?.toDouble() ?? 0.0,
-                            unit: ingredient['unit'] ?? '',
-                          ),
-                          quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
-                        );
-                      }).toList(),
-                  instructions: (recipe['instructions'] as List<dynamic>? ?? [])
-                      .map((step) => step.toString())
-                      .toList(),
-                  preparationTime: int.tryParse(
-                          recipe['readyInMinutes']?.toString() ?? '0') ??
-                      0,
-                  cookingTime: 0,
-                  servings: recipe['servings'] ?? 1,
-                  category: recipe['dishTypes'] != null &&
-                          recipe['dishTypes'] is List &&
-                          (recipe['dishTypes'] as List).isNotEmpty
-                      ? (recipe['dishTypes'] as List)[0]
-                      : 'Main Course',
-                                     imageUrl: recipe['image'] ?? '',
-                  Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
-                  Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
-                  Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
-                  Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
-                  isFavorite: false,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                ],
-              ),
-              // Popular Recipes
-              const SizedBox(height: 20),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Popular Recipes',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PopularScreen(
-                                popularRecipes: popularRecipes,
-                              ),
-                            ),
-                          ),
-                          child: const Text(
-                            "See All",
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                  isLoadingPopularRecipes
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 30.0),
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF5CB77E),
-                            ),
-                          ),
-                        )
-                      : popularRecipes.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 30.0),
-                                child: Text(
-                                  'No popular recipes available',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              physics: const NeverScrollableScrollPhysics(),
-                              shrinkWrap: true,
-                              itemCount: popularRecipes.length,
-  itemBuilder: (context, index) {
-    
-    if (index >= popularRecipes.length) {
-      return SizedBox(); 
-    }
-    
-    final recipe = popularRecipes[index];
-                                final ingredients = (recipe['ingredients'] as List<dynamic>? ?? []).map((ingredient) {
-      return IngredientUsage(
-        ingredient: Ingredient.fromAPI(
-          id: ingredient['id']?.toString() ?? '',
-          name: ingredient['name'] ?? '',
-          amount: ingredient['amount']?.toDouble() ?? 0.0,
-          unit: ingredient['unit'] ?? '',
-        ),
-        quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
-      );
-    }).toList();
-
-    final instructions = (recipe['instructions'] as List<dynamic>? ?? []).map((step) {
-      return step.toString();
-    }).toList();
-                                return GestureDetector(
-                                  onTap: () {
-                                    if (widget.isSelecting) {
-                                      Navigator.pop(
-                                          context, userRecipes[index]);
-                                    } else {
-                                      Navigator.push(
-                                        context,
-                                        PageTransition(
-                                                     child: RecipeDetail(
-              recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
-              recipeDocId: recipe['id'].toString(),
-              recipe: Recipe(
-                recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
-                recipeName: recipe['title'] ?? '',
-                description: recipe['summary'] ?? '',
-                ingredients: ingredients, // ส่ง ingredients ที่แปลงแล้ว
-                instructions: instructions, // ส่ง instructions ที่แปลงแล้ว
-                preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
-                cookingTime: 0,
-                servings: recipe['servings'] ?? 1,
-                category: recipe['dishTypes'] != null &&
-                        recipe['dishTypes'] is List &&
-                        (recipe['dishTypes'] as List).isNotEmpty
-                    ? (recipe['dishTypes'] as List)[0]
-                    : 'Main Course',
-                imageUrl: recipe['image'] ?? '',
-                Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
-                Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
-                Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
-                Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
-                isFavorite: false,
-                                            ),
-                                          ),
-                                          type: PageTransitionType.bottomToTop,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  child: RecipeWidget(
-                                     index: 0,
-        recipeScreenList: null,
-        isSelecting: widget.isSelecting,
-        preselectedDate: widget.preselectedDate,
-        preselectedMealType: widget.preselectedMealType,
-        recipe: Recipe(
-          recipeId: recipe['id'] is int ? recipe['id'] : int.parse(recipe['id'].toString()),
-          recipeName: recipe['title'] ?? '',
-          description: '',
-          ingredients: ingredients, // ส่ง ingredients ที่แปลงแล้ว
-          instructions: instructions, // ส่ง instructions ที่แปลงแล้ว
-          preparationTime: int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
-          cookingTime: 0,
-          servings: recipe['servings'] ?? 1,
-          category: recipe['dishTypes'] != null &&
-                  recipe['dishTypes'] is List &&
-                  (recipe['dishTypes'] as List).isNotEmpty
-              ? (recipe['dishTypes'] as List)[0]
-              : 'Main Course',
-          imageUrl: recipe['image'] ?? '',
-          Protein: recipe['nutrition']?['protein']?.toDouble() ?? 0.0,
-          Fat: recipe['nutrition']?['fat']?.toDouble() ?? 0.0,
-          Carbo: recipe['nutrition']?['carbs']?.toDouble() ?? 0.0,
-          Kcal: recipe['nutrition']?['calories']?.toInt() ?? 0,
-          isFavorite: false,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                ],
-              ),
-            ]
-            )
-              ]
-              ),  ));
-  }
-
-
-void _showCreateRecipeModal(BuildContext context) {
-  final TextEditingController recipeNameController = TextEditingController();
-  final TextEditingController cookingTimeController = TextEditingController();
-  final TextEditingController servingsController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (context) {
-      return Container(
-        height: MediaQuery.of(context).size.height * 0.70,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(25),
-            topRight: Radius.circular(25),
-          ),
-        ),
-        padding: EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Create Recipe',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20),
-
-              // Recipe Name Section Header
-              Text(
-                'Recipe Name',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Colors.black87,
-                ),
-              ),
-              SizedBox(height: 8),
-
-              // Recipe Name Field
-              TextFormField(
-                controller: recipeNameController,
-                maxLength: 50,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
-                ],
-                decoration: InputDecoration(
-                  hintText: 'Enter recipe name',
-                  filled: true,
-                  fillColor: Colors.grey[100],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  prefixIcon: Icon(Icons.restaurant_menu),
-                  counterText: '',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a recipe name';
-                  }
-                  if (value.length < 3) {
-                    return 'Recipe name must be at least 3 characters';
-                  }
-                  if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) {
-                    return 'Only letters and spaces are allowed';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 20),
-
-              // Cooking Details Section Header
-              Text(
-                'Cooking Details',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Colors.black87,
-                ),
-              ),
-              SizedBox(height: 8),
-
-              // Cooking Time and Servings in same row
-              Row(
-                children: [
-                  // Cooking Time Column
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Cooking Time',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                            color: Colors.black54,
-                          ),
-                        ),
-                        SizedBox(height: 6),
-                        TextFormField(
-                          controller: cookingTimeController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          decoration: InputDecoration(
-                            hintText: 'Minutes',
-                            filled: true,
-                            fillColor: Colors.grey[100],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            prefixIcon: Icon(Icons.timer),
-                            suffixText: 'min',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Required';
-                            }
-                            int? parsedValue = int.tryParse(value);
-                            if (parsedValue == null) {
-                              return 'Numbers only';
-                            }
-                            if (parsedValue <= 0) {
-                              return 'Must be greater than 0';
-                            }
-                            return null;
                           },
                         ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: 16),
-
-                  // Servings Column
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Servings',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                            color: Colors.black54,
-                          ),
-                        ),
-                        SizedBox(height: 6),
-                        TextFormField(
-                          controller: servingsController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          decoration: InputDecoration(
-                            hintText: 'People',
-                            filled: true,
-                            fillColor: Colors.grey[100],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            prefixIcon: Icon(Icons.people),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Required';
-                            }
-                            int? parsedValue = int.tryParse(value);
-                            if (parsedValue == null) {
-                              return 'Numbers only';
-                            }
-                            if (parsedValue <= 0) {
-                              return 'Must be greater than 0';
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              SizedBox(height: 20),
-
-              // Instructions text
-              Text(
-                'Continue to add ingredients and instructions on the next screen',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey,
-                  fontStyle: FontStyle.italic,
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              SizedBox(height: 16),
-
-              // Buttons (Cancel and Create)
-              Row(
-                children: [
-                  // Cancel Button
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.black,
-                        backgroundColor: Colors.grey[200],
-                        padding: EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-
-                  // Create Button
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          // เก็บข้อมูลเบื้องต้น
-                          final initialRecipeData = {
-                            'recipeName': recipeNameController.text,
-                            'totalCookingTime':
-                                int.parse(cookingTimeController.text),
-                            'servings': int.parse(servingsController.text),
-                          };
-
-                          Navigator.pop(context);
-
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => CreateRecipeScreen(
-                                initialData: initialRecipeData,
-                                onRecipeCreated: () {
-                                  if (context.findAncestorStateOfType<
-                                          _RecipeScreenState>() !=
-                                      null) {
-                                    context
-                                        .findAncestorStateOfType<
-                                            _RecipeScreenState>()!
-                                        ._loadUserRecipes();
-                                  }
-                                },
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: Color(0xFF78d454),
-                        padding: EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: Text(
-                        'Continue',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
-        ),
-      );
-    },
-  );
-}
+          // Recipe of The Week
+          const SizedBox(height: 20),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Recipe of The Week',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => WeekScreen(
+                            weeklyRecipes: topUserPreferenceRecipes,
+                          ),
+                        ),
+                      ),
+                      child: const Text(
+                        "See All",
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              isLoadingTopRecipe
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 30.0),
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF5CB77E),
+                        ),
+                      ),
+                    )
+                  : topUserPreferenceRecipes.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 30.0),
+                            child: Text(
+                              'No weekly recipes available',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          itemCount: topUserPreferenceRecipes.length,
+                          itemBuilder: (context, index) {
+                            if (index >= topUserPreferenceRecipes.length) {
+                              return SizedBox();
+                            }
+                            final recipe = topUserPreferenceRecipes[index];
+                            return GestureDetector(
+                              onTap: () {
+                                if (widget.isSelecting) {
+                                  Navigator.pop(context, recipe);
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    PageTransition(
+                                      child: RecipeDetail(
+                                        recipeId: recipe['id'] is int
+                                            ? recipe['id']
+                                            : int.parse(
+                                                recipe['id'].toString()),
+                                        recipeDocId: recipe['id'].toString(),
+                                        recipe: Recipe(
+                                          recipeId: recipe['id'] is int
+                                              ? recipe['id']
+                                              : int.parse(
+                                                  recipe['id'].toString()),
+                                          recipeName: recipe['title'] ?? '',
+                                          description: recipe['summary'] ?? '',
+                                          ingredients: (recipe['ingredients']
+                                                      as List<dynamic>? ??
+                                                  [])
+                                              .map((ingredient) {
+                                            return IngredientUsage(
+                                              ingredient: Ingredient.fromAPI(
+                                                id: ingredient['id']
+                                                        ?.toString() ??
+                                                    '',
+                                                name: ingredient['name'] ?? '',
+                                                amount: ingredient['amount']
+                                                        ?.toDouble() ??
+                                                    0.0,
+                                                unit: ingredient['unit'] ?? '',
+                                              ),
+                                              quantityUsed: ingredient['amount']
+                                                      ?.toDouble() ??
+                                                  0.0,
+                                            );
+                                          }).toList(),
+                                          instructions: (recipe['instructions']
+                                                      as List<dynamic>? ??
+                                                  [])
+                                              .map((step) => step.toString())
+                                              .toList(),
+                                          preparationTime: int.tryParse(
+                                                  recipe['readyInMinutes']
+                                                          ?.toString() ??
+                                                      '0') ??
+                                              0,
+                                          cookingTime: 0,
+                                          servings: recipe['servings'] ?? 1,
+                                          category: recipe['dishTypes'] !=
+                                                      null &&
+                                                  recipe['dishTypes'] is List &&
+                                                  (recipe['dishTypes'] as List)
+                                                      .isNotEmpty
+                                              ? (recipe['dishTypes'] as List)[0]
+                                              : 'Main Course',
+                                          imageUrl: recipe['image'] ?? '',
+                                          Protein: recipe['nutrition']
+                                                      ?['protein']
+                                                  ?.toDouble() ??
+                                              0.0,
+                                          Fat: recipe['nutrition']?['fat']
+                                                  ?.toDouble() ??
+                                              0.0,
+                                          Carbo: recipe['nutrition']?['carbs']
+                                                  ?.toDouble() ??
+                                              0.0,
+                                          Kcal: recipe['nutrition']?['calories']
+                                                  ?.toInt() ??
+                                              0,
+                                          isFavorite: false,
+                                        ),
+                                      ),
+                                      type: PageTransitionType.bottomToTop,
+                                    ),
+                                  );
+                                }
+                              },
+                              child: RecipeWidget(
+                                index: index,
+                                recipeScreenList: null,
+                                isSelecting: widget.isSelecting,
+                                preselectedDate: widget.preselectedDate,
+                                preselectedMealType: widget.preselectedMealType,
+                                recipe: Recipe(
+                                  recipeId: _safeParseInt(recipe['id']),
+                                  recipeName: recipe['title'] ?? '',
+                                  description: recipe['summary'] ?? '',
+                                  ingredients: (recipe['ingredients']
+                                              as List<dynamic>? ??
+                                          [])
+                                      .map((ingredient) {
+                                    return IngredientUsage(
+                                      ingredient: Ingredient.fromAPI(
+                                        id: ingredient['id']?.toString() ?? '',
+                                        name: ingredient['name'] ?? '',
+                                        amount:
+                                            ingredient['amount']?.toDouble() ??
+                                                0.0,
+                                        unit: ingredient['unit'] ?? '',
+                                      ),
+                                      quantityUsed:
+                                          ingredient['amount']?.toDouble() ??
+                                              0.0,
+                                    );
+                                  }).toList(),
+                                  instructions: (recipe['instructions']
+                                              as List<dynamic>? ??
+                                          [])
+                                      .map((step) => step.toString())
+                                      .toList(),
+                                  preparationTime: int.tryParse(
+                                          recipe['readyInMinutes']
+                                                  ?.toString() ??
+                                              '0') ??
+                                      0,
+                                  cookingTime: 0,
+                                  servings: recipe['servings'] ?? 1,
+                                  category: recipe['dishTypes'] != null &&
+                                          recipe['dishTypes'] is List &&
+                                          (recipe['dishTypes'] as List)
+                                              .isNotEmpty
+                                      ? (recipe['dishTypes'] as List)[0]
+                                      : 'Main Course',
+                                  imageUrl: recipe['image'] ?? '',
+                                  Protein: recipe['nutrition']?['protein']
+                                          ?.toDouble() ??
+                                      0.0,
+                                  Fat:
+                                      recipe['nutrition']?['fat']?.toDouble() ??
+                                          0.0,
+                                  Carbo: recipe['nutrition']?['carbs']
+                                          ?.toDouble() ??
+                                      0.0,
+                                  Kcal: recipe['nutrition']?['calories']
+                                          ?.toInt() ??
+                                      0,
+                                  isFavorite: false,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ],
+          ),
+          // Popular Recipes
+          const SizedBox(height: 20),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Popular Recipes',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PopularScreen(
+                            popularRecipes: popularRecipes,
+                          ),
+                        ),
+                      ),
+                      child: const Text(
+                        "See All",
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+              isLoadingPopularRecipes
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 30.0),
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF5CB77E),
+                        ),
+                      ),
+                    )
+                  : popularRecipes.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 30.0),
+                            child: Text(
+                              'No popular recipes available',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          itemCount: popularRecipes.length > 5
+                              ? 5
+                              : popularRecipes.length,
+                          itemBuilder: (context, index) {
+                            if (index >= popularRecipes.length) {
+                              return SizedBox();
+                            }
+
+                            final recipe = popularRecipes[index];
+                            final ingredients =
+                                (recipe['ingredients'] as List<dynamic>? ?? [])
+                                    .map((ingredient) {
+                              return IngredientUsage(
+                                ingredient: Ingredient.fromAPI(
+                                  id: ingredient['id']?.toString() ?? '',
+                                  name: ingredient['name'] ?? '',
+                                  amount:
+                                      ingredient['amount']?.toDouble() ?? 0.0,
+                                  unit: ingredient['unit'] ?? '',
+                                ),
+                                quantityUsed:
+                                    ingredient['amount']?.toDouble() ?? 0.0,
+                              );
+                            }).toList();
+
+                            final instructions =
+                                (recipe['instructions'] as List<dynamic>? ?? [])
+                                    .map((step) {
+                              return step.toString();
+                            }).toList();
+                            return GestureDetector(
+                              onTap: () {
+                                if (widget.isSelecting) {
+                                  Navigator.pop(context, userRecipes[index]);
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    PageTransition(
+                                      child: RecipeDetail(
+                                        recipeId: recipe['id'] is int
+                                            ? recipe['id']
+                                            : int.parse(
+                                                recipe['id'].toString()),
+                                        recipeDocId: recipe['id'].toString(),
+                                        recipe: Recipe(
+                                          recipeId: recipe['id'] is int
+                                              ? recipe['id']
+                                              : int.parse(
+                                                  recipe['id'].toString()),
+                                          recipeName: recipe['title'] ?? '',
+                                          description: recipe['summary'] ?? '',
+                                          ingredients:
+                                              ingredients, // ส่ง ingredients ที่แปลงแล้ว
+                                          instructions:
+                                              instructions, // ส่ง instructions ที่แปลงแล้ว
+                                          preparationTime: int.tryParse(
+                                                  recipe['readyInMinutes']
+                                                          ?.toString() ??
+                                                      '0') ??
+                                              0,
+                                          cookingTime: 0,
+                                          servings: recipe['servings'] ?? 1,
+                                          category: recipe['dishTypes'] !=
+                                                      null &&
+                                                  recipe['dishTypes'] is List &&
+                                                  (recipe['dishTypes'] as List)
+                                                      .isNotEmpty
+                                              ? (recipe['dishTypes'] as List)[0]
+                                              : 'Main Course',
+                                          imageUrl: recipe['image'] ?? '',
+                                          Protein: recipe['nutrition']
+                                                      ?['protein']
+                                                  ?.toDouble() ??
+                                              0.0,
+                                          Fat: recipe['nutrition']?['fat']
+                                                  ?.toDouble() ??
+                                              0.0,
+                                          Carbo: recipe['nutrition']?['carbs']
+                                                  ?.toDouble() ??
+                                              0.0,
+                                          Kcal: recipe['nutrition']?['calories']
+                                                  ?.toInt() ??
+                                              0,
+                                          isFavorite: false,
+                                        ),
+                                      ),
+                                      type: PageTransitionType.bottomToTop,
+                                    ),
+                                  );
+                                }
+                              },
+                              child: RecipeWidget(
+                                index: 0,
+                                recipeScreenList: null,
+                                isSelecting: widget.isSelecting,
+                                preselectedDate: widget.preselectedDate,
+                                preselectedMealType: widget.preselectedMealType,
+                                recipe: Recipe(
+                                  recipeId: recipe['id'] is int
+                                      ? recipe['id']
+                                      : int.parse(recipe['id'].toString()),
+                                  recipeName: recipe['title'] ?? '',
+                                  description: '',
+                                  ingredients:
+                                      ingredients, // ส่ง ingredients ที่แปลงแล้ว
+                                  instructions:
+                                      instructions, // ส่ง instructions ที่แปลงแล้ว
+                                  preparationTime: int.tryParse(
+                                          recipe['readyInMinutes']
+                                                  ?.toString() ??
+                                              '0') ??
+                                      0,
+                                  cookingTime: 0,
+                                  servings: recipe['servings'] ?? 1,
+                                  category: recipe['dishTypes'] != null &&
+                                          recipe['dishTypes'] is List &&
+                                          (recipe['dishTypes'] as List)
+                                              .isNotEmpty
+                                      ? (recipe['dishTypes'] as List)[0]
+                                      : 'Main Course',
+                                  imageUrl: recipe['image'] ?? '',
+                                  Protein: recipe['nutrition']?['protein']
+                                          ?.toDouble() ??
+                                      0.0,
+                                  Fat:
+                                      recipe['nutrition']?['fat']?.toDouble() ??
+                                          0.0,
+                                  Carbo: recipe['nutrition']?['carbs']
+                                          ?.toDouble() ??
+                                      0.0,
+                                  Kcal: recipe['nutrition']?['calories']
+                                          ?.toInt() ??
+                                      0,
+                                  isFavorite: false,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ],
+          ),
+        ])
+      ]),
+    ));
+  }
+
+  void _showCreateRecipeModal(BuildContext context) {
+    final TextEditingController recipeNameController = TextEditingController();
+    final TextEditingController cookingTimeController = TextEditingController();
+    final TextEditingController servingsController = TextEditingController();
+    final _formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.70,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(25),
+              topRight: Radius.circular(25),
+            ),
+          ),
+          padding: EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Create Recipe',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+
+                // Recipe Name Section Header
+                Text(
+                  'Recipe Name',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 8),
+
+                // Recipe Name Field
+                TextFormField(
+                  controller: recipeNameController,
+                  maxLength: 50,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                  ],
+                  decoration: InputDecoration(
+                    hintText: 'Enter recipe name',
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    prefixIcon: Icon(Icons.restaurant_menu),
+                    counterText: '',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a recipe name';
+                    }
+                    if (value.length < 3) {
+                      return 'Recipe name must be at least 3 characters';
+                    }
+                    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) {
+                      return 'Only letters and spaces are allowed';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: 20),
+
+                // Cooking Details Section Header
+                Text(
+                  'Cooking Details',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 8),
+
+                // Cooking Time and Servings in same row
+                Row(
+                  children: [
+                    // Cooking Time Column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Cooking Time',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          TextFormField(
+                            controller: cookingTimeController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              hintText: 'Minutes',
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              prefixIcon: Icon(Icons.timer),
+                              suffixText: 'min',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Required';
+                              }
+                              int? parsedValue = int.tryParse(value);
+                              if (parsedValue == null) {
+                                return 'Numbers only';
+                              }
+                              if (parsedValue <= 0) {
+                                return 'Must be greater than 0';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 16),
+
+                    // Servings Column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Servings',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          TextFormField(
+                            controller: servingsController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              hintText: 'People',
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              prefixIcon: Icon(Icons.people),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Required';
+                              }
+                              int? parsedValue = int.tryParse(value);
+                              if (parsedValue == null) {
+                                return 'Numbers only';
+                              }
+                              if (parsedValue <= 0) {
+                                return 'Must be greater than 0';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: 20),
+
+                // Instructions text
+                Text(
+                  'Continue to add ingredients and instructions on the next screen',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+
+                SizedBox(height: 16),
+
+                // Buttons (Cancel and Create)
+                Row(
+                  children: [
+                    // Cancel Button
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                          backgroundColor: Colors.grey[200],
+                          padding: EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+
+                    // Create Button
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          if (_formKey.currentState!.validate()) {
+                            // เก็บข้อมูลเบื้องต้น
+                            final initialRecipeData = {
+                              'recipeName': recipeNameController.text,
+                              'totalCookingTime':
+                                  int.parse(cookingTimeController.text),
+                              'servings': int.parse(servingsController.text),
+                            };
+
+                            Navigator.pop(context);
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CreateRecipeScreen(
+                                  initialData: initialRecipeData,
+                                  onRecipeCreated: () {
+                                    if (context.findAncestorStateOfType<
+                                            _RecipeScreenState>() !=
+                                        null) {
+                                      context
+                                          .findAncestorStateOfType<
+                                              _RecipeScreenState>()!
+                                          ._loadUserRecipes();
+                                    }
+                                  },
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: Color(0xFF78d454),
+                          padding: EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          'Continue',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

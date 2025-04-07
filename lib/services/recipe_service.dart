@@ -569,47 +569,43 @@ Future<List<Map<String, dynamic>>> searchRecipes(String query, {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getRecipesByCuisine(
-      {String primaryCuisine = 'Thai',
-      List<String> fallbackCuisines = const [
-        'Asian',
-        'Chinese',
-        'Japanese',
-        'Indian',
-        'Vietnamese',
-        'Korean'
-      ],
-      int limit = 5, // ลดจำนวนเหลือ 5 สูตร
-      List<String> includeIngredients = const []}) async {
-    // สร้าง cache key
-    final String cacheKey =
-        'cuisine_${primaryCuisine}_${fallbackCuisines.join('_')}_${limit}';
+  Future<List<Map<String, dynamic>>> getRecipesByCuisine({
+  String primaryCuisine = 'Thai',
+  bool forceRefresh = false,
+  List<String> fallbackCuisines = const ['Asian', 'Chinese', 'Japanese', 'Indian', 'Vietnamese', 'Korean'],
+  int limit = 5,
+  List<String> includeIngredients = const []
+}) async {
+  print('🍎 Searching recipes with ingredients: $includeIngredients');
+   final String cacheKey = 'cuisine_${primaryCuisine}_${fallbackCuisines.join('_')}_${limit}_ingredients_${includeIngredients.join('_')}';
     final user = FirebaseAuth.instance.currentUser;
 
-    // ตรวจสอบแคชก่อน
-    if (user != null) {
-      try {
-        final cachedSearch = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('cachedSearches')
-            .doc(cacheKey)
-            .get();
+    if (!forceRefresh && user != null) {
+    try {
+      final cachedSearch = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('cachedSearches')
+          .doc(cacheKey)
+          .get();
 
-        if (cachedSearch.exists) {
-          final cacheData = cachedSearch.data();
-          final timestamp = cacheData?['timestamp'] ?? 0;
-          // ตรวจสอบว่าแคชยังไม่หมดอายุ (ไม่เกิน 24 ชั่วโมง)
-          if (DateTime.now().millisecondsSinceEpoch - timestamp <
-              cacheDuration) {
-            print("✅ Using cached cuisine search results");
-            return List<Map<String, dynamic>>.from(cacheData?['recipes'] ?? []);
-          }
+      if (cachedSearch.exists) {
+        final cacheData = cachedSearch.data();
+        final timestamp = cacheData?['timestamp'] ?? 0;
+        // ตรวจสอบว่าแคชยังไม่หมดอายุ (ไม่เกิน 24 ชั่วโมง)
+        if (DateTime.now().millisecondsSinceEpoch - timestamp < cacheDuration) {
+          print("✅ Using cached cuisine search results");
+          return List<Map<String, dynamic>>.from(cacheData?['recipes'] ?? []);
         }
-      } catch (e) {
-        print("❌ Error reading cuisine cache: $e");
       }
+    } catch (e) {
+      print("❌ Error reading cuisine cache: $e");
     }
+  } else if (forceRefresh) {
+    print("⚡ Force refresh requested - skipping cache check");
+  }
+
+
 
     // ลองค้นหาอาหารไทยก่อน
     List<Map<String, dynamic>> thaiRecipes =
@@ -685,36 +681,37 @@ Future<List<Map<String, dynamic>>> searchRecipes(String query, {
 
   Future<List<Map<String, dynamic>>> _fetchRecipesByCuisine(
       String cuisine, int limit,
-      [List<String> includeIngredients = const []]) async {
+      {List<String> includeIngredients = const [],
+      bool forceRefresh = false}) async {
     // สร้าง cache key
     final String cacheKey =
         'cuisine_fetch_${cuisine}_${limit}_${includeIngredients.join('_')}';
     final user = FirebaseAuth.instance.currentUser;
 
-    // ตรวจสอบแคชก่อน
-    if (user != null) {
-      try {
-        final cachedSearch = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('cachedSearches')
-            .doc(cacheKey)
-            .get();
+    if (!forceRefresh && user != null) {
+    try {
+      final cachedSearch = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('cachedSearches')
+          .doc(cacheKey)
+          .get();
 
-        if (cachedSearch.exists) {
-          final cacheData = cachedSearch.data();
-          final timestamp = cacheData?['timestamp'] ?? 0;
-          // ตรวจสอบว่าแคชยังไม่หมดอายุ (ไม่เกิน 24 ชั่วโมง)
-          if (DateTime.now().millisecondsSinceEpoch - timestamp <
-              cacheDuration) {
-            print("✅ Using cached cuisine fetch results for $cuisine");
-            return List<Map<String, dynamic>>.from(cacheData?['recipes'] ?? []);
-          }
+      if (cachedSearch.exists) {
+        final cacheData = cachedSearch.data();
+        final timestamp = cacheData?['timestamp'] ?? 0;
+        if (DateTime.now().millisecondsSinceEpoch - timestamp < cacheDuration) {
+          print("✅ Using cached cuisine fetch results for $cuisine");
+          return List<Map<String, dynamic>>.from(cacheData?['recipes'] ?? []);
         }
-      } catch (e) {
-        print("❌ Error reading cuisine fetch cache: $e");
       }
+    } catch (e) {
+      print("❌ Error reading cuisine fetch cache: $e");
     }
+  } else if (forceRefresh) {
+    print("⚡ Force refresh requested for $cuisine recipes");
+  }
+
 
     // สร้าง Map parameters - เพิ่ม instructionsRequired=true เพื่อให้ได้ข้อมูลการทำอาหาร
     Map<String, String> params = {
@@ -724,8 +721,13 @@ Future<List<Map<String, dynamic>>> searchRecipes(String query, {
       'fillIngredients': 'true',
       'addRecipeNutrition': 'true',
       'instructionsRequired': 'true',
-      'sort': 'popularity',
+       'sort': 'min-missing-ingredients',
+        'ranking': '2',
     };
+
+     if (includeIngredients.isNotEmpty) {
+    params['includeIngredients'] = includeIngredients.join(',');
+  }
 
     // เพิ่ม cuisine ถ้ามี
     if (cuisine.isNotEmpty) {
@@ -882,7 +884,7 @@ Future<List<Map<String, dynamic>>> searchRecipes(String query, {
 
   
 
-  Future<List<Map<String, dynamic>>> getTopRecipeByUserPreference() async {
+  Future<List<Map<String, dynamic>>> getTopRecipeByUserPreference({bool forceRefresh = false}) async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) {
     return [];

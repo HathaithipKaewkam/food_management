@@ -154,11 +154,15 @@ class Ingredient {
   factory Ingredient.fromJson(Map<String, dynamic> json) {
 
       String imageUrl = json['imageUrl'] ?? '';
+
+       if (imageUrl.isNotEmpty && !imageUrl.startsWith('http') && !imageUrl.startsWith('assets/')) {
+    imageUrl = 'https://firebasestorage.googleapis.com/v0/b/food-management-1ee0f.firebasestorage.app/o/ingredients%2F${Uri.encodeComponent(imageUrl)}?alt=media';
+  }
   
   // เพิ่ม print เพื่อตรวจสอบค่าที่เข้ามา
   print("📸 Ingredient JSON: ${json['ingredientsName']} - Image: $imageUrl");
   return Ingredient(
-    ingredientId: json['id'] ?? '',
+    ingredientId: json['ingredientId'] ?? '',
     ingredientsName: json['ingredientsName'] ?? '',
     category: json['category'] ?? '',
     storage: json['storage'] ?? '',
@@ -174,7 +178,7 @@ class Ingredient {
     purchaseDate: _parseDate(json['purchaseDate']),
     updateDate: _parseDate(json['updateDate']),
     source: json['source'] ?? '',
-    imageUrl: json['imageUrl'] ?? '',
+    imageUrl: imageUrl,
     isThrowed: json['isThrowed'] as bool?,
     status: json['status'] ?? '',
      quantityAdded: (json['quantityAdded'] is int)
