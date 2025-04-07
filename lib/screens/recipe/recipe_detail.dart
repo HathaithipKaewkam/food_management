@@ -80,12 +80,19 @@ class _RecipeDetailState extends State<RecipeDetail> {
     }
   }
 
+  
+
   @override
 void initState() {
   super.initState();
   currentRecipe = widget.recipe;
   currentRecipeDocId = widget.recipeDocId;
   
+  @override
+void dispose() {
+  Navigator.pop(context, true);
+  super.dispose();
+}
   // เพิ่ม debug log
   print("📊 Recipe Detail - Received recipe data:");
   print("📊 Recipe Name: ${currentRecipe.recipeName}");
@@ -691,10 +698,12 @@ if (recipeData['analyzedInstructions'] != null) {
                                                           ),
                                                         );
 
-                                                        // กลับไปยังหน้าก่อนหน้า
-                                                        navigationContext.pop(
-                                                            true); // ส่งค่า true กลับไปเพื่อบอกว่ามีการลบ
-                                                      }
+                                                        navigationContext.pop({
+        'deleted': true,
+        'recipeId': currentRecipe.recipeId,
+        'recipeDocId': currentRecipeDocId
+      });
+    }
                                                     } catch (e) {
                                                       // ปิด loading dialog ถ้า context ยังใช้ได้
                                                       if (context.mounted) {

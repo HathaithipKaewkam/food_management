@@ -211,30 +211,38 @@ class _MyrecipeScreen extends State<MyrecipeScreen> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                               Container(
-                                      width: double.infinity,
-                                      height: 130,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(15),
-                                        image: userRecipes[index].imageUrl.isEmpty 
-                                            ? null  
-                                            : DecorationImage(
-                                                image: userRecipes[index].imageUrl.startsWith('http') 
-                                                    ? NetworkImage(userRecipes[index].imageUrl) as ImageProvider
-                                                    : AssetImage(userRecipes[index].imageUrl),
-                                                fit: BoxFit.cover,
-                                              ),
-                                      ),
-                                      child: userRecipes[index].imageUrl.isEmpty 
-                                          ? Center(
-                                              child: Icon(
-                                                Icons.restaurant_menu,
-                                                size: 50,
-                                                color: Color(0xFF5CB77E),
-                                              ),
-                                            ) 
-                                          : null,
-                                    ),
+                              Container(
+  width: double.infinity,
+  height: 130,
+  decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(15),
+    // เพิ่มเส้นขอบและสีพื้นหลังเฉพาะเมื่อไม่มีรูปภาพ
+    border: userRecipes[index].imageUrl.isEmpty
+        ? Border.all(color: Colors.grey.shade300, width: 1.0)
+        : null,
+    color: userRecipes[index].imageUrl.isEmpty
+        ? Colors.grey.shade50
+        : null,
+    image: userRecipes[index].imageUrl.isEmpty 
+        ? null  
+        : DecorationImage(
+            image: userRecipes[index].imageUrl.startsWith('http') 
+                ? NetworkImage(userRecipes[index].imageUrl) as ImageProvider
+                : AssetImage(userRecipes[index].imageUrl),
+            fit: BoxFit.cover,
+          ),
+  ),
+  child: userRecipes[index].imageUrl.isEmpty 
+      ? Center(
+          child: Icon(
+            Icons.restaurant_menu,
+            size: 50,
+            color: Color(0xFF5CB77E),
+          ),
+        ) 
+      : null,
+),
+SizedBox(height: 5),
                                 Text(
                                   userRecipes[index].recipeName,
                                   style: const TextStyle(

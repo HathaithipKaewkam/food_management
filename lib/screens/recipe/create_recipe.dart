@@ -403,7 +403,7 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
         widget.onRecipeCreated!();
       }
 
-      Navigator.pop(context);
+      Navigator.pop(context, true); 
     } catch (e) {
       print('Error creating recipe: $e');
       ScaffoldMessenger.of(context).showSnackBar(

@@ -136,17 +136,15 @@ double _parseDoubleValue(dynamic value) {
     final ingredientName = (ingredient['ingredientsName'] ?? '').toString().toLowerCase().trim();
     if (ingredientName.contains(lowerQuery)) {
       results.add(ingredient);
-      print("✅ Found match: $ingredientName");
     }
   }
   
-  print("📊 Search results: ${results.length} items found");
   return results;
 }
 
 Future<void> _searchFirebaseDirectly(String query) async {
   try {
-    print("🔄 Searching Firebase directly for: '$query'");
+  
     QuerySnapshot querySnapshot = await FirebaseFirestore.instance
         .collection('ingredients')
         .orderBy('ingredientsName')
@@ -182,7 +180,6 @@ Future<void> _searchFirebaseDirectly(String query) async {
           !existingIds.contains(item['id'].toString())).toList();
           
         ingredientList.addAll(uniqueItems);
-        print("📦 Added ${uniqueItems.length} new items to ingredientList");
       });
     }
   } catch (e) {
@@ -310,8 +307,6 @@ Future<void> _fetchMoreInitialData() async {
       ? ingredientList 
       : _searchIngredients(_searchController.text);
       if (_searchController.text.isNotEmpty) {
-    print("🔎 Search term: '${_searchController.text}'");
-    print("📋 Results count: ${searchResults.length}");
   }
 
     return Scaffold(

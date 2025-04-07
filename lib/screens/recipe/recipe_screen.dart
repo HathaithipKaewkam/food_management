@@ -61,6 +61,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   List<Map<String, dynamic>> _allTopUserPreferenceRecipes = [];
   List<Map<String, dynamic>> _allPopularRecipes = [];
   StreamSubscription? _userDataSubscription;
+  StreamSubscription? _userRecipeSubscription;
 
   List<String> recipeTypes = [
     'All',
@@ -84,6 +85,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     _loadPopularRecipes();
     _loadTopUserPreferenceRecipe();
      _setupUserDataListener();
+      _setupUserRecipeListener();
   }
 
   void _setupUserDataListener() {
@@ -104,11 +106,23 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 }
 
+void _setupUserRecipeListener() {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    _userRecipeSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('userRecipe')
+        .snapshots()
+        .listen((snapshot) {
+      print('🔄 User recipe collection changed - refreshing');
+      _loadUserRecipes();
+    });
+  }
+}
+
   @override
   void dispose() {
-    searchController.dispose();
-    _userDataSubscription?.cancel();
-    _debounce?.cancel();
     super.dispose();
   }
 
@@ -141,7 +155,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             .collection('users')
             .doc(user.uid)
             .collection('userRecipe')
-            .orderBy('createdAt', descending: true)
+           .orderBy('updatedAt', descending: true)
             .get();
 
         print(
@@ -549,6 +563,32 @@ class _RecipeScreenState extends State<RecipeScreen> {
     });
   }
 
+  Future<void> _refreshAllData() async {
+  // แสดง snackbar เพื่อให้ผู้ใช้รู้ว่ากำลังรีเฟรช
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text('Refreshing all recipes...'),
+      duration: Duration(seconds: 1),
+    )
+  );
+  
+  await Future.wait([
+    _loadUserRecipes(),
+    _forceRefreshRecommendations(),
+    _loadPopularRecipes(),
+    _loadTopUserPreferenceRecipe(),
+  ]);
+  
+  if (mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('All recipes refreshed!'),
+        duration: Duration(seconds: 1),
+      )
+    );
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     print("DEBUG: RecipeScreen.build - isSelecting: ${widget.isSelecting}");
@@ -572,9 +612,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
 
     return Scaffold(
-        body: Padding(
-      padding: const EdgeInsets.only(left: 0),
-      child: ListView(children: [
+      body: RefreshIndicator(
+      onRefresh: () async {
+        await _refreshAllData();
+      },
+      color: Color(0xFF5CB77E),
+      backgroundColor: Colors.white,
+      displacement: 40.0,
+      child: ListView(
+        children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
@@ -622,7 +668,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
               // Search Bar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                width: size.width * .65,
+                width: size.width * .77,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -681,20 +727,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     ),
                   ],
                 ),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.refresh,
-                    color: Constants.blackColor,
-                    size: 25,
-                  ),
-                  onPressed: () {
-                    _forceRefreshRecommendations();
-                     ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('Refreshing recommendations...')),
-  );
-  
-                  },
-                ),
+               
               ),
 
               // Add button
@@ -1413,10 +1446,37 @@ class _RecipeScreenState extends State<RecipeScreen> {
                                       ),
                                       type: PageTransitionType.bottomToTop,
                                     ),
-                                  ).then((_) {
-                                    // รีโหลดข้อมูลเมื่อกลับมา
-                                    _loadUserRecipes();
-                                  });
+                                  ).then((result) {
+  // ตรวจสอบค่าที่ส่งกลับมา
+  if (result != null) {
+    if (result is Map && result['deleted'] == true) {
+      print("🗑️ Recipe was deleted, updating UI immediately");
+      
+      // อัพเดท UI ทันทีโดยไม่รอ listener
+      setState(() {
+        userRecipes.removeWhere((recipe) => 
+          recipe.recipeId == result['recipeId'] || 
+          recipe.recipeDocId == result['recipeDocId']);
+        
+        _allUserRecipes.removeWhere((recipe) => 
+          recipe.recipeId == result['recipeId'] || 
+          recipe.recipeDocId == result['recipeDocId']);
+      });
+      
+      // แจ้งเตือนว่าลบสำเร็จ
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Recipe deleted successfully"),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        )
+      );
+    } else if (result == true) {
+      // รีเฟรชทั้งหมดถ้ามีการแก้ไข
+      _loadUserRecipes();
+    }
+  }
+});
                                 }
                               },
                               child: RecipeWidget(
@@ -2118,17 +2178,19 @@ class _RecipeScreenState extends State<RecipeScreen> {
                             Navigator.pop(context);
 
                           Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => CreateRecipeScreen(
-      initialData: initialRecipeData,
-    ),
-  ),
-).then((value) {
-  if (value == true) {
-    _loadUserRecipes(); 
-  }
-});
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CreateRecipeScreen(
+                                initialData: initialRecipeData,
+                              ),
+                            ),
+                          ).then((value) {
+                             print("⚠️ Value returned from CreateRecipeScreen: $value");
+                            if (value == true) {
+                              _loadUserRecipes(); 
+                              
+                            }
+                          });
                           }
                         },
                         style: ElevatedButton.styleFrom(

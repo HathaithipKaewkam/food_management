@@ -301,7 +301,7 @@ Future<Map<String, dynamic>?> _fetchUserIngredientData(String ingredientName) as
     }
   }
 
-  Future<void> _updateRecipe() async {
+  Future<void> _updateRecipe({bool recalculateNutrition = false}) async {
   setState(() {
     _isLoading = true;
   });
@@ -317,14 +317,16 @@ Future<Map<String, dynamic>?> _fetchUserIngredientData(String ingredientName) as
       imageUrl = widget.initialData!['imageUrl'];
     }
 
-
-    // อ่านค่าโภชนาการ
+     if (recalculateNutrition) {
+      _updateNutritionValues();
+      print("📊 Nutrition values recalculated from ingredients");
+    }
     int kcal = int.tryParse(_caloriesController.text) ?? 0;
     double protein = double.tryParse(_proteinController.text) ?? 0.0;
     double carbs = double.tryParse(_carbsController.text) ?? 0.0;
     double fat = double.tryParse(_fatController.text) ?? 0.0;
     
-    // สร้างข้อมูลสูตรอาหาร
+  
     final recipeData = {
       'recipeId': widget.initialData!['recipeId'],
       'recipeName': _recipeNameController.text,
@@ -1163,7 +1165,7 @@ Container(
   
   // เรียกใช้ฟังก์ชันที่ต่างกันขึ้นอยู่กับว่าเป็นการแก้ไขสูตรของตัวเองหรือไม่
   if (widget.isEditingOwnRecipe) {
-    _updateRecipe();
+    _updateRecipe(recalculateNutrition: false);
   } else {
     _createRecipe();
   }
