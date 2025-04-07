@@ -30,6 +30,20 @@ void initState() {
   super.initState();
 }
 
+List<String> _extractInstructionsFromAnalyzed(List<dynamic> analyzedInstructions) {
+  List<String> instructions = [];
+  for (var instruction in analyzedInstructions) {
+    if (instruction != null && instruction.containsKey('steps')) {
+      for (var step in instruction['steps']) {
+        if (step != null && step.containsKey('step')) {
+          instructions.add(step['step'].toString());
+        }
+      }
+    }
+  }
+  return instructions;
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -96,45 +110,48 @@ void initState() {
                         builder: (context) => RecipeDetail(
                           recipeDocId: recipe['id']?.toString() ?? '0',
                           recipeId: int.tryParse(recipe['id']?.toString() ?? '0') ?? 0,
-                          recipe: Recipe(
-                            recipeId: int.tryParse(recipe['id']?.toString() ?? '0') ?? 0,
-                            recipeName: recipe['title'] ?? '',
-                            description: recipe['summary'] ?? '',
-                            ingredients: (recipe['extendedIngredients'] as List<dynamic>? ?? []).map((ingredient) {
-                              return IngredientUsage(
-                                ingredient: Ingredient.fromAPI(
-                                  id: ingredient['id']?.toString() ?? '',
-                                  name: ingredient['name'] ?? '',
-                                  amount: ingredient['amount']?.toDouble() ?? 0.0,
-                                  unit: ingredient['unit'] ?? '',
-                                ),
-                                quantityUsed: ingredient['amount']?.toDouble() ?? 0.0,
-                              );
-                            }).toList(),
-                            instructions: (recipe['analyzedInstructions']?[0]?['steps'] as List<dynamic>? ?? [])
-                                .map((step) => step['step'].toString())
-                                .toList(),
-                            preparationTime: (recipe['preparationMinutes'] ?? 0),
-                            cookingTime: (recipe['cookingMinutes'] ?? recipe['readyInMinutes'] ?? 0),
-                            servings: recipe['servings'] ?? 1,
-                            category: (recipe['dishTypes'] as List<dynamic>? ?? []).isNotEmpty 
-                                ? recipe['dishTypes'][0] 
-                                : 'Main Course',
-                            imageUrl: recipe['image'] ?? '',
-                            Protein: double.tryParse(recipe['nutrition']?['nutrients']
-                                ?.firstWhere((n) => n['name'] == 'Protein', orElse: () => {'amount': '0'})['amount']
-                                ?.toString() ?? '0') ?? 0.0,
-                            Fat: double.tryParse(recipe['nutrition']?['nutrients']
-                                ?.firstWhere((n) => n['name'] == 'Fat', orElse: () => {'amount': '0'})['amount']
-                                ?.toString() ?? '0') ?? 0.0,
-                            Carbo: double.tryParse(recipe['nutrition']?['nutrients']
-                                ?.firstWhere((n) => n['name'] == 'Carbohydrates', orElse: () => {'amount': '0'})['amount']
-                                ?.toString() ?? '0') ?? 0.0,
-                            Kcal: int.tryParse(recipe['nutrition']?['nutrients']
-                                ?.firstWhere((n) => n['name'] == 'Calories', orElse: () => {'amount': '0'})['amount']
-                                ?.toString() ?? '0') ?? 0,
-                            isFavorite: recipe['isFavorite'] ?? false,
-                          ),
+                          recipe: // ค้นหาและแก้ไขส่วนที่สร้าง Recipe object ประมาณบรรทัด 118
+Recipe(
+  recipeId: int.tryParse(recipe['id']?.toString() ?? '0') ?? 0,
+  recipeName: recipe['title'] ?? '',
+  description: recipe['summary'] ?? '',
+ ingredients: ((recipe['ingredients'] ?? recipe['extendedIngredients']) as List<dynamic>? ?? [])
+    .map((ingredient) {
+        return IngredientUsage(
+            ingredient: Ingredient.fromAPI(
+                id: ingredient['id']?.toString() ?? '',
+                name: ingredient['name'] ?? '',
+                amount: ingredient['amount'] is num 
+                    ? ingredient['amount'].toDouble() 
+                    : double.tryParse(ingredient['amount']?.toString() ?? '0') ?? 0.0,
+                unit: ingredient['unit'] ?? '',
+       
+            ),
+            quantityUsed: ingredient['amount'] is num
+                ? ingredient['amount'].toDouble()
+                : double.tryParse(ingredient['amount']?.toString() ?? '0') ?? 0.0,
+        );
+    }).toList(),
+     instructions: recipe['analyzedInstructions'] != null && 
+                     recipe['analyzedInstructions'] is List && 
+                     recipe['analyzedInstructions'].isNotEmpty ?
+          _extractInstructionsFromAnalyzed(recipe['analyzedInstructions']) :
+          (recipe['instructions'] as List<dynamic>? ?? []).map((step) => step.toString()).toList(),
+  preparationTime: int.tryParse(recipe['preparationMinutes']?.toString() ?? '0') ?? 0,
+  cookingTime: int.tryParse(recipe['cookingMinutes']?.toString() ?? '0') ?? 
+               int.tryParse(recipe['readyInMinutes']?.toString() ?? '0') ?? 0,
+  servings: int.tryParse(recipe['servings']?.toString() ?? '1') ?? 1, 
+  category: (recipe['dishTypes'] as List<dynamic>? ?? []).isNotEmpty 
+      ? recipe['dishTypes'][0].toString()
+      : 'Main Course',
+  imageUrl: recipe['image'] ?? '',
+  // แปลงข้อมูลโภชนาการให้ถูกต้อง
+  Protein: double.tryParse(recipe['nutrition']?['protein']?.toString() ?? '0') ?? 0.0,
+  Fat: double.tryParse(recipe['nutrition']?['fat']?.toString() ?? '0') ?? 0.0,
+  Carbo: double.tryParse(recipe['nutrition']?['carbs']?.toString() ?? '0') ?? 0.0,
+  Kcal: int.tryParse(recipe['nutrition']?['calories']?.toString() ?? '0') ?? 0,
+  isFavorite: recipe['isFavorite'] ?? false,
+),
                         ),
                       ),
                     ),
