@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:food_project/services/recipe_service.dart';
+import 'dart:math' as math;
 
 class RecipeRecommendationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -118,12 +119,21 @@ class RecipeRecommendationService {
     }
   }
 
+  String generateSimpleCacheKey(String userId) {
+  final prefix = "rec_${userId.substring(0, math.min(8, userId.length))}";
+  final timestamp = (DateTime.now().millisecondsSinceEpoch / 86400000).floor();
+  return "${prefix}_${timestamp}";
+}
+
  
 
   Future<List<Map<String, dynamic>>> getRecommendedRecipes(
     String userId, {bool forceRefresh = false}) async {
     try {
       print('🔍 Starting getRecommendedRecipes for user: $userId');
+
+      String cacheKey = generateSimpleCacheKey(userId);
+    print('📝 Generated cache key: $cacheKey');
 
       List<String> userIngredients = await fetchUserIngredients(userId);
     List<String> userPreferences = await fetchUserPreferences(userId);
@@ -171,32 +181,7 @@ class RecipeRecommendationService {
       }
     }
 
-     String cacheKey = 'user_${userId}_ing_${userIngredients.hashCode}_exp_${expiringSoon.join('_')}_pref_${userPreferences.hashCode}_alg_${userAllergies.hashCode}_goal_${userGoals}_cal_${userMacros['calories'].toString()}_${DateTime.now().day}';
-
-      final int shortCacheDuration = 600000; 
-
-       if (forceRefresh) {
-      print('⚡ Force refresh requested - skipping cache check');
-    } else {
-      DocumentSnapshot cachedRecommendations = await _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('userCachedRecommendations')
-        .doc(cacheKey)
-        .get();
-      
-      if (cachedRecommendations.exists) {
-        Map<String, dynamic> cachedData = cachedRecommendations.data() as Map<String, dynamic>;
-        int timestamp = cachedData['timestamp'] ?? 0;
-        if (DateTime.now().millisecondsSinceEpoch - timestamp < shortCacheDuration) {
-          print('✅ Using cached recommendations');
-          return List<Map<String, dynamic>>.from(cachedData['recipes'] ?? []);
-        }
-      }
-    }
-      
-
-      DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
+   
   
  
 
