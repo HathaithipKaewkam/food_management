@@ -359,29 +359,26 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
           : double.tryParse(_fatController.text) ?? 0.0;
 
       // สร้างข้อมูลสูตรอาหาร
-      final recipeData = {
-        'recipeId': DateTime.now().millisecondsSinceEpoch,
-        'recipeName': _recipeNameController.text,
-        'description': '',
-        'instructions': instructions,
-        'imageUrl': imageUrl, // ใช้ค่าเริ่มต้นเป็นสตริงว่างถ้าไม่มีรูปภาพ
-        'category': _selectedCategory,
-        'servings': int.parse(_servingsController.text),
-        'preparationTime': 0,
-        'cookingTime': int.parse(_cookingTimeController.text),
-        'ingredients': ingredients,
-        'Protein': 0.0,
-        'Fat': 0.0,
-        'Carbo': 0.0,
-        'Kcal': 0,
-        'isFavorite': false,
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': FirebaseAuth.instance.currentUser?.uid,
-        'Protein': protein,
-        'Fat': fat,
-        'Carbo': carbs,
-        'Kcal': kcal,
-      };
+     final recipeData = {
+  'recipeId': DateTime.now().millisecondsSinceEpoch,
+  'recipeName': _recipeNameController.text,
+  'description': '',
+  'instructions': instructions,
+  'imageUrl': imageUrl,
+  'category': _selectedCategory,
+  'servings': int.parse(_servingsController.text),
+  'preparationTime': 0,
+  'cookingTime': int.parse(_cookingTimeController.text),
+  'ingredients': ingredients,
+  'Protein': protein,
+  'Fat': fat,
+  'Carbo': carbs,
+  'Kcal': kcal,
+  'isFavorite': false,
+  'createdAt': FieldValue.serverTimestamp(),
+  'updatedAt': FieldValue.serverTimestamp(), // เพิ่ม updatedAt ด้วย
+  'createdBy': FirebaseAuth.instance.currentUser?.uid,
+};
 
       final String? userId = FirebaseAuth.instance.currentUser?.uid;
 
@@ -403,7 +400,10 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
         widget.onRecipeCreated!();
       }
 
-      Navigator.pop(context, true); 
+      Navigator.pop(context, {
+  'created': true,
+   'recipeName': _recipeNameController.text,
+});
     } catch (e) {
       print('Error creating recipe: $e');
       ScaffoldMessenger.of(context).showSnackBar(

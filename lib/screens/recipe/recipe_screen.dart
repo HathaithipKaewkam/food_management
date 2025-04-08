@@ -115,7 +115,15 @@ void _setupUserRecipeListener() {
         .collection('userRecipe')
         .snapshots()
         .listen((snapshot) {
-      print('🔄 User recipe collection changed - refreshing');
+      print('🔄 User recipe collection changed - number of documents: ${snapshot.docs.length}');
+      
+    
+      if (snapshot.docChanges.any((change) => change.type == DocumentChangeType.added)) {
+        setState(() {
+          selectedCategoryIndex = 0; 
+        });
+      }
+      
       _loadUserRecipes();
     });
   }
@@ -156,7 +164,7 @@ void _setupUserRecipeListener() {
             .doc(user.uid)
             .collection('userRecipe')
            .orderBy('updatedAt', descending: true)
-            .get();
+           .get(GetOptions(source: Source.server));
 
         print(
             'Found ${userRecipesSnapshot.docs.length} user recipes in Firestore');
@@ -1409,6 +1417,7 @@ void _setupUserRecipeListener() {
                                 SizedBox(height: 8),
                                 ElevatedButton(
                                   onPressed: () {
+                                    _loadUserRecipes();
                                     _showCreateRecipeModal(context);
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -1425,7 +1434,7 @@ void _setupUserRecipeListener() {
                           physics: const NeverScrollableScrollPhysics(),
                           shrinkWrap: true,
                           itemCount:
-                              userRecipes.length > 5 ? 5 : userRecipes.length,
+                              userRecipes.length,
                           itemBuilder: (context, index) {
                             return GestureDetector(
                               onTap: () {
@@ -2185,12 +2194,31 @@ void _setupUserRecipeListener() {
                               ),
                             ),
                           ).then((value) {
-                             print("⚠️ Value returned from CreateRecipeScreen: $value");
-                            if (value == true) {
-                              _loadUserRecipes(); 
-                              
-                            }
-                          });
+  print("⚠️ Value returned from CreateRecipeScreen: $value");
+  
+  // รีเซ็ตสถานะการโหลดข้อมูล
+  setState(() {
+    isLoadingUserRecipes = true;
+  });
+  
+  // ทำให้การโหลดข้อมูลทำงานหลังจาก UI อัพเดท
+  Future.delayed(Duration(milliseconds: 300), () {
+    _loadUserRecipes();
+    
+    // แสดง Snackbar เพื่อบอกผู้ใช้
+    if (value != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Recipe created successfully!"),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        )
+      );
+    }
+  });
+});
+
+
                           }
                         },
                         style: ElevatedButton.styleFrom(
