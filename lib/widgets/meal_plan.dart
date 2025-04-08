@@ -9,11 +9,13 @@ class MealPlanRecipeWidget extends StatelessWidget {
   final Recipe recipe;
   final Function onDelete;
    final String? recipeId;
+   final bool allowDelete;
 
   const MealPlanRecipeWidget({
     required this.recipe,
      this.recipeId,
     required this.onDelete,
+    this.allowDelete = true,
     Key? key,
   }) : super(key: key);
 

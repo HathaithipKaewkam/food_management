@@ -412,7 +412,7 @@ Widget _buildBreakfast() {
                           ),
                           
                           // Add button for when recipes exist - right aligned
-                          if (recipes.isNotEmpty)
+                          if (recipes.isNotEmpty && !isPast)
                             Padding(
                               padding: const EdgeInsets.only(right: 15),
                               child: InkWell(
@@ -570,14 +570,14 @@ Widget _buildBreakfast() {
                       ),
                     
                     // Add padding at the bottom
-                    if (recipes.isNotEmpty)
+                    if (recipes.isNotEmpty && !isPast)
                       SizedBox(height: 15),
                   ],
                 ),
               ),
               
               // Right image - only shown when no recipes
-              if (recipes.isEmpty)
+              if (recipes.isEmpty && !isPast)
                 ClipRRect(
                   borderRadius: BorderRadius.only(
                     topRight: Radius.circular(15),
@@ -690,7 +690,7 @@ Widget _buildLunch() {
                           ),
                           
                           // Add button for when recipes exist - right aligned
-                          if (recipes.isNotEmpty)
+                          if (recipes.isNotEmpty && !isPast)
                             Padding(
                               padding: const EdgeInsets.only(right: 15),
                               child: InkWell(
@@ -847,7 +847,7 @@ Widget _buildLunch() {
                       ),
                     
                     // Add padding at the bottom
-                    if (recipes.isNotEmpty)
+                    if (recipes.isNotEmpty && !isPast)
                       SizedBox(height: 15),
                   ],
                 ),
@@ -932,7 +932,7 @@ Widget _buildSnack() {
                           ),
                           
                           // Add button for when recipes exist - right aligned
-                          if (recipes.isNotEmpty)
+                          if (recipes.isNotEmpty && !isPast )
                             Padding(
                               padding: const EdgeInsets.only(right: 15),
                               child: InkWell(
@@ -1089,14 +1089,14 @@ Widget _buildSnack() {
                       ),
                     
                     // Add padding at the bottom
-                    if (recipes.isNotEmpty)
+                    if (recipes.isNotEmpty && !isPast)
                       SizedBox(height: 15),
                   ],
                 ),
               ),
               
               // Right image - only shown when no recipes
-              if (recipes.isEmpty)
+              if (recipes.isEmpty && !isPast )
                 ClipRRect(
                   borderRadius: BorderRadius.only(
                     topRight: Radius.circular(15),
@@ -1209,7 +1209,7 @@ Widget _buildDinner() {
                           ),
                           
                           // Add button for when recipes exist - right aligned
-                          if (recipes.isNotEmpty)
+                          if (recipes.isNotEmpty && !isPast)
                             Padding(
                               padding: const EdgeInsets.only(right: 15),
                               child: InkWell(
@@ -1288,6 +1288,7 @@ Widget _buildDinner() {
                             return MealPlanRecipeWidget(
                               recipe: recipe,
                               recipeId: recipeData['recipeId'],
+                              allowDelete: !isPast,
                               onDelete: () async {
                                 // Remove recipe from the meal plan
                                 bool success = await _mealPlanService.removeRecipeFromMealPlan(
@@ -1366,7 +1367,7 @@ Widget _buildDinner() {
                       ),
                     
                     // Add padding at the bottom
-                    if (recipes.isNotEmpty)
+                    if (recipes.isNotEmpty && !isPast)
                       SizedBox(height: 15),
                   ],
                 ),
